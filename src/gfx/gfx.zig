@@ -1,7 +1,8 @@
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const gl = @import("gl.zig");
-pub const Window = @import("window.zig");
+pub const window = @import("window.zig");
+pub const shader = @import("shaders.zig");
 
 var context: sdl3.c.SDL_GLContext = undefined;
 
@@ -20,19 +21,25 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_MINOR_VERSION, 3);
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_PROFILE_MASK, sdl3.c.SDL_GL_CONTEXT_PROFILE_CORE);
 
-    try Window.init(width, height, title);
+    try window.init(width, height, title);
 
-    context = Window.context();
+    context = window.context();
 
     try gl.load(context, get_context);
+
+    try shader.init();
 }
 
 pub fn deinit() void {
-    Window.deinit();
+    shader.deinit();
+
+    _ = sdl3.c.SDL_GL_DestroyContext(context);
+
+    window.deinit();
 }
 
 pub fn finalize() !void {
-    try Window.draw();
+    try window.draw();
 }
 
 pub fn clear_color(r: f32, g: f32, b: f32, a: f32) void {
@@ -40,6 +47,6 @@ pub fn clear_color(r: f32, g: f32, b: f32, a: f32) void {
 }
 
 pub fn clear() void {
-    gl.viewport(0, 0, @intCast(Window.get_width() catch 0), @intCast(Window.get_height() catch 0));
+    gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
     gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 }

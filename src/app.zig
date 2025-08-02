@@ -1,0 +1,79 @@
+const std = @import("std");
+const sdl3 = @import("sdl3");
+const State = @import("State.zig");
+const sm = @import("statemachine.zig");
+const util = @import("util.zig");
+const window = @import("window.zig");
+
+pub var running = true;
+
+const init_flags = sdl3.InitFlags{
+    .video = true,
+    .audio = true,
+};
+
+pub fn init(width: u32, height: u32, title: [:0]const u8, state: State) !void {
+    util.init();
+
+    try sdl3.init(init_flags);
+    try window.init(width, height, title);
+
+    try sm.init(state);
+}
+
+pub fn deinit() void {
+    sm.deinit();
+
+    window.deinit();
+
+    sdl3.quit(init_flags);
+    sdl3.shutdown();
+
+    util.deinit();
+}
+
+pub fn event_loop() !void {
+    // TODO: Customize?
+    const frame_rate = 60;
+    const frame_time_ns = std.time.ns_per_s / frame_rate;
+
+    var next_frame_start = std.time.nanoTimestamp() + frame_time_ns;
+    while (running) {
+        const now = std.time.nanoTimestamp();
+
+        if (now < next_frame_start) {
+            // Poll for events
+
+            var new_time = std.time.nanoTimestamp();
+            while (new_time < next_frame_start) {
+                if (sdl3.events.poll()) |event| {
+                    switch (event) {
+                        .quit, .terminating => running = false,
+                        else => {
+                            // std.debug.print("Received unknown event! {any}\n", .{event});
+                        },
+                    }
+                }
+
+                new_time = std.time.nanoTimestamp();
+                // TODO: Sleep so we don't hang this thread forever? (Within system limitations)
+            }
+        } else {
+            // TODO: Make this more serious
+            std.debug.print("Event handling skipped, running late!\n", .{});
+        }
+
+        try sm.update();
+        try sm.draw();
+
+        next_frame_start += frame_time_ns;
+
+        const drift_limit_ns = frame_time_ns * 2;
+        const curr_time = std.time.nanoTimestamp();
+
+        if (curr_time > next_frame_start + drift_limit_ns) {
+            next_frame_start = curr_time;
+            std.debug.print("Fell 2 frames behind!\n", .{});
+        }
+    }
+}

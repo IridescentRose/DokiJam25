@@ -1,0 +1,19 @@
+.{
+    .name = .DokiJam25,
+    .version = "0.1.0",
+    .fingerprint = 0xa0e3aa90503daf83, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.15.0-dev.1274+147a85280",
+    .dependencies = .{
+        .sdl3 = .{
+            .url = "git+https://github.com/Gota7/zig-sdl3?ref=zig-master#120a24ff97e77cf1235f97c790481dc4357765eb",
+            .hash = "sdl3-0.0.1-NmT1Q82XIAA_dCjt_VC-iLJkH1wDuyx_4-3mAQHlr2w4",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        // "LICENSE",
+        "README.md",
+    },
+}

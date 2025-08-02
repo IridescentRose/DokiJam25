@@ -1,7 +1,7 @@
 const std = @import("std");
 const State = @import("../core/State.zig");
 const input = @import("../core/input.zig");
-const window = @import("../gfx/window.zig");
+const gl = @import("../gfx/gl.zig");
 
 const Self = @This();
 
@@ -19,10 +19,9 @@ fn update(ctx: *anyopaque) anyerror!void {
 
 fn draw(ctx: *anyopaque) anyerror!void {
     _ = ctx;
-    const surface = try window.surface();
-    try surface.fillRect(null, surface.mapRgb(128, 30, 255));
-
-    try window.draw();
+    gl.viewport(0, 0, 1280, 720);
+    gl.clearColor(1, 1, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 }
 
 pub fn state(self: *Self) State {

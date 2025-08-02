@@ -13,6 +13,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
         .keyboard_grabbed = true,
         .resizable = true,
         .mouse_capture = true,
+        .open_gl = true,
     });
 
     initialized = true;
@@ -29,12 +30,13 @@ pub fn deinit() void {
 
 pub fn draw() !void {
     assert(initialized);
-    try window.updateSurface();
+    // OPENGL
+    // TODO: Do we want this here?
+    _ = sdl3.c.SDL_GL_SwapWindow(window.value);
 }
 
-pub fn surface() !sdl3.surface.Surface {
-    assert(initialized);
-    return window.getSurface();
+pub fn context() sdl3.c.SDL_GLContext {
+    return sdl3.c.SDL_GL_CreateContext(window.value);
 }
 
 pub fn set_title(title: [:0]const u8) !void {

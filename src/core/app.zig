@@ -4,7 +4,7 @@ const State = @import("State.zig");
 const sm = @import("statemachine.zig");
 const input = @import("input.zig");
 const util = @import("util.zig");
-const window = @import("../gfx/window.zig");
+const gfx = @import("../gfx/gfx.zig");
 
 pub var running = true;
 
@@ -18,7 +18,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8, state: State) !void {
     input.init();
 
     try sdl3.init(init_flags);
-    try window.init(width, height, title);
+    try gfx.init(width, height, title);
 
     try sm.init(state);
 }
@@ -26,7 +26,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8, state: State) !void {
 pub fn deinit() void {
     sm.deinit();
 
-    window.deinit();
+    gfx.deinit();
 
     sdl3.quit(init_flags);
     sdl3.shutdown();
@@ -46,7 +46,6 @@ pub fn event_loop() !void {
 
         if (now < next_frame_start) {
             // Poll for events
-
             var new_time = std.time.nanoTimestamp();
             while (new_time < next_frame_start) {
                 if (sdl3.events.poll()) |event| {
@@ -78,8 +77,14 @@ pub fn event_loop() !void {
             std.debug.print("Event handling skipped, running late!\n", .{});
         }
 
+        // Simulation update w/ input
         try sm.update();
+
+        // Build draw list
         try sm.draw();
+
+        // Commit to GPU and render to screen
+        try gfx.finalize();
 
         next_frame_start += frame_time_ns;
 

@@ -11,9 +11,9 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
     window = try sdl3.video.Window.init(title, width, height, .{
         .input_focus = true,
         .keyboard_grabbed = true,
-        .resizable = true,
         .mouse_capture = true,
         .open_gl = true,
+        .resizable = false,
     });
 
     initialized = true;
@@ -42,4 +42,12 @@ pub fn context() sdl3.c.SDL_GLContext {
 pub fn set_title(title: [:0]const u8) !void {
     assert(initialized);
     window.setTitle(title);
+}
+
+pub fn get_width() !usize {
+    return (try window.getSize()).width;
+}
+
+pub fn get_height() !usize {
+    return (try window.getSize()).height;
 }

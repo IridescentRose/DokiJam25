@@ -34,3 +34,12 @@ pub fn deinit() void {
 pub fn finalize() !void {
     try Window.draw();
 }
+
+pub fn clear_color(r: f32, g: f32, b: f32, a: f32) void {
+    gl.clearColor(r, g, b, a);
+}
+
+pub fn clear() void {
+    gl.viewport(0, 0, @intCast(Window.get_width() catch 0), @intCast(Window.get_height() catch 0));
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+}

@@ -2,8 +2,9 @@ const std = @import("std");
 const sdl3 = @import("sdl3");
 const State = @import("State.zig");
 const sm = @import("statemachine.zig");
+const input = @import("input.zig");
 const util = @import("util.zig");
-const window = @import("window.zig");
+const window = @import("../window.zig");
 
 pub var running = true;
 
@@ -14,6 +15,7 @@ const init_flags = sdl3.InitFlags{
 
 pub fn init(width: u32, height: u32, title: [:0]const u8, state: State) !void {
     util.init();
+    input.init();
 
     try sdl3.init(init_flags);
     try window.init(width, height, title);
@@ -29,6 +31,7 @@ pub fn deinit() void {
     sdl3.quit(init_flags);
     sdl3.shutdown();
 
+    input.deinit();
     util.deinit();
 }
 
@@ -49,6 +52,18 @@ pub fn event_loop() !void {
                 if (sdl3.events.poll()) |event| {
                     switch (event) {
                         .quit, .terminating => running = false,
+                        .key_down, .key_up => |t| {
+                            if (t.key != null) {
+                                if (input.get_key_callback(t.key.?)) |cbd| {
+                                    cbd.cb(cbd.ctx, t.down);
+                                }
+                            }
+                        },
+                        .mouse_button_down, .mouse_button_up => |t| {
+                            if (input.get_mouse_callback(t.button)) |cbd| {
+                                cbd.cb(cbd.ctx, t.down);
+                            }
+                        },
                         else => {
                             // std.debug.print("Received unknown event! {any}\n", .{event});
                         },

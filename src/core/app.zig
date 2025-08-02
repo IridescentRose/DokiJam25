@@ -4,7 +4,7 @@ const State = @import("State.zig");
 const sm = @import("statemachine.zig");
 const input = @import("input.zig");
 const util = @import("util.zig");
-const window = @import("../window.zig");
+const window = @import("../gfx/window.zig");
 
 pub var running = true;
 

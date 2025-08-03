@@ -65,15 +65,13 @@ fn update(ctx: *anyopaque) anyerror!void {
 
 fn draw(ctx: *anyopaque) anyerror!void {
     var self = util.ctx_to_self(Self, ctx);
-    gfx.clear_color(0.8, 0.8, 0.8, 1);
+    gfx.clear_color(0.8, 1.0, 0.8, 1);
     gfx.clear();
 
     self.transform.rot[1] = self.angle;
 
     gfx.shader.set_model(self.transform.get_matrix());
-    gfx.shader.set_has_tex(false);
     self.voxel.draw();
-
     self.chunk.draw();
 }
 

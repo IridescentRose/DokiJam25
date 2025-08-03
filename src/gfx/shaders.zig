@@ -67,7 +67,6 @@ pub fn init() !void {
     use_render_shader();
     vpLoc = gl.getUniformLocation(uber, "viewProj");
     modelLoc = gl.getUniformLocation(uber, "model");
-    hasTexLoc = gl.getUniformLocation(uber, "hasTex");
 }
 
 pub fn set_model(matrix: zm.Mat) void {
@@ -76,10 +75,6 @@ pub fn set_model(matrix: zm.Mat) void {
 
 pub fn set_viewproj(matrix: zm.Mat) void {
     gl.uniformMatrix4fv(vpLoc, 1, gl.TRUE, zm.arrNPtr(&matrix));
-}
-
-pub fn set_has_tex(has: bool) void {
-    gl.uniform1i(hasTexLoc, @intFromBool(has));
 }
 
 pub fn deinit() void {

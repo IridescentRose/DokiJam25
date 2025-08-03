@@ -1,13 +1,10 @@
 #version 330 core
 layout(location = 0) out vec4 FragColor;
 
-in vec4 vertexColor;
 in vec2 uv;
-in vec3 norm;
 
 uniform sampler2D uTex;
 uniform sampler2D uNorm;
-uniform int hasTex;
 
 #define LINE_WEIGHT 1.5
 

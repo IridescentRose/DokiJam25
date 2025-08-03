@@ -4,6 +4,7 @@ const util = @import("../core/util.zig");
 const gl = @import("gl.zig");
 pub const zm = @import("zmath");
 pub const Mesh = @import("mesh.zig");
+pub const TexMesh = @import("texmesh.zig");
 pub const texture = @import("textures.zig");
 pub const window = @import("window.zig");
 pub const shader = @import("shaders.zig");
@@ -11,7 +12,7 @@ pub const FBO = @import("framebuffer.zig");
 
 var context: sdl3.c.SDL_GLContext = undefined;
 var fbo: FBO = undefined;
-var mesh: Mesh = undefined;
+var mesh: TexMesh = undefined;
 
 fn get_context(ctx: sdl3.c.SDL_GLContext, proc: [:0]const u8) ?*const anyopaque {
     _ = ctx;
@@ -50,31 +51,23 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
 
     fbo = try FBO.init();
 
-    mesh = try Mesh.new();
-    try mesh.vertices.appendSlice(util.allocator(), &[_]Mesh.Vertex{
-        Mesh.Vertex{
+    mesh = try TexMesh.new();
+    try mesh.vertices.appendSlice(util.allocator(), &[_]TexMesh.Vertex{
+        TexMesh.Vertex{
             .vert = [_]f32{ -1, 1, 0 },
             .tex = [_]f32{ 0, 1 },
-            .col = undefined,
-            .norm = undefined,
         },
-        Mesh.Vertex{
+        TexMesh.Vertex{
             .vert = [_]f32{ -1, -1, 0 },
             .tex = [_]f32{ 0, 0 },
-            .col = undefined,
-            .norm = undefined,
         },
-        Mesh.Vertex{
+        TexMesh.Vertex{
             .vert = [_]f32{ 1, -1, 0 },
             .tex = [_]f32{ 1, 0 },
-            .col = undefined,
-            .norm = undefined,
         },
-        Mesh.Vertex{
+        TexMesh.Vertex{
             .vert = [_]f32{ 1, 1, 0 },
             .tex = [_]f32{ 1, 1 },
-            .col = undefined,
-            .norm = undefined,
         },
     });
 

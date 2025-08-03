@@ -71,9 +71,9 @@ fn add_face(self: *Self, face_data: []const gfx.Mesh.Vertex, v: [3]usize) !void 
     const val: [3]u8 = self.subvoxels.items(.color)[idx];
 
     for (0..4) |i| {
-        self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].vert[0] += @floatFromInt(v[0]);
-        self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].vert[1] += @floatFromInt(v[1]);
-        self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].vert[2] += @floatFromInt(v[2]);
+        self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].vert.x += @intCast(v[0]);
+        self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].vert.y += @intCast(v[1]);
+        self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].vert.z += @intCast(v[2]);
         self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].col[0] = val[0];
         self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].col[1] = val[1];
         self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].col[2] = val[2];
@@ -166,7 +166,6 @@ pub fn update(self: *Self) !void {
 pub fn draw(self: *Self) void {
     if (self.mesh.indices.items.len != 0 and self.populated) {
         gfx.shader.set_model(self.transform.get_matrix());
-        gfx.shader.set_has_tex(false);
 
         self.mesh.draw();
     }

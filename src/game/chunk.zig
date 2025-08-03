@@ -26,7 +26,6 @@ subvoxels: std.MultiArrayList(Atom),
 mesh: gfx.Mesh,
 dirty: bool,
 populated: bool,
-curr_idx: u32,
 
 const Self = @This();
 
@@ -37,7 +36,6 @@ pub fn new(world_pos: [3]f32) !Self {
         .transform = Transform.new(),
         .populated = false,
         .mesh = try gfx.Mesh.new(),
-        .curr_idx = 0,
     };
 
     res.transform.pos = world_pos;
@@ -55,35 +53,25 @@ fn get_index(v: [3]usize) usize {
     return ((v[1] * c.CHUNK_SUB_BLOCKS) + v[2]) * c.CHUNK_SUB_BLOCKS + v[0];
 }
 
-fn try_add_face(self: *Self, face_data: []const gfx.Mesh.Vertex, neighbor_v: [3]usize, v: [3]usize) !void {
+fn try_add_face(self: *Self, neighbor_v: [3]usize, v: [3]usize, face: u3) !void {
     const idx = get_index(neighbor_v);
     const block_type: AtomKind = self.subvoxels.items(.material)[idx];
 
     if (block_type == .Air) {
-        try self.add_face(face_data, v);
+        try self.add_face(v, face);
     }
 }
 
-fn add_face(self: *Self, face_data: []const gfx.Mesh.Vertex, v: [3]usize) !void {
-    try self.mesh.vertices.appendSlice(util.allocator(), face_data);
-
+fn add_face(self: *Self, v: [3]usize, face: u3) !void {
     const idx = get_index(v);
     const val: [3]u8 = self.subvoxels.items(.color)[idx];
 
-    for (0..4) |i| {
-        self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].vert.x += @intCast(v[0]);
-        self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].vert.y += @intCast(v[1]);
-        self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].vert.z += @intCast(v[2]);
-        self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].col[0] = val[0];
-        self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].col[1] = val[1];
-        self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].col[2] = val[2];
-    }
-
-    try self.mesh.indices.appendSlice(util.allocator(), &[_]u32{
-        self.curr_idx + 0, self.curr_idx + 1, self.curr_idx + 2, self.curr_idx + 2, self.curr_idx + 3, self.curr_idx + 0,
-    });
-
-    self.curr_idx += 4;
+    try self.mesh.instances.append(util.allocator(), .{ .col = val, .vert = .{
+        .x = @intCast(v[0]),
+        .y = @intCast(v[1]),
+        .z = @intCast(v[2]),
+        .face = face,
+    } });
 }
 
 pub fn update(self: *Self) !void {
@@ -94,12 +82,10 @@ pub fn update(self: *Self) !void {
         return;
     const before = std.time.nanoTimestamp();
 
-    if (self.mesh.indices.items.len != 0) {
-        self.mesh.indices.clearAndFree(util.allocator());
-        self.mesh.vertices.clearAndFree(util.allocator());
-    }
+    self.mesh.clear();
 
-    self.curr_idx = 0;
+    try self.mesh.vertices.appendSlice(util.allocator(), &c.top_face);
+    try self.mesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });
 
     for (0..c.CHUNK_SUB_BLOCKS) |y| {
         for (0..c.CHUNK_SUB_BLOCKS) |z| {
@@ -114,39 +100,39 @@ pub fn update(self: *Self) !void {
                 // TODO: World lookups
 
                 if (z + 1 < c.CHUNK_SUB_BLOCKS) {
-                    try self.try_add_face(&c.front_face, [_]usize{ x, y, z + 1 }, v);
+                    try self.try_add_face([_]usize{ x, y, z + 1 }, v, 2);
                 } else {
-                    try self.add_face(&c.front_face, v);
+                    try self.add_face(v, 2);
                 }
 
                 if (z > 0) {
-                    try self.try_add_face(&c.back_face, [_]usize{ x, y, z - 1 }, v);
+                    try self.try_add_face([_]usize{ x, y, z - 1 }, v, 3);
                 } else {
-                    try self.add_face(&c.back_face, v);
+                    try self.add_face(v, 3);
                 }
 
                 if (y + 1 < c.CHUNK_SUB_BLOCKS) {
-                    try self.try_add_face(&c.top_face, [_]usize{ x, y + 1, z }, v);
+                    try self.try_add_face([_]usize{ x, y + 1, z }, v, 0);
                 } else {
-                    try self.add_face(&c.top_face, v);
+                    try self.add_face(v, 0);
                 }
 
                 if (y > 0) {
-                    try self.try_add_face(&c.bot_face, [_]usize{ x, y - 1, z }, v);
+                    try self.try_add_face([_]usize{ x, y - 1, z }, v, 1);
                 } else {
-                    try self.add_face(&c.bot_face, v);
+                    try self.add_face(v, 1);
                 }
 
                 if (x + 1 < c.CHUNK_SUB_BLOCKS) {
-                    try self.try_add_face(&c.right_face, [_]usize{ x + 1, y, z }, v);
+                    try self.try_add_face([_]usize{ x + 1, y, z }, v, 4);
                 } else {
-                    try self.add_face(&c.right_face, v);
+                    try self.add_face(v, 4);
                 }
 
                 if (x > 0) {
-                    try self.try_add_face(&c.left_face, [_]usize{ x - 1, y, z }, v);
+                    try self.try_add_face([_]usize{ x - 1, y, z }, v, 5);
                 } else {
-                    try self.add_face(&c.left_face, v);
+                    try self.add_face(v, 5);
                 }
             }
         }

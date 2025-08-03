@@ -65,16 +65,16 @@ pub fn init() !void {
     post = create_program(pv, pf);
 
     use_render_shader();
-    vpLoc = gl.getUniformLocation(uber, "viewProj");
+    vpLoc = gl.getUniformLocation(uber, "projView");
     modelLoc = gl.getUniformLocation(uber, "model");
 }
 
 pub fn set_model(matrix: zm.Mat) void {
-    gl.uniformMatrix4fv(modelLoc, 1, gl.TRUE, zm.arrNPtr(&matrix));
+    gl.uniformMatrix4fv(modelLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
 }
 
-pub fn set_viewproj(matrix: zm.Mat) void {
-    gl.uniformMatrix4fv(vpLoc, 1, gl.TRUE, zm.arrNPtr(&matrix));
+pub fn set_projview(matrix: zm.Mat) void {
+    gl.uniformMatrix4fv(vpLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
 }
 
 pub fn deinit() void {

@@ -47,7 +47,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
     gl.depthFunc(gl.LESS);
 
     shader.set_model(zm.identity());
-    shader.set_viewproj(zm.perspectiveFovRhGl(90.0, 16.0 / 9.0, 0.3, 1000.0));
+    shader.set_projview(zm.perspectiveFovRhGl(90.0, 16.0 / 9.0, 0.3, 1000.0));
 
     fbo = try FBO.init();
 

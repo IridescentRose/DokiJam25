@@ -9,6 +9,6 @@ uniform sampler2D uTex;
 
 void main()
 {
-    FragColor = texture(uTex, uv) * vertexColor;
+    FragColor = vertexColor;
     // TODO: USE LIGHTING WITH NORM
 }

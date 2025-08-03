@@ -11,8 +11,8 @@ uniform int hasTex;
 
 void main()
 {
-    const vec3 lightDir = normalize(vec3(0, 0.5, 1));
-    float lightStrength = max(dot(normalize(norm), -lightDir), 0.7);
+    const vec3 lightDir = normalize(vec3(-0.5, 0.5, 1));
+    float lightStrength = max(dot(normalize(norm), -lightDir), 0.7) * 1.2;
 
     if (hasTex == 1) {
         FragColor = texture(uTex, uv) * vertexColor;

@@ -2,6 +2,7 @@ const std = @import("std");
 const sdl3 = @import("sdl3");
 const gl = @import("gl.zig");
 pub const Mesh = @import("mesh.zig");
+pub const texture = @import("textures.zig");
 pub const window = @import("window.zig");
 pub const shader = @import("shaders.zig");
 

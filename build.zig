@@ -17,6 +17,14 @@ pub fn build(b: *std.Build) void {
             },
         }),
     });
+    exe.root_module.addCSourceFile(.{
+        .file = b.path("src/stbi/stbi.c"),
+        .flags = &[_][]const u8{"-g"},
+        .language = .c,
+    });
+    exe.root_module.addIncludePath(b.path("src/stbi/"));
+    exe.linkLibC();
+
     b.installArtifact(exe);
 
     const run_step = b.step("run", "Run the app");

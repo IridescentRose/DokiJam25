@@ -4,9 +4,7 @@ const InitialState = @import("states/InitialState.zig");
 
 // Shim
 pub fn main() !void {
-    var state = InitialState{
-        .mesh = undefined,
-    };
+    var state: InitialState = undefined;
 
     try app.init(1280, 720, "DOKIJAM25!", state.state());
     defer app.deinit();

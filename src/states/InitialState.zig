@@ -6,10 +6,12 @@ const util = @import("../core/util.zig");
 const Self = @This();
 
 mesh: gfx.Mesh,
+tex: gfx.texture.Texture,
 
 fn init(ctx: *anyopaque) anyerror!void {
     var self = util.ctx_to_self(Self, ctx);
     self.mesh = try gfx.Mesh.new();
+    self.tex = try gfx.texture.load_image_from_file("dirt_path_side.png");
 
     try self.mesh.vertices.appendSlice(util.allocator(), &[_]gfx.Mesh.Vertex{
         gfx.Mesh.Vertex{
@@ -59,6 +61,7 @@ fn draw(ctx: *anyopaque) anyerror!void {
     gfx.clear_color(1, 1, 1, 1);
     gfx.clear();
 
+    self.tex.bind();
     self.mesh.draw();
 }
 

@@ -33,7 +33,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
 
     try shader.init();
 
-    gl.enable(gl.FRAMEBUFFER_SRGB);
+    // gl.enable(gl.FRAMEBUFFER_SRGB);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
     gl.frontFace(gl.CCW);

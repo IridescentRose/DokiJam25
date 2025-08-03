@@ -22,7 +22,7 @@ pub const Texture = struct {
 pub fn load_image_from_file(path: []const u8) !Texture {
     var tex: Texture = undefined;
 
-    stb.stbi_set_flip_vertically_on_load(1);
+    stb.stbi_set_flip_vertically_on_load(0);
     const data = stb.stbi_load(path.ptr, &tex.width, &tex.height, &tex.channels, 4);
     if (data == null) {
         return error.TextureCouldNotBeLoaded;
@@ -33,7 +33,7 @@ pub fn load_image_from_file(path: []const u8) !Texture {
 
     gl.genTextures(1, &tex.gl_id);
     gl.bindTexture(gl.TEXTURE_2D, tex.gl_id);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.SRGB_ALPHA, tex.width, tex.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tex.width, tex.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST);

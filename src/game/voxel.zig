@@ -179,24 +179,24 @@ pub fn deinit(self: *Self) void {
     self.mesh.deinit();
 }
 
-fn get_index(self: *Self, v: [3]usize, offset: usize) usize {
+fn get_index(self: *Self, v: [3]usize) usize {
     const width: usize = @intCast(self.texture.width);
-    return ((((v[1] + offset) % 32) * width) + v[2]) * width + v[0];
+    return ((v[1] * width) + v[2]) * width + v[0];
 }
 
-fn try_add_face(self: *Self, face_data: []const gfx.Mesh.Vertex, neighbor_v: [3]usize, v: [3]usize, offset: usize) !void {
-    const idx = self.get_index(neighbor_v, offset);
+fn try_add_face(self: *Self, face_data: []const gfx.Mesh.Vertex, neighbor_v: [3]usize, v: [3]usize) !void {
+    const idx = self.get_index(neighbor_v);
     const val: [4]u8 = std.mem.toBytes(self.texture.data[idx]);
 
     if (val[3] != 255) {
-        try self.add_face(face_data, v, offset);
+        try self.add_face(face_data, v);
     }
 }
 
-fn add_face(self: *Self, face_data: []const gfx.Mesh.Vertex, v: [3]usize, offset: usize) !void {
+fn add_face(self: *Self, face_data: []const gfx.Mesh.Vertex, v: [3]usize) !void {
     try self.mesh.vertices.appendSlice(util.allocator(), face_data);
 
-    const idx = self.get_index(v, offset);
+    const idx = self.get_index(v);
     const val: [4]u8 = std.mem.toBytes(self.texture.data[idx]);
     for (0..4) |i| {
         self.mesh.vertices.items[self.mesh.vertices.items.len - i - 1].vert[0] += @floatFromInt(v[0]);
@@ -214,7 +214,7 @@ fn add_face(self: *Self, face_data: []const gfx.Mesh.Vertex, v: [3]usize, offset
     self.curr_idx += 4;
 }
 
-pub fn build(self: *Self, offset: u32) !void {
+pub fn build(self: *Self) !void {
     if (!self.built) {
         self.mesh = try gfx.Mesh.new();
         self.built = true;
@@ -233,47 +233,47 @@ pub fn build(self: *Self, offset: u32) !void {
         for (0..width) |z| {
             for (0..width) |x| {
                 const v = [_]usize{ x, y, z };
-                const idx = self.get_index(v, offset);
+                const idx = self.get_index(v);
                 const val: [4]u8 = std.mem.toBytes(self.texture.data[idx]);
 
                 // If transparent, ignore
                 if (val[3] != 255)
                     continue;
 
-                if (v[2] + 1 < width) {
-                    try self.try_add_face(&front_face, [_]usize{ v[0], v[1], v[2] + 1 }, v, offset);
+                if (z + 1 < width) {
+                    try self.try_add_face(&front_face, [_]usize{ x, y, z + 1 }, v);
                 } else {
-                    try self.add_face(&front_face, v, offset);
+                    try self.add_face(&front_face, v);
                 }
 
-                if (v[2] > 0) {
-                    try self.try_add_face(&back_face, [_]usize{ v[0], v[1], v[2] - 1 }, v, offset);
+                if (z > 0) {
+                    try self.try_add_face(&back_face, [_]usize{ x, y, z - 1 }, v);
                 } else {
-                    try self.add_face(&back_face, v, offset);
+                    try self.add_face(&back_face, v);
                 }
 
-                if (v[1] + 1 < layers) {
-                    try self.try_add_face(&top_face, [_]usize{ v[0], v[1] + 1, v[2] }, v, offset);
+                if (y + 1 < layers) {
+                    try self.try_add_face(&top_face, [_]usize{ x, y + 1, z }, v);
                 } else {
-                    try self.add_face(&top_face, v, offset);
+                    try self.add_face(&top_face, v);
                 }
 
-                if (v[1] > 0) {
-                    try self.try_add_face(&bot_face, [_]usize{ v[0], v[1] - 1, v[2] }, v, offset);
+                if (y > 0) {
+                    try self.try_add_face(&bot_face, [_]usize{ x, y - 1, z }, v);
                 } else {
-                    try self.add_face(&bot_face, v, offset);
+                    try self.add_face(&bot_face, v);
                 }
 
-                if (v[0] + 1 < width) {
-                    try self.try_add_face(&right_face, [_]usize{ v[0] + 1, v[1], v[2] }, v, offset);
+                if (x + 1 < width) {
+                    try self.try_add_face(&right_face, [_]usize{ x + 1, y, z }, v);
                 } else {
-                    try self.add_face(&right_face, v, offset);
+                    try self.add_face(&right_face, v);
                 }
 
-                if (v[0] > 0) {
-                    try self.try_add_face(&left_face, [_]usize{ v[0] - 1, v[1], v[2] }, v, offset);
+                if (x > 0) {
+                    try self.try_add_face(&left_face, [_]usize{ x - 1, y, z }, v);
                 } else {
-                    try self.add_face(&left_face, v, offset);
+                    try self.add_face(&left_face, v);
                 }
             }
         }

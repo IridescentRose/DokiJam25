@@ -22,6 +22,7 @@ pub const Texture = struct {
 pub fn load_image_from_file(path: []const u8) !Texture {
     var tex: Texture = undefined;
 
+    stb.stbi_set_flip_vertically_on_load(1);
     const data = stb.stbi_load(path.ptr, &tex.width, &tex.height, &tex.channels, 4);
     if (data == null) {
         return error.TextureCouldNotBeLoaded;

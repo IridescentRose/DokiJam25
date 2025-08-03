@@ -1,6 +1,6 @@
 const std = @import("std");
 const app = @import("core/app.zig");
-const InitialState = @import("states/InitialState.zig");
+const InitialState = @import("game/states/InitialState.zig");
 
 // Shim
 pub fn main() !void {

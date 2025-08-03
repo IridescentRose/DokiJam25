@@ -40,7 +40,7 @@ pub fn new(world_pos: [3]f32) !Self {
 
     res.transform.pos = world_pos;
     res.transform.scale = @splat(1.0 / 16.0);
-    res.transform.size = @splat(16.0);
+    res.transform.size = @splat(8.0);
     return res;
 }
 

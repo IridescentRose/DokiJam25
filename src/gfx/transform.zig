@@ -27,5 +27,5 @@ pub fn get_matrix(self: *Self) zm.Mat {
 
     const rotation = zm.mul(zm.mul(rotZ, rotX), rotY);
     const translation = zm.translation(self.pos[0], self.pos[1], self.pos[2]);
-    return zm.mul(translation, zm.mul(rotation, zm.mul(scaling, pre_translation)));
+    return zm.mul(pre_translation, zm.mul(scaling, zm.mul(rotation, translation)));
 }

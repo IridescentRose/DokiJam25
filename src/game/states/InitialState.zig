@@ -28,19 +28,33 @@ fn init(ctx: *anyopaque) anyerror!void {
 
     try self.voxel.build();
 
-    self.chunk = try Chunk.new(@splat(-8));
+    self.chunk = try Chunk.new([_]f32{ 0, 0, 0 });
+    self.chunk.transform.pos[0] = -4;
+    self.chunk.transform.pos[1] = -4;
+    self.chunk.transform.pos[2] = -4 - 6;
 
     var rng = std.Random.DefaultPrng.init(42);
 
     for (0..c.CHUNK_SUB_BLOCKS) |y| {
-        for (0..c.CHUNK_SUB_BLOCKS) |z| {
-            for (0..c.CHUNK_SUB_BLOCKS) |x| {
-                try self.chunk.subvoxels.append(util.allocator(), .{
-                    .flags = undefined,
-                    .state = undefined,
-                    .material = if (x % 2 == 0 and y % 2 == 0 and z % 2 == 0) .Dirt else .Air,
-                    .color = [_]u8{ rng.random().int(u8) % 0xD5, rng.random().int(u8) % 0x8A, 0x00 },
-                });
+        for (0..c.CHUNK_SUB_BLOCKS) |_| {
+            for (0..c.CHUNK_SUB_BLOCKS) |_| {
+                const color = rng.random().int(u8) % 0xA1;
+
+                if (y < 4 * c.SUB_BLOCKS_PER_BLOCK) {
+                    try self.chunk.subvoxels.append(util.allocator(), .{
+                        .flags = undefined,
+                        .state = undefined,
+                        .material = .Stone,
+                        .color = [_]u8{ color, color, color },
+                    });
+                } else {
+                    try self.chunk.subvoxels.append(util.allocator(), .{
+                        .flags = undefined,
+                        .state = undefined,
+                        .material = .Air,
+                        .color = [_]u8{ 0, 0, 0 },
+                    });
+                }
             }
         }
     }
@@ -68,10 +82,8 @@ fn draw(ctx: *anyopaque) anyerror!void {
     gfx.clear_color(0.8, 1.0, 0.8, 1);
     gfx.clear();
 
-    self.transform.rot[1] = self.angle;
-
-    gfx.shader.set_model(self.transform.get_matrix());
-    self.voxel.draw();
+    // gfx.shader.set_model(self.transform.get_matrix());
+    // self.voxel.draw();
     self.chunk.draw();
 }
 

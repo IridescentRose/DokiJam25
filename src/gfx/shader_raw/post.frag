@@ -47,5 +47,5 @@ void main()
    float oI = deltaClipped;
    vec4 outline = vec4(oI, oI, oI, 1.0);
    vec4 albedo  = texture(uTex, uv);
-   FragColor = albedo - outline;
+   FragColor = albedo; // - outline;
 }

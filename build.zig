@@ -5,6 +5,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const sdl3dep = b.dependency("sdl3", .{});
+    const zmath = b.dependency("zmath", .{});
 
     const exe = b.addExecutable(.{
         .name = "DokiJam25",
@@ -14,6 +15,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "sdl3", .module = sdl3dep.module("sdl3") },
+                .{ .name = "zmath", .module = zmath.module("root") },
             },
         }),
     });

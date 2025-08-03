@@ -7,23 +7,25 @@ const Self = @This();
 
 mesh: gfx.Mesh,
 tex: gfx.texture.Texture,
+angle: f32,
 
 fn init(ctx: *anyopaque) anyerror!void {
     var self = util.ctx_to_self(Self, ctx);
     self.mesh = try gfx.Mesh.new();
-    self.tex = try gfx.texture.load_image_from_file("dirt_path_side.png");
+    self.tex = try gfx.texture.load_image_from_file("dirt.png");
+    self.angle = 0;
 
     try self.mesh.vertices.appendSlice(util.allocator(), &[_]gfx.Mesh.Vertex{
         gfx.Mesh.Vertex{
             .vert = [_]f32{ 0.5, 0.5, 0 },
-            .col = [_]u8{ 255, 255, 255, 255 },
+            .col = [_]u8{ 255, 0, 0, 255 },
             .tex = [_]f32{ 0, 0 },
             .norm = [_]f32{ 0, 0, -1 },
         },
         gfx.Mesh.Vertex{
-            .vert = [_]f32{ 0.5, -0.5, 0 },
-            .col = [_]u8{ 255, 0, 0, 255 },
-            .tex = [_]f32{ 0, 1 },
+            .vert = [_]f32{ -0.5, 0.5, 0 },
+            .col = [_]u8{ 255, 255, 255, 255 },
+            .tex = [_]f32{ 1, 0 },
             .norm = [_]f32{ 0, 0, -1 },
         },
         gfx.Mesh.Vertex{
@@ -33,9 +35,9 @@ fn init(ctx: *anyopaque) anyerror!void {
             .norm = [_]f32{ 0, 0, -1 },
         },
         gfx.Mesh.Vertex{
-            .vert = [_]f32{ -0.5, 0.5, 0 },
+            .vert = [_]f32{ 0.5, -0.5, 0 },
             .col = [_]u8{ 0, 0, 255, 255 },
-            .tex = [_]f32{ 1, 0 },
+            .tex = [_]f32{ 0, 1 },
             .norm = [_]f32{ 0, 0, -1 },
         },
     });
@@ -53,7 +55,8 @@ fn deinit(ctx: *anyopaque) void {
 }
 
 fn update(ctx: *anyopaque) anyerror!void {
-    _ = ctx;
+    var self = util.ctx_to_self(Self, ctx);
+    self.angle += 1.0;
 }
 
 fn draw(ctx: *anyopaque) anyerror!void {
@@ -63,6 +66,9 @@ fn draw(ctx: *anyopaque) anyerror!void {
 
     self.tex.bind();
     self.mesh.draw();
+
+    const model = gfx.zm.mul(gfx.zm.rotationZ(std.math.degreesToRadians(self.angle)), gfx.zm.translation(0, 0, -1.5));
+    gfx.shader.set_model(model);
 }
 
 pub fn state(self: *Self) State {

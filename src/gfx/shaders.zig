@@ -2,11 +2,14 @@ const std = @import("std");
 const gl = @import("gl.zig");
 const assert = std.debug.assert;
 const util = @import("../core/util.zig");
+const zm = @import("zmath");
 
 const vert_source = @embedFile("shader_raw/uber.vert");
 const frag_source = @embedFile("shader_raw/uber.frag");
 
 var program: c_uint = 0;
+var vpLoc: c_int = 0;
+var modelLoc: c_int = 0;
 
 pub fn init() !void {
     const vert = gl.createShader(gl.VERTEX_SHADER);
@@ -51,6 +54,17 @@ pub fn init() !void {
     gl.useProgram(program);
     gl.deleteShader(vert);
     gl.deleteShader(frag);
+
+    vpLoc = gl.getUniformLocation(program, "viewProj");
+    modelLoc = gl.getUniformLocation(program, "model");
+}
+
+pub fn set_model(matrix: zm.Mat) void {
+    gl.uniformMatrix4fv(modelLoc, 1, gl.TRUE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_viewproj(matrix: zm.Mat) void {
+    gl.uniformMatrix4fv(vpLoc, 1, gl.TRUE, zm.arrNPtr(&matrix));
 }
 
 pub fn deinit() void {

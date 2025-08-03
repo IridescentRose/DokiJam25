@@ -1,6 +1,7 @@
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const gl = @import("gl.zig");
+pub const zm = @import("zmath");
 pub const Mesh = @import("mesh.zig");
 pub const texture = @import("textures.zig");
 pub const window = @import("window.zig");
@@ -22,6 +23,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_MINOR_VERSION, 3);
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_PROFILE_MASK, sdl3.c.SDL_GL_CONTEXT_PROFILE_CORE);
+    _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
 
     try window.init(width, height, title);
 
@@ -30,6 +32,14 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
     try gl.load(context, get_context);
 
     try shader.init();
+
+    gl.enable(gl.FRAMEBUFFER_SRGB);
+    gl.enable(gl.CULL_FACE);
+    gl.cullFace(gl.BACK);
+    gl.frontFace(gl.CCW);
+
+    shader.set_model(zm.identity());
+    shader.set_viewproj(zm.perspectiveFovRhGl(90.0, 16.0 / 9.0, 0.3, 1000.0));
 }
 
 pub fn deinit() void {

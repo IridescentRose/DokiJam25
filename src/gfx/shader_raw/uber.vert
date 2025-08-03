@@ -8,10 +8,12 @@ out vec4 vertexColor;
 out vec2 uv;
 out vec3 norm;
 
+uniform mat4 viewProj;
+uniform mat4 model;
+
 void main()
 {
-    // TODO: MVP MATRIX
-    gl_Position = vec4(aPos, 1.0);
+    gl_Position = vec4(aPos, 1.0) * model * viewProj;
     vertexColor = aCol;
     uv = aTex;
     norm = aNorm;

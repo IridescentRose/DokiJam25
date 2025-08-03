@@ -1,13 +1,17 @@
 const std = @import("std");
 const sdl3 = @import("sdl3");
+const util = @import("../core/util.zig");
 const gl = @import("gl.zig");
 pub const zm = @import("zmath");
 pub const Mesh = @import("mesh.zig");
 pub const texture = @import("textures.zig");
 pub const window = @import("window.zig");
 pub const shader = @import("shaders.zig");
+pub const FBO = @import("framebuffer.zig");
 
 var context: sdl3.c.SDL_GLContext = undefined;
+var fbo: FBO = undefined;
+var mesh: Mesh = undefined;
 
 fn get_context(ctx: sdl3.c.SDL_GLContext, proc: [:0]const u8) ?*const anyopaque {
     _ = ctx;
@@ -43,9 +47,44 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
 
     shader.set_model(zm.identity());
     shader.set_viewproj(zm.perspectiveFovRhGl(90.0, 16.0 / 9.0, 0.3, 1000.0));
+
+    fbo = try FBO.init();
+
+    mesh = try Mesh.new();
+    try mesh.vertices.appendSlice(util.allocator(), &[_]Mesh.Vertex{
+        Mesh.Vertex{
+            .vert = [_]f32{ -1, 1, 0 },
+            .tex = [_]f32{ 0, 1 },
+            .col = undefined,
+            .norm = undefined,
+        },
+        Mesh.Vertex{
+            .vert = [_]f32{ -1, -1, 0 },
+            .tex = [_]f32{ 0, 0 },
+            .col = undefined,
+            .norm = undefined,
+        },
+        Mesh.Vertex{
+            .vert = [_]f32{ 1, -1, 0 },
+            .tex = [_]f32{ 1, 0 },
+            .col = undefined,
+            .norm = undefined,
+        },
+        Mesh.Vertex{
+            .vert = [_]f32{ 1, 1, 0 },
+            .tex = [_]f32{ 1, 1 },
+            .col = undefined,
+            .norm = undefined,
+        },
+    });
+
+    try mesh.indices.appendSlice(util.allocator(), &[_]Mesh.Index{ 0, 1, 2, 2, 3, 0 });
+    mesh.update();
 }
 
 pub fn deinit() void {
+    mesh.deinit();
+    fbo.deinit();
     shader.deinit();
 
     _ = sdl3.c.SDL_GL_DestroyContext(context);
@@ -54,6 +93,18 @@ pub fn deinit() void {
 }
 
 pub fn finalize() !void {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, 0);
+    gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    shader.use_post_shader();
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, fbo.tex_color_buffer);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, fbo.tex_normal_buffer);
+
+    mesh.draw();
     try window.draw();
 }
 
@@ -62,6 +113,9 @@ pub fn clear_color(r: f32, g: f32, b: f32, a: f32) void {
 }
 
 pub fn clear() void {
+    fbo.bind();
     gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
     gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    shader.use_render_shader();
 }

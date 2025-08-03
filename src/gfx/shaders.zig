@@ -10,6 +10,7 @@ const frag_source = @embedFile("shader_raw/uber.frag");
 var program: c_uint = 0;
 var vpLoc: c_int = 0;
 var modelLoc: c_int = 0;
+var hasTexLoc: c_int = 0;
 
 pub fn init() !void {
     const vert = gl.createShader(gl.VERTEX_SHADER);
@@ -57,6 +58,7 @@ pub fn init() !void {
 
     vpLoc = gl.getUniformLocation(program, "viewProj");
     modelLoc = gl.getUniformLocation(program, "model");
+    hasTexLoc = gl.getUniformLocation(program, "hasTex");
 }
 
 pub fn set_model(matrix: zm.Mat) void {
@@ -65,6 +67,10 @@ pub fn set_model(matrix: zm.Mat) void {
 
 pub fn set_viewproj(matrix: zm.Mat) void {
     gl.uniformMatrix4fv(vpLoc, 1, gl.TRUE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_has_tex(has: bool) void {
+    gl.uniform1i(hasTexLoc, @intFromBool(has));
 }
 
 pub fn deinit() void {

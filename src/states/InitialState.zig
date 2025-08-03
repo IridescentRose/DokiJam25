@@ -64,11 +64,12 @@ fn draw(ctx: *anyopaque) anyerror!void {
     gfx.clear_color(1, 1, 1, 1);
     gfx.clear();
 
-    self.tex.bind();
-    self.mesh.draw();
-
     const model = gfx.zm.mul(gfx.zm.rotationZ(std.math.degreesToRadians(self.angle)), gfx.zm.translation(0, 0, -1.5));
     gfx.shader.set_model(model);
+    gfx.shader.set_has_tex(false);
+
+    self.tex.bind();
+    self.mesh.draw();
 }
 
 pub fn state(self: *Self) State {

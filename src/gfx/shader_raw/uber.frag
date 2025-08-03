@@ -6,10 +6,15 @@ in vec2 uv;
 in vec3 norm;
 
 uniform sampler2D uTex;
+uniform int hasTex;
 
 void main()
 {
-    FragColor = texture(uTex, uv) * vertexColor;
+    if (hasTex == 1) {
+        FragColor = texture(uTex, uv) * vertexColor;
+    } else {
+        FragColor = vertexColor;
+    }
     // TODO: USE LIGHTING WITH NORM
 
     if (FragColor.a < 1.0) {

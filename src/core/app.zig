@@ -52,8 +52,8 @@ pub fn event_loop() !void {
                     switch (event) {
                         .quit, .terminating => running = false,
                         .key_down, .key_up => |t| {
-                            if (t.key != null) {
-                                if (input.get_key_callback(t.key.?)) |cbd| {
+                            if (t.scancode != null) {
+                                if (input.get_key_callback(t.scancode.?)) |cbd| {
                                     cbd.cb(cbd.ctx, t.down);
                                 }
                             }
@@ -61,6 +61,11 @@ pub fn event_loop() !void {
                         .mouse_button_down, .mouse_button_up => |t| {
                             if (input.get_mouse_callback(t.button)) |cbd| {
                                 cbd.cb(cbd.ctx, t.down);
+                            }
+                        },
+                        .mouse_motion => |t| {
+                            if (input.mouse_relative_handle) |h| {
+                                h.cb(h.ctx, t.x_rel, t.y_rel);
                             }
                         },
                         else => {

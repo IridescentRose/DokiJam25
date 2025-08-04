@@ -36,6 +36,7 @@ pub fn draw() !void {
 }
 
 pub fn context() sdl3.c.SDL_GLContext {
+    assert(initialized);
     return sdl3.c.SDL_GL_CreateContext(window.value);
 }
 
@@ -45,9 +46,17 @@ pub fn set_title(title: [:0]const u8) !void {
 }
 
 pub fn get_width() !usize {
+    assert(initialized);
     return (try window.getSize()).width;
 }
 
 pub fn get_height() !usize {
+    assert(initialized);
     return (try window.getSize()).height;
+}
+
+pub fn set_relative(mode: bool) !void {
+    assert(initialized);
+
+    try sdl3.mouse.setWindowRelativeMode(window, mode);
 }

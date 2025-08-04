@@ -52,7 +52,9 @@ void main()
     mat3 rot = getFaceRotation(face);
  
     vec3 rotated = rot * pos;
-    norm = rot * vec3(0, 1, 0);
+    norm = rot * vec3(0, 1, 0); //(projView * model * vec4(rot * vec3(0, 1, 0), 1.0)).xyz;
+
+    norm = mat3(transpose(inverse(model))) * norm;
 
     float xoff = float((encodedOffset) & MASK);
     float yoff = float((encodedOffset >> 9) & MASK);

@@ -12,12 +12,21 @@ pub const InputCallback = struct {
     ctx: *anyopaque,
 };
 
-const KeyCBMap = std.AutoArrayHashMap(sdl3.keycode.Keycode, InputCallback);
+const KeyCBMap = std.AutoArrayHashMap(sdl3.Scancode, InputCallback);
 const MouseCBMap = std.AutoArrayHashMap(sdl3.mouse.Button, InputCallback);
 const MousePosition = @Vector(2, f32);
 
 var keyMap: KeyCBMap = undefined;
 var mbMap: MouseCBMap = undefined;
+
+const MouseRelativeFn = *const fn (ctx: *anyopaque, dx: f32, dy: f32) void;
+
+pub const MouseRelativeCallback = struct {
+    cb: MouseRelativeFn,
+    ctx: *anyopaque,
+};
+
+pub var mouse_relative_handle: ?MouseRelativeCallback = null;
 
 pub fn init() void {
     assert(!initialized);
@@ -33,17 +42,17 @@ pub fn get_mouse_position() MousePosition {
     return MousePosition{ sdl3.mouse.getState().x, sdl3.mouse.getState().y };
 }
 
-pub fn register_key_callback(key: sdl3.keycode.Keycode, cb: InputCallback) !void {
+pub fn register_key_callback(key: sdl3.Scancode, cb: InputCallback) !void {
     assert(initialized);
 
     try keyMap.put(key, cb);
 }
 
-pub fn get_key_callback(key: sdl3.keycode.Keycode) ?InputCallback {
+pub fn get_key_callback(key: sdl3.Scancode) ?InputCallback {
     return keyMap.get(key);
 }
 
-pub fn unregister_key_callback(key: sdl3.keycode.Keycode) void {
+pub fn unregister_key_callback(key: sdl3.Scancode) void {
     _ = keyMap.orderedRemove(key);
 }
 

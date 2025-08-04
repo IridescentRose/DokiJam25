@@ -101,38 +101,26 @@ pub fn update(self: *Self) !void {
 
                 if (z + 1 < c.CHUNK_SUB_BLOCKS) {
                     try self.try_add_face([_]usize{ x, y, z + 1 }, v, 2);
-                } else {
-                    try self.add_face(v, 2);
                 }
 
                 if (z > 0) {
                     try self.try_add_face([_]usize{ x, y, z - 1 }, v, 3);
-                } else {
-                    try self.add_face(v, 3);
                 }
 
                 if (y + 1 < c.CHUNK_SUB_BLOCKS) {
                     try self.try_add_face([_]usize{ x, y + 1, z }, v, 0);
-                } else {
-                    try self.add_face(v, 0);
                 }
 
                 if (y > 0) {
                     try self.try_add_face([_]usize{ x, y - 1, z }, v, 1);
-                } else {
-                    try self.add_face(v, 1);
                 }
 
                 if (x + 1 < c.CHUNK_SUB_BLOCKS) {
                     try self.try_add_face([_]usize{ x + 1, y, z }, v, 5);
-                } else {
-                    try self.add_face(v, 5);
                 }
 
                 if (x > 0) {
                     try self.try_add_face([_]usize{ x - 1, y, z }, v, 4);
-                } else {
-                    try self.add_face(v, 4);
                 }
             }
         }

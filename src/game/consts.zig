@@ -7,6 +7,6 @@ pub const top_face = [_]gfx.Mesh.Vertex{
     gfx.Mesh.Vertex{ .vert = [_]f32{ 0.5, 0.5, -0.5 } },
 };
 
-pub const SUB_BLOCKS_PER_BLOCK = 16;
-pub const CHUNK_BLOCKS = 8;
+pub const SUB_BLOCKS_PER_BLOCK = 8;
+pub const CHUNK_BLOCKS = 16;
 pub const CHUNK_SUB_BLOCKS = CHUNK_BLOCKS * SUB_BLOCKS_PER_BLOCK;

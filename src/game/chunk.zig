@@ -2,6 +2,7 @@ const std = @import("std");
 const gfx = @import("../gfx/gfx.zig");
 const util = @import("../core/util.zig");
 const c = @import("consts.zig");
+const world = @import("world.zig");
 const Transform = @import("../gfx/transform.zig");
 
 pub const AtomKind = enum(u8) {
@@ -26,21 +27,23 @@ subvoxels: std.MultiArrayList(Atom),
 mesh: gfx.Mesh,
 dirty: bool,
 populated: bool,
+coord: [3]isize,
 
 const Self = @This();
 
-pub fn new(world_pos: [3]f32) !Self {
+pub fn new(world_pos: [3]f32, world_coord: [3]isize) !Self {
     var res: Self = .{
         .dirty = true,
         .subvoxels = std.MultiArrayList(Atom){},
         .transform = Transform.new(),
         .populated = false,
         .mesh = try gfx.Mesh.new(),
+        .coord = world_coord,
     };
 
     res.transform.pos = world_pos;
-    res.transform.scale = @splat(1.0 / 16.0);
-    res.transform.size = @splat(8.0);
+    res.transform.scale = @splat(1.0 / @as(f32, @floatFromInt(c.SUB_BLOCKS_PER_BLOCK)));
+    res.transform.size = @splat(c.CHUNK_SUB_BLOCKS);
     return res;
 }
 
@@ -49,13 +52,25 @@ pub fn deinit(self: *Self) void {
     self.subvoxels.deinit(util.allocator());
 }
 
-fn get_index(v: [3]usize) usize {
+pub fn get_index(v: [3]usize) usize {
     return ((v[1] * c.CHUNK_SUB_BLOCKS) + v[2]) * c.CHUNK_SUB_BLOCKS + v[0];
 }
 
-fn try_add_face(self: *Self, neighbor_v: [3]usize, v: [3]usize, face: u3) !void {
-    const idx = get_index(neighbor_v);
-    const block_type: AtomKind = self.subvoxels.items(.material)[idx];
+fn try_add_face(self: *Self, neighbor_v: [3]isize, v: [3]usize, face: u3) !void {
+    const block_type: AtomKind = blk: {
+        if (neighbor_v[0] == -1 or neighbor_v[0] == c.CHUNK_SUB_BLOCKS or neighbor_v[1] == -1 or neighbor_v[1] == c.CHUNK_SUB_BLOCKS or neighbor_v[2] == -1 or neighbor_v[2] == c.CHUNK_SUB_BLOCKS) {
+            const world_coord = [_]isize{
+                self.coord[0] * c.CHUNK_SUB_BLOCKS + neighbor_v[0],
+                self.coord[1] * c.CHUNK_SUB_BLOCKS + neighbor_v[1],
+                self.coord[2] * c.CHUNK_SUB_BLOCKS + neighbor_v[2],
+            };
+
+            break :blk world.get_voxel(world_coord);
+        } else {
+            const idx = get_index([_]usize{ @intCast(neighbor_v[0]), @intCast(neighbor_v[1]), @intCast(neighbor_v[2]) });
+            break :blk self.subvoxels.items(.material)[idx];
+        }
+    };
 
     if (block_type == .Air) {
         try self.add_face(v, face);
@@ -99,29 +114,14 @@ pub fn update(self: *Self) !void {
 
                 // TODO: World lookups
 
-                if (z + 1 < c.CHUNK_SUB_BLOCKS) {
-                    try self.try_add_face([_]usize{ x, y, z + 1 }, v, 2);
-                }
+                const iv = [_]isize{ @intCast(x), @intCast(y), @intCast(z) };
 
-                if (z > 0) {
-                    try self.try_add_face([_]usize{ x, y, z - 1 }, v, 3);
-                }
-
-                if (y + 1 < c.CHUNK_SUB_BLOCKS) {
-                    try self.try_add_face([_]usize{ x, y + 1, z }, v, 0);
-                }
-
-                if (y > 0) {
-                    try self.try_add_face([_]usize{ x, y - 1, z }, v, 1);
-                }
-
-                if (x + 1 < c.CHUNK_SUB_BLOCKS) {
-                    try self.try_add_face([_]usize{ x + 1, y, z }, v, 5);
-                }
-
-                if (x > 0) {
-                    try self.try_add_face([_]usize{ x - 1, y, z }, v, 4);
-                }
+                try self.try_add_face([_]isize{ iv[0], iv[1], iv[2] + 1 }, v, 2);
+                try self.try_add_face([_]isize{ iv[0], iv[1], iv[2] - 1 }, v, 3);
+                try self.try_add_face([_]isize{ iv[0], iv[1] + 1, iv[2] }, v, 0);
+                try self.try_add_face([_]isize{ iv[0], iv[1] - 1, iv[2] }, v, 1);
+                try self.try_add_face([_]isize{ iv[0] + 1, iv[1], iv[2] }, v, 5);
+                try self.try_add_face([_]isize{ iv[0] - 1, iv[1], iv[2] }, v, 4);
             }
         }
     }

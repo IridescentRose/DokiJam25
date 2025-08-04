@@ -6,6 +6,7 @@ pub fn build(b: *std.Build) void {
 
     const sdl3dep = b.dependency("sdl3", .{});
     const zmath = b.dependency("zmath", .{});
+    const znoise = b.dependency("znoise", .{});
 
     const exe = b.addExecutable(.{
         .name = "DokiJam25",
@@ -16,6 +17,7 @@ pub fn build(b: *std.Build) void {
             .imports = &.{
                 .{ .name = "sdl3", .module = sdl3dep.module("sdl3") },
                 .{ .name = "zmath", .module = zmath.module("root") },
+                .{ .name = "znoise", .module = znoise.module("root") },
             },
         }),
     });
@@ -26,6 +28,7 @@ pub fn build(b: *std.Build) void {
     });
     exe.root_module.addIncludePath(b.path("src/stbi/"));
     exe.linkLibC();
+    exe.linkLibrary(znoise.artifact("FastNoiseLite"));
 
     b.installArtifact(exe);
 

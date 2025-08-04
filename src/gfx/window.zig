@@ -10,7 +10,6 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
 
     window = try sdl3.video.Window.init(title, width, height, .{
         .input_focus = true,
-        .keyboard_grabbed = true,
         .mouse_capture = true,
         .open_gl = true,
         .resizable = false,

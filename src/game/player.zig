@@ -24,12 +24,12 @@ pub fn init() !Self {
     res.voxel = Voxel.init(res.tex);
     res.transform = Transform.new();
 
-    res.camera.distance = 3.0;
+    res.camera.distance = 6.0;
     res.camera.fov = 90.0;
     res.camera.pitch = 0;
     res.camera.yaw = 0;
 
-    res.transform.scale = @splat(1.0 / 20.0);
+    res.transform.scale = @splat(1.0 / 10.0);
     res.transform.size = @splat(20.0);
 
     res.camera.target = res.transform.pos;
@@ -65,8 +65,8 @@ fn mouseCb(ctx: *anyopaque, dx: f32, dy: f32) void {
     self.camera.yaw += dx * sensitivity;
     self.camera.pitch += dy * sensitivity;
 
-    if (self.camera.pitch > 89.0) self.camera.pitch = 89.0;
-    if (self.camera.pitch < -89.0) self.camera.pitch = -89.0;
+    if (self.camera.pitch > 60.0) self.camera.pitch = 60.0;
+    if (self.camera.pitch < -60.0) self.camera.pitch = -60.0;
 }
 
 pub fn register_input(self: *Self) !void {
@@ -130,6 +130,7 @@ pub fn update(self: *Self) void {
     self.transform.pos[2] += movement[2] * 1.0 / 60.0 * 4.3;
 
     self.camera.target = self.transform.pos;
+    self.camera.target[1] += 1.2;
 }
 
 pub fn draw(self: *Self) void {

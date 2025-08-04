@@ -8,6 +8,7 @@ const Self = @This();
 const Chunk = @import("../chunk.zig");
 const Voxel = @import("../voxel.zig");
 const Transform = @import("../../gfx/transform.zig");
+const worldgen = @import("../worldgen.zig");
 
 tex: gfx.texture.Texture,
 angle: f32,
@@ -33,35 +34,8 @@ fn init(ctx: *anyopaque) anyerror!void {
     self.chunk.transform.pos[1] = -4;
     self.chunk.transform.pos[2] = -4 - 6;
 
-    var rng = std.Random.DefaultPrng.init(42);
-
-    for (0..c.CHUNK_SUB_BLOCKS) |y| {
-        for (0..c.CHUNK_SUB_BLOCKS) |_| {
-            for (0..c.CHUNK_SUB_BLOCKS) |_| {
-                const color = rng.random().int(u8) % 0xA1;
-
-                if (y < 4 * c.SUB_BLOCKS_PER_BLOCK) {
-                    try self.chunk.subvoxels.append(util.allocator(), .{
-                        .flags = undefined,
-                        .state = undefined,
-                        .material = .Stone,
-                        .color = [_]u8{ color, color, color },
-                    });
-                } else {
-                    try self.chunk.subvoxels.append(util.allocator(), .{
-                        .flags = undefined,
-                        .state = undefined,
-                        .material = .Air,
-                        .color = [_]u8{ 0, 0, 0 },
-                    });
-                }
-            }
-        }
-    }
-
-    self.chunk.subvoxels.shrinkAndFree(util.allocator(), self.chunk.subvoxels.len);
-
-    self.chunk.populated = true;
+    worldgen.init(42);
+    try worldgen.fill(&self.chunk, [_]u32{ 0, 0 });
 }
 
 fn deinit(ctx: *anyopaque) void {
@@ -82,8 +56,9 @@ fn draw(ctx: *anyopaque) anyerror!void {
     gfx.clear_color(0.8, 1.0, 0.8, 1);
     gfx.clear();
 
-    // gfx.shader.set_model(self.transform.get_matrix());
-    // self.voxel.draw();
+    self.transform.rot[1] = 180.0;
+    gfx.shader.set_model(self.transform.get_matrix());
+    self.voxel.draw();
     self.chunk.draw();
 }
 

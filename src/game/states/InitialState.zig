@@ -9,12 +9,14 @@ const Chunk = @import("../chunk.zig");
 const Voxel = @import("../voxel.zig");
 const Transform = @import("../../gfx/transform.zig");
 const worldgen = @import("../worldgen.zig");
+const Camera = @import("../../gfx/camera.zig");
 
 tex: gfx.texture.Texture,
 angle: f32,
 voxel: Voxel,
 chunk: Chunk,
 transform: Transform,
+camera: Camera,
 
 fn init(ctx: *anyopaque) anyerror!void {
     var self = util.ctx_to_self(Self, ctx);
@@ -23,9 +25,16 @@ fn init(ctx: *anyopaque) anyerror!void {
     self.voxel = Voxel.init(self.tex);
     self.transform = Transform.new();
 
+    self.camera.distance = 3.0;
+    self.camera.fov = 90.0;
+    self.camera.pitch = 0;
+    self.camera.yaw = 0;
+
     self.transform.scale = @splat(1.0 / 20.0);
     self.transform.pos[2] = -1.2;
     self.transform.size = @splat(20.0);
+
+    self.camera.target = self.transform.pos;
 
     try self.voxel.build();
 
@@ -55,6 +64,10 @@ fn draw(ctx: *anyopaque) anyerror!void {
     var self = util.ctx_to_self(Self, ctx);
     gfx.clear_color(0.8, 1.0, 0.8, 1);
     gfx.clear();
+
+    self.camera.update();
+    self.camera.target = self.transform.pos;
+    self.camera.yaw += 0.2;
 
     self.transform.rot[1] = 180.0;
     gfx.shader.set_model(self.transform.get_matrix());

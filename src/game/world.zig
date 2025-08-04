@@ -11,12 +11,11 @@ pub const ChunkMap = std.AutoArrayHashMap(ChunkLocation, *Chunk);
 var chunkMap: ChunkMap = undefined;
 
 var player: Player = undefined;
-
 pub fn init(seed: u32) !void {
     player = try Player.init();
     try player.register_input();
     player.transform.pos[0] = 0;
-    player.transform.pos[1] = 3;
+    player.transform.pos[1] = 14;
     player.transform.pos[2] = 0;
 
     worldgen.init(seed);
@@ -30,7 +29,6 @@ pub fn deinit() void {
         util.allocator().destroy(v);
     }
     chunkMap.deinit();
-
     player.deinit();
 }
 
@@ -64,7 +62,7 @@ pub fn update() !void {
     while (z_curr <= curr_player_chunk[2] + CHUNK_RADIUS / 2) : (z_curr += 1) {
         var x_curr = curr_player_chunk[0] - CHUNK_RADIUS / 2;
         while (x_curr <= curr_player_chunk[0] + CHUNK_RADIUS / 2) : (x_curr += 1) {
-            const chunk_coord = [_]isize{ x_curr, curr_player_chunk[1], z_curr };
+            const chunk_coord = [_]isize{ x_curr, 0, z_curr };
 
             try target_chunks.append(chunk_coord);
 

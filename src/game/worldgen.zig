@@ -48,7 +48,7 @@ pub fn fill(chunk: *Chunk, location: [2]isize) !void {
                 const world_z = zf + zlf * sub;
 
                 const noise_val = gen.noise2(@floatCast(world_x), @floatCast(world_z));
-                const h = (noise_val + 1.0) * 0.5 + 3.0;
+                const h = (noise_val + 1.0) * 2.0 + 1.0;
 
                 const grayscale: u8 = @intFromFloat(@min(@max((noise_val + 1.0) * 0.5 * 255.0, 0.0), 255.0));
                 const color = [_]u8{ grayscale, grayscale, grayscale };

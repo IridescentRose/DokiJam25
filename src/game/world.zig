@@ -68,7 +68,7 @@ pub fn update() !void {
 
             if (!chunkMap.contains(chunk_coord)) {
                 const chunk = try util.allocator().create(Chunk);
-                chunk.* = try Chunk.new([_]f32{ @floatFromInt(chunk_coord[0] * c.CHUNK_BLOCKS), c.CHUNK_BLOCKS / 2, @floatFromInt(chunk_coord[2] * c.CHUNK_BLOCKS) }, chunk_coord);
+                chunk.* = try Chunk.new([_]f32{ @floatFromInt(chunk_coord[0] * c.CHUNK_BLOCKS), 0, @floatFromInt(chunk_coord[2] * c.CHUNK_BLOCKS) }, chunk_coord);
                 try worldgen.fill(chunk, [_]isize{ chunk_coord[0], chunk_coord[2] });
 
                 try chunkMap.put(

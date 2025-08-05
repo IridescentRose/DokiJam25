@@ -43,7 +43,7 @@ pub fn new(world_pos: [3]f32, world_coord: [3]isize) !Self {
 
     res.transform.pos = world_pos;
     res.transform.scale = @splat(1.0 / @as(f32, @floatFromInt(c.SUB_BLOCKS_PER_BLOCK)));
-    res.transform.size = @splat(c.CHUNK_SUB_BLOCKS);
+    res.transform.size = @splat(0);
     return res;
 }
 
@@ -139,6 +139,7 @@ pub fn update(self: *Self) !void {
 
 pub fn draw(self: *Self) void {
     if (self.mesh.indices.items.len != 0 and self.populated) {
+        // self.transform.rot[1] += 0.1;
         gfx.shader.set_model(self.transform.get_matrix());
 
         self.mesh.draw();

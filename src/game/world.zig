@@ -36,11 +36,9 @@ pub fn init(seed: u32) !void {
     chunkMap = ChunkMap.init(util.allocator());
 
     const chunk = try util.allocator().create(Chunk);
-    chunk.* = try Chunk.new([_]f32{ 0, 0, 0 }, [_]isize{ 0, 0, 0 });
+    chunk.* = try Chunk.new();
     try worldgen.fill(chunk, [_]isize{ 0, 0 });
-
     try chunk.update();
-    chunk.ticks = rand.random().int(u32) % 60; // Randomize the tick count to avoid all chunks updating at the same time
 
     try chunkMap.put(
         [_]isize{ 0, 0, 0 },
@@ -82,7 +80,6 @@ pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
     if (chunkMap.get(chunk_coord)) |chunk| {
         const idx = Chunk.get_index([_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) });
         chunk.subvoxels.items[idx] = atom;
-        chunk.dirty = true;
     }
 }
 

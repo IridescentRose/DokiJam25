@@ -6,7 +6,7 @@ const znoise = @import("znoise");
 
 const gen = znoise.FnlGenerator{
     .seed = 1337,
-    .frequency = 1.0 / 16.0,
+    .frequency = 1.0 / 128.0,
     .noise_type = .perlin,
     .rotation_type3 = .none,
     .fractal_type = .fbm,
@@ -43,85 +43,36 @@ pub fn deinit() void {
 pub fn fill(chunk: *Chunk, location: [2]isize) !void {
     const before = std.time.nanoTimestamp();
 
-    const blocks_per_chunk = @as(f64, @floatFromInt(c.CHUNK_BLOCKS));
+    const blocks_per_chunk = c.CHUNK_SUB_BLOCKS;
 
     var heightmap = std.ArrayList(f32).init(util.allocator());
     defer heightmap.deinit();
-    for (0..c.CHUNK_BLOCKS) |z| {
-        for (0..c.CHUNK_BLOCKS) |x| {
-            const xf = @as(f64, @floatFromInt(x));
-            const zf = @as(f64, @floatFromInt(z));
+    for (0..c.CHUNK_SUB_BLOCKS) |z| {
+        for (0..c.CHUNK_SUB_BLOCKS) |x| {
+            const ix: isize = @intCast(x);
+            const iz: isize = @intCast(z);
 
-            const xlf = @as(f64, @floatFromInt(location[0]));
-            const zlf = @as(f64, @floatFromInt(location[1]));
-
-            const world_x = xf + xlf * blocks_per_chunk;
-            const world_z = zf + zlf * blocks_per_chunk;
-            var h: f32 = 0.0;
-            for (0..c.SUB_BLOCKS_PER_BLOCK) |sx| {
-                for (0..c.SUB_BLOCKS_PER_BLOCK) |sz| {
-                    const sub_xf = world_x + @as(f64, @floatFromInt(sx)) / @as(f64, @floatFromInt(c.SUB_BLOCKS_PER_BLOCK));
-                    const sub_zf = world_z + @as(f64, @floatFromInt(sz)) / @as(f64, @floatFromInt(c.SUB_BLOCKS_PER_BLOCK));
-
-                    const sub_noiseval = gen.noise2(@floatCast(sub_xf), @floatCast(sub_zf));
-                    h = @max(h, (sub_noiseval + 1.0) * 5.0);
-                }
-            }
-
+            const world_x = ix + location[0] * blocks_per_chunk;
+            const world_z = iz + location[1] * blocks_per_chunk;
+            const h: f32 = ((gen.noise2(@floatFromInt(world_x), @floatFromInt(world_z)) + 1.0) * 0.5) * 128.0;
             try heightmap.append(h);
         }
     }
 
-    for (0..c.CHUNK_BLOCKS) |y| {
-        for (0..c.CHUNK_BLOCKS) |z| {
-            for (0..c.CHUNK_BLOCKS) |x| {
-                const xf = @as(f64, @floatFromInt(x));
+    for (0..c.CHUNK_SUB_BLOCKS) |y| {
+        for (0..c.CHUNK_SUB_BLOCKS) |z| {
+            for (0..c.CHUNK_SUB_BLOCKS) |x| {
+                const h = heightmap.items[z * c.CHUNK_SUB_BLOCKS + x];
+                // std.debug.print("H {}\n", .{h});
+
                 const yf = @as(f64, @floatFromInt(y));
-                const zf = @as(f64, @floatFromInt(z));
-
-                const xlf = @as(f64, @floatFromInt(location[0]));
-                const zlf = @as(f64, @floatFromInt(location[1]));
-
-                const world_x = xf + xlf * blocks_per_chunk;
-                const world_y = yf;
-                const world_z = zf + zlf * blocks_per_chunk;
-
-                const bcoord = Chunk.get_block_index([_]usize{ x, y, z });
-
-                const h = heightmap.items[z * c.CHUNK_BLOCKS + x];
-
-                if (yf < h - 2) {
-                    @memcpy(chunk.subvoxels.items[bcoord .. bcoord + c.SUBVOXEL_SIZE], stencil);
-                } else if (yf >= h - 2 and yf <= h) {
-                    for (0..c.SUB_BLOCKS_PER_BLOCK) |sy| {
-                        for (0..c.SUB_BLOCKS_PER_BLOCK) |sz| {
-                            for (0..c.SUB_BLOCKS_PER_BLOCK) |sx| {
-                                const sub_bcoord = Chunk.get_sub_block_index([_]usize{ sx, sy, sz });
-
-                                const sub_xf = world_x + @as(f64, @floatFromInt(sx)) / @as(f64, @floatFromInt(c.SUB_BLOCKS_PER_BLOCK));
-                                const sub_yf = world_y + @as(f64, @floatFromInt(sy)) / @as(f64, @floatFromInt(c.SUB_BLOCKS_PER_BLOCK));
-                                const sub_zf = world_z + @as(f64, @floatFromInt(sz)) / @as(f64, @floatFromInt(c.SUB_BLOCKS_PER_BLOCK));
-
-                                const sub_noiseval = gen.noise2(@floatCast(sub_xf), @floatCast(sub_zf));
-
-                                const sub_h = (sub_noiseval + 1.0) * 5.0;
-
-                                if (sub_yf < sub_h) {
-                                    chunk.subvoxels.items[bcoord + sub_bcoord] = .{
-                                        .material = .Stone,
-                                        .color = stencil[sub_bcoord].color,
-                                    };
-                                }
-                            }
-                        }
-                    }
+                if (yf < h) {
+                    const idx = Chunk.get_index([_]usize{ x, y, z });
+                    chunk.subvoxels.items[idx] = stencil[((y % c.SUB_BLOCKS_PER_BLOCK) * c.SUB_BLOCKS_PER_BLOCK + (z % c.SUB_BLOCKS_PER_BLOCK)) * c.SUB_BLOCKS_PER_BLOCK + (x % c.SUB_BLOCKS_PER_BLOCK)];
                 }
             }
         }
     }
-
-    chunk.populated = true;
-    chunk.dirty = true;
 
     const after = std.time.nanoTimestamp();
     std.debug.print("Filled chunk at {any}, {any} in {any}us\n", .{ location[0], location[1], @divTrunc((after - before), std.time.ns_per_us) });

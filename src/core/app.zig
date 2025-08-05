@@ -63,18 +63,31 @@ fn handle_updates() void {
     }
 }
 
+const stable_fps = false;
+
 pub fn event_loop() !void {
     // TODO: Customize?
     const frame_rate = 60;
     const frame_time_ns = std.time.ns_per_s / frame_rate;
 
     var next_frame_start = std.time.nanoTimestamp() + frame_time_ns;
+
+    var fps: usize = 0;
+    var second_timer = std.time.nanoTimestamp() + std.time.ns_per_s;
+
     while (running) {
         const now = std.time.nanoTimestamp();
 
         handle_updates();
 
-        if (now < next_frame_start) {
+        fps += 1;
+        if (std.time.nanoTimestamp() > second_timer) {
+            std.debug.print("FPS: {}\n", .{fps});
+            fps = 0;
+            second_timer = std.time.nanoTimestamp() + std.time.ns_per_s;
+        }
+
+        if (now < next_frame_start and stable_fps) {
             // Poll for events
             var new_time = std.time.nanoTimestamp();
             while (new_time < next_frame_start) {

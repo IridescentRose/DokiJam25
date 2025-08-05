@@ -19,29 +19,18 @@ layout(binding = 1, std430) buffer ChunkBuffer {
 
 const int CHUNK_BLOCKS = 16; // Number of blocks in each chunk
 const int SUB_BLOCKS_PER_BLOCK = 8;
+const int CHUNK_SUB_BLOCKS = CHUNK_BLOCKS * SUB_BLOCKS_PER_BLOCK;
 const int SUBVOXEL_SIZE = SUB_BLOCKS_PER_BLOCK * SUB_BLOCKS_PER_BLOCK * SUB_BLOCKS_PER_BLOCK;
 
 // Shrink the scene
 const float GRID_SCALE = 8.0;
 
 uint getVoxel(ivec3 p) {
-
-   if(any(lessThan(p, ivec3(0))) || any(greaterThanEqual(p, ivec3(CHUNK_BLOCKS * SUB_BLOCKS_PER_BLOCK)))) {
+   if(any(lessThan(p, ivec3(0))) || any(greaterThanEqual(p, ivec3(CHUNK_SUB_BLOCKS)))) {
       return 0; // Out of bounds, treat as empty voxel
    }
 
-   ivec3 blockCoord = ivec3(p.x / SUB_BLOCKS_PER_BLOCK, p.y / SUB_BLOCKS_PER_BLOCK, p.z / SUB_BLOCKS_PER_BLOCK);
-   ivec3 subCoord = ivec3(p.x % SUB_BLOCKS_PER_BLOCK, p.y % SUB_BLOCKS_PER_BLOCK, p.z % SUB_BLOCKS_PER_BLOCK);
-
-    // Base index for the block
-    int blockIndex = ((blockCoord.y * CHUNK_BLOCKS + blockCoord.z) * CHUNK_BLOCKS + blockCoord.x)
-                     * SUBVOXEL_SIZE;
-
-    // Offset within the block
-    int subIndex = (subCoord.y * SUB_BLOCKS_PER_BLOCK + subCoord.z) * SUB_BLOCKS_PER_BLOCK
-                   + subCoord.x;
-
-    int idx = blockIndex + subIndex;
+    int idx = (p.y * CHUNK_SUB_BLOCKS + p.z) * CHUNK_SUB_BLOCKS + p.x;
     return voxels.data[idx];
 } 
 

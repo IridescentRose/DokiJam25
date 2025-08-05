@@ -163,7 +163,6 @@ pub fn update() !void {
     }
 
     if (count % 6 == 0) {
-        std.debug.print("Updating particles... Len {}\n", .{active_atoms.items.len});
         for (active_atoms.items) |*atom| {
             if (atom.moves == 0) continue;
 

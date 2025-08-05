@@ -35,6 +35,34 @@ pub fn deinit() void {
     util.deinit();
 }
 
+fn handle_updates() void {
+    while (sdl3.events.poll()) |event| {
+        switch (event) {
+            .quit, .terminating => running = false,
+            .key_down, .key_up => |t| {
+                if (t.scancode != null) {
+                    if (input.get_key_callback(t.scancode.?)) |cbd| {
+                        cbd.cb(cbd.ctx, t.down);
+                    }
+                }
+            },
+            .mouse_button_down, .mouse_button_up => |t| {
+                if (input.get_mouse_callback(t.button)) |cbd| {
+                    cbd.cb(cbd.ctx, t.down);
+                }
+            },
+            .mouse_motion => |t| {
+                if (input.mouse_relative_handle) |h| {
+                    h.cb(h.ctx, t.x_rel, t.y_rel);
+                }
+            },
+            else => {
+                // std.debug.print("Received unknown event! {any}\n", .{event});
+            },
+        }
+    }
+}
+
 pub fn event_loop() !void {
     // TODO: Customize?
     const frame_rate = 60;
@@ -44,42 +72,17 @@ pub fn event_loop() !void {
     while (running) {
         const now = std.time.nanoTimestamp();
 
+        handle_updates();
+
         if (now < next_frame_start) {
             // Poll for events
             var new_time = std.time.nanoTimestamp();
             while (new_time < next_frame_start) {
-                if (sdl3.events.poll()) |event| {
-                    switch (event) {
-                        .quit, .terminating => running = false,
-                        .key_down, .key_up => |t| {
-                            if (t.scancode != null) {
-                                if (input.get_key_callback(t.scancode.?)) |cbd| {
-                                    cbd.cb(cbd.ctx, t.down);
-                                }
-                            }
-                        },
-                        .mouse_button_down, .mouse_button_up => |t| {
-                            if (input.get_mouse_callback(t.button)) |cbd| {
-                                cbd.cb(cbd.ctx, t.down);
-                            }
-                        },
-                        .mouse_motion => |t| {
-                            if (input.mouse_relative_handle) |h| {
-                                h.cb(h.ctx, t.x_rel, t.y_rel);
-                            }
-                        },
-                        else => {
-                            // std.debug.print("Received unknown event! {any}\n", .{event});
-                        },
-                    }
-                }
-
                 new_time = std.time.nanoTimestamp();
-                // TODO: Sleep so we don't hang this thread forever? (Within system limitations)
+                handle_updates();
+
+                // TODO: Sleep?
             }
-        } else {
-            // TODO: Make this more serious
-            std.debug.print("Event handling skipped, running late!\n", .{});
         }
 
         // Simulation update w/ input

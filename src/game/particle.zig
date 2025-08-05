@@ -134,7 +134,7 @@ pub fn draw(self: *Self) void {
         gfx.shader.set_part_projview(world.player.camera.get_projview_matrix());
         gfx.shader.set_part_yaw(std.math.degreesToRadians(-world.player.camera.yaw + 90.0));
         gfx.shader.set_part_pitch(std.math.degreesToRadians(0));
-        gfx.shader.set_model(self.transform.get_matrix());
+        gfx.shader.set_part_model(self.transform.get_matrix());
 
         self.mesh.draw();
     }

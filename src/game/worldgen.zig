@@ -64,9 +64,9 @@ pub fn fill(chunk: *Chunk, location: [2]isize) !void {
 
                 const bcoord = Chunk.get_block_index([_]usize{ x, y, z });
 
-                if (yf < h - 3) {
+                if (yf < h - 1) {
                     @memcpy(chunk.subvoxels.items[bcoord .. bcoord + c.SUBVOXEL_SIZE], stencil);
-                } else if (yf >= h - 3 and yf < h) {
+                } else if (yf >= h - 1 and yf < h) {
                     for (0..c.SUB_BLOCKS_PER_BLOCK) |sy| {
                         for (0..c.SUB_BLOCKS_PER_BLOCK) |sz| {
                             for (0..c.SUB_BLOCKS_PER_BLOCK) |sx| {

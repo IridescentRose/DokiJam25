@@ -10,11 +10,20 @@ const frag_source = @embedFile("shader_raw/uber.frag");
 const post_vert_source = @embedFile("shader_raw/post.vert");
 const post_frag_source = @embedFile("shader_raw/post.frag");
 
+const part_vert_source = @embedFile("shader_raw/particle.vert");
+const part_frag_source = @embedFile("shader_raw/particle.frag");
+
 var uber: c_uint = 0;
 var post: c_uint = 0;
+var part: c_uint = 0;
+
 var vpLoc: c_int = 0;
 var modelLoc: c_int = 0;
-var hasTexLoc: c_int = 0;
+
+var partVpLoc: c_int = 0;
+var partModelLoc: c_int = 0;
+var partYawLoc: c_int = 0;
+var partPitchLoc: c_int = 0;
 
 fn compile_shader(source: [*c]const [*c]const gl.GLchar, stype: c_uint) c_uint {
     const shad = gl.createShader(stype);
@@ -60,13 +69,24 @@ pub fn init() !void {
     const frag = compile_shader(@ptrCast(&frag_source), gl.FRAGMENT_SHADER);
     uber = create_program(vert, frag);
 
+    vpLoc = gl.getUniformLocation(uber, "projView");
+    modelLoc = gl.getUniformLocation(uber, "model");
+
     const pv = compile_shader(@ptrCast(&post_vert_source), gl.VERTEX_SHADER);
     const pf = compile_shader(@ptrCast(&post_frag_source), gl.FRAGMENT_SHADER);
     post = create_program(pv, pf);
 
+    const part_v = compile_shader(@ptrCast(&part_vert_source), gl.VERTEX_SHADER);
+    const part_f = compile_shader(@ptrCast(&part_frag_source), gl.FRAGMENT_SHADER);
+    part = create_program(part_v, part_f);
+
+    use_particle_shader();
+    partVpLoc = gl.getUniformLocation(part, "projView");
+    partModelLoc = gl.getUniformLocation(part, "model");
+    partYawLoc = gl.getUniformLocation(part, "yaw");
+    partPitchLoc = gl.getUniformLocation(part, "pitch");
+
     use_render_shader();
-    vpLoc = gl.getUniformLocation(uber, "projView");
-    modelLoc = gl.getUniformLocation(uber, "model");
 }
 
 pub fn set_model(matrix: zm.Mat) void {
@@ -75,6 +95,22 @@ pub fn set_model(matrix: zm.Mat) void {
 
 pub fn set_projview(matrix: zm.Mat) void {
     gl.uniformMatrix4fv(vpLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_part_model(matrix: zm.Mat) void {
+    gl.uniformMatrix4fv(partModelLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_part_projview(matrix: zm.Mat) void {
+    gl.uniformMatrix4fv(partVpLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_part_yaw(yaw: f32) void {
+    gl.uniform1f(partYawLoc, yaw);
+}
+
+pub fn set_part_pitch(pitch: f32) void {
+    gl.uniform1f(partPitchLoc, pitch);
 }
 
 pub fn deinit() void {
@@ -88,4 +124,8 @@ pub fn use_render_shader() void {
 
 pub fn use_post_shader() void {
     gl.useProgram(post);
+}
+
+pub fn use_particle_shader() void {
+    gl.useProgram(part);
 }

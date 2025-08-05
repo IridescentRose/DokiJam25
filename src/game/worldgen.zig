@@ -45,6 +45,33 @@ pub fn fill(chunk: *Chunk, location: [2]isize) !void {
 
     const blocks_per_chunk = @as(f64, @floatFromInt(c.CHUNK_BLOCKS));
 
+    var heightmap = std.ArrayList(f32).init(util.allocator());
+    defer heightmap.deinit();
+    for (0..c.CHUNK_BLOCKS) |z| {
+        for (0..c.CHUNK_BLOCKS) |x| {
+            const xf = @as(f64, @floatFromInt(x));
+            const zf = @as(f64, @floatFromInt(z));
+
+            const xlf = @as(f64, @floatFromInt(location[0]));
+            const zlf = @as(f64, @floatFromInt(location[1]));
+
+            const world_x = xf + xlf * blocks_per_chunk;
+            const world_z = zf + zlf * blocks_per_chunk;
+            var h: f32 = 0.0;
+            for (0..c.SUB_BLOCKS_PER_BLOCK) |sx| {
+                for (0..c.SUB_BLOCKS_PER_BLOCK) |sz| {
+                    const sub_xf = world_x + @as(f64, @floatFromInt(sx)) / @as(f64, @floatFromInt(c.SUB_BLOCKS_PER_BLOCK));
+                    const sub_zf = world_z + @as(f64, @floatFromInt(sz)) / @as(f64, @floatFromInt(c.SUB_BLOCKS_PER_BLOCK));
+
+                    const sub_noiseval = gen.noise2(@floatCast(sub_xf), @floatCast(sub_zf));
+                    h = @max(h, (sub_noiseval + 1.0) * 5.0);
+                }
+            }
+
+            try heightmap.append(h);
+        }
+    }
+
     for (0..c.CHUNK_BLOCKS) |y| {
         for (0..c.CHUNK_BLOCKS) |z| {
             for (0..c.CHUNK_BLOCKS) |x| {
@@ -59,14 +86,13 @@ pub fn fill(chunk: *Chunk, location: [2]isize) !void {
                 const world_y = yf;
                 const world_z = zf + zlf * blocks_per_chunk;
 
-                const noise_val = gen.noise2(@floatCast(world_x), @floatCast(world_z));
-                const h = (noise_val + 1.0) * 5.0;
-
                 const bcoord = Chunk.get_block_index([_]usize{ x, y, z });
 
-                if (yf < h - 1) {
+                const h = heightmap.items[z * c.CHUNK_BLOCKS + x];
+
+                if (yf < h - 2) {
                     @memcpy(chunk.subvoxels.items[bcoord .. bcoord + c.SUBVOXEL_SIZE], stencil);
-                } else if (yf >= h - 1 and yf < h) {
+                } else if (yf >= h - 2 and yf <= h) {
                     for (0..c.SUB_BLOCKS_PER_BLOCK) |sy| {
                         for (0..c.SUB_BLOCKS_PER_BLOCK) |sz| {
                             for (0..c.SUB_BLOCKS_PER_BLOCK) |sx| {

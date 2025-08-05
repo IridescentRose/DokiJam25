@@ -7,8 +7,8 @@ in vec3 norm;
 
 void main()
 {
-    const vec3 lightDir = normalize(vec3(-0.5, 0.5, 1));
-    float lightStrength = max(dot(normalize(norm), -lightDir), 0.7) * 1.2;
+    const vec3 lightDir = normalize(vec3(0, -0.6, 0.5));
+    float lightStrength = max(dot(normalize(norm), -lightDir), 0.46);
 
     vec3 color = vertexColor * lightStrength;
     FragColor = vec4(color, 1.0);

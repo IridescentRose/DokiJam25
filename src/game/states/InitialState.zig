@@ -22,7 +22,7 @@ fn update(ctx: *anyopaque) anyerror!void {
 
 fn draw(ctx: *anyopaque) anyerror!void {
     _ = ctx;
-    gfx.clear_color(0.8, 1.0, 0.8, 1);
+    gfx.clear_color(128.0 / 255.0, 143.0 / 255.0, 204.0 / 255.0, 1);
     gfx.clear();
 
     world.draw();

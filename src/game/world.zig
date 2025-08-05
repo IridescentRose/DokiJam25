@@ -4,13 +4,16 @@ const Chunk = @import("chunk.zig");
 const Player = @import("player.zig");
 const worldgen = @import("worldgen.zig");
 const util = @import("../core/util.zig");
+const Particle = @import("particle.zig");
 
 pub const ChunkLocation = [3]isize;
 pub const ChunkMap = std.AutoArrayHashMap(ChunkLocation, *Chunk);
 
 var chunkMap: ChunkMap = undefined;
+var particles: Particle = undefined;
 
-var player: Player = undefined;
+var rand = std.Random.DefaultPrng.init(1337);
+pub var player: Player = undefined;
 pub fn init(seed: u32) !void {
     player = try Player.init();
     try player.register_input();
@@ -21,6 +24,8 @@ pub fn init(seed: u32) !void {
     try worldgen.init(seed);
 
     chunkMap = ChunkMap.init(util.allocator());
+
+    particles = try Particle.new();
 }
 
 pub fn deinit() void {
@@ -30,6 +35,8 @@ pub fn deinit() void {
     }
     chunkMap.deinit();
     player.deinit();
+
+    particles.deinit();
 
     worldgen.deinit();
 }
@@ -45,8 +52,22 @@ pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
     }
 }
 
+var count: usize = 0;
 pub fn update() !void {
     player.update();
+
+    count += 1;
+
+    for (0..8) |_| {
+        const rx = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
+        const rz = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
+        try particles.add_particle(Particle.Particle{
+            .pos = [_]f32{ player.transform.pos[0] + rx * 0.25, player.transform.pos[1] + 24.0, player.transform.pos[2] + rz * 0.25 },
+            .color = [_]u8{ 0x46, 0x67, 0xC3 },
+            .vel = [_]f32{ 0, -48, 0 },
+            .lifetime = 300,
+        });
+    }
 
     // We have a new location -- figure out what chunks are needed
     const CHUNK_RADIUS = 2;
@@ -103,6 +124,8 @@ pub fn update() !void {
     for (chunkMap.values()) |v| {
         try v.update();
     }
+
+    try particles.update();
 }
 
 pub fn draw() void {
@@ -111,4 +134,5 @@ pub fn draw() void {
     }
 
     player.draw();
+    particles.draw();
 }

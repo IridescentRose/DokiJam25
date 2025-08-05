@@ -402,6 +402,8 @@ pub fn update(self: *Self) void {
 }
 
 pub fn draw(self: *Self) void {
+    gfx.shader.use_render_shader();
+
     self.camera.update();
     self.transform.pos[1] += player_size[1];
     gfx.shader.set_model(self.transform.get_matrix());

@@ -168,6 +168,7 @@ pub fn update(self: *Self) !void {
 pub fn draw(self: *Self) void {
     if (self.mesh.indices.items.len != 0 and self.populated) {
         // self.transform.rot[1] += 0.1;
+        gfx.shader.use_render_shader();
         gfx.shader.set_model(self.transform.get_matrix());
 
         self.mesh.draw();

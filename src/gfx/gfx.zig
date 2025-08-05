@@ -5,6 +5,7 @@ const gl = @import("gl.zig");
 pub const zm = @import("zmath");
 pub const Mesh = @import("mesh.zig");
 pub const TexMesh = @import("texmesh.zig");
+pub const ParticleMesh = @import("particlemesh.zig");
 pub const texture = @import("textures.zig");
 pub const window = @import("window.zig");
 pub const shader = @import("shaders.zig");
@@ -45,6 +46,9 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
 
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LESS);
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     shader.set_model(zm.identity());
     shader.set_projview(zm.perspectiveFovRhGl(90.0, 16.0 / 9.0, 0.3, 1000.0));

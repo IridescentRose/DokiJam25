@@ -7,7 +7,12 @@ const Transform = @import("../gfx/transform.zig");
 const Self = @This();
 const gl = @import("../gfx/gl.zig");
 
+pub const ParticleKind = enum(u8) {
+    Water,
+};
+
 pub const Particle = struct {
+    kind: ParticleKind,
     pos: [3]f32,
     color: [3]u8,
     vel: [3]f32,
@@ -42,20 +47,62 @@ pub fn deinit(self: *Self) void {
     self.particles.deinit();
 }
 
+var count: usize = 0;
 pub fn update(self: *Self) !void {
     self.mesh.instances.clearAndFree(util.allocator());
 
     for (self.particles.items) |*particle| {
+        if (particle.lifetime == 0) continue;
+
+        particle.lifetime -= 1;
         if (particle.lifetime > 0) {
             try self.mesh.instances.append(util.allocator(), gfx.ParticleMesh.Instance{
                 .vert = [_]f32{ particle.pos[0], particle.pos[1], particle.pos[2] },
                 .col = particle.color,
             });
 
-            particle.pos[0] += particle.vel[0] * 1.0 / 60.0;
-            particle.pos[1] += particle.vel[1] * 1.0 / 60.0;
-            particle.pos[2] += particle.vel[2] * 1.0 / 60.0;
-            particle.lifetime -= 1;
+            const final_pos = [_]f32{
+                particle.pos[0] + particle.vel[0] * 1.0 / 60.0,
+                particle.pos[1] + particle.vel[1] * 1.0 / 60.0,
+                particle.pos[2] + particle.vel[2] * 1.0 / 60.0,
+            };
+
+            var curr_pos = particle.pos;
+
+            const STEPS = 50;
+            const step_size = 1.0 / @as(f32, @floatFromInt(STEPS));
+            for (0..STEPS) |_| {
+                curr_pos[0] += (final_pos[0] - curr_pos[0]) * step_size;
+                curr_pos[1] += (final_pos[1] - curr_pos[1]) * step_size;
+                curr_pos[2] += (final_pos[2] - curr_pos[2]) * step_size;
+
+                const subvoxel_coord = [_]isize{
+                    @intFromFloat(curr_pos[0] * c.SUB_BLOCKS_PER_BLOCK),
+                    @intFromFloat(curr_pos[1] * c.SUB_BLOCKS_PER_BLOCK),
+                    @intFromFloat(curr_pos[2] * c.SUB_BLOCKS_PER_BLOCK),
+                };
+
+                if (world.get_voxel(subvoxel_coord) != .Air) {
+                    particle.lifetime = 1;
+
+                    if (particle.kind == .Water) {
+                        count += 1;
+                        if (count % 5000 != 0) continue;
+
+                        const adjusted_subvoxel_coord = [_]isize{
+                            subvoxel_coord[0],
+                            subvoxel_coord[1] + 1, // Rain falls from above
+                            subvoxel_coord[2],
+                        };
+
+                        world.set_voxel(adjusted_subvoxel_coord, .{ .material = .Water, .color = particle.color });
+                    }
+
+                    break;
+                }
+            }
+
+            particle.pos = curr_pos;
         }
     }
 

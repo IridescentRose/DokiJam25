@@ -9,6 +9,7 @@ pub const AtomKind = enum(u8) {
     Air,
     Dirt,
     Stone,
+    Water,
 };
 
 pub const AtomFlags = packed struct(u8) {

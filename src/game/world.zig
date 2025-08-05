@@ -52,16 +52,28 @@ pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
     }
 }
 
+pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
+    const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_SUB_BLOCKS), @divFloor(coord[1], c.CHUNK_SUB_BLOCKS), @divFloor(coord[2], c.CHUNK_SUB_BLOCKS) };
+
+    if (chunkMap.get(chunk_coord)) |chunk| {
+        const idx = Chunk.get_index([_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) });
+        chunk.subvoxels.items[idx] = atom;
+        chunk.dirty = true;
+    }
+}
+
 var count: usize = 0;
 pub fn update() !void {
     player.update();
 
     count += 1;
 
+    // Rain
     for (0..8) |_| {
         const rx = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
         const rz = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
         try particles.add_particle(Particle.Particle{
+            .kind = .Water,
             .pos = [_]f32{ player.transform.pos[0] + rx * 0.25, player.transform.pos[1] + 24.0, player.transform.pos[2] + rz * 0.25 },
             .color = [_]u8{ 0x46, 0x67, 0xC3 },
             .vel = [_]f32{ 0, -48, 0 },

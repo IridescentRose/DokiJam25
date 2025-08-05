@@ -18,12 +18,10 @@ pub const AtomFlags = packed struct(u8) {
 pub const Atom = struct {
     material: AtomKind,
     color: [3]u8,
-    state: u8,
-    flags: AtomFlags,
 };
 
 transform: Transform,
-subvoxels: std.MultiArrayList(Atom),
+subvoxels: std.ArrayList(Atom),
 mesh: gfx.Mesh,
 dirty: bool,
 populated: bool,
@@ -34,12 +32,15 @@ const Self = @This();
 pub fn new(world_pos: [3]f32, world_coord: [3]isize) !Self {
     var res: Self = .{
         .dirty = true,
-        .subvoxels = std.MultiArrayList(Atom){},
+        .subvoxels = std.ArrayList(Atom).init(util.allocator()),
         .transform = Transform.new(),
         .populated = false,
         .mesh = try gfx.Mesh.new(),
         .coord = world_coord,
     };
+
+    try res.subvoxels.resize(c.CHUNK_SUBVOXEL_SIZE);
+    @memset(res.subvoxels.items, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
 
     res.transform.pos = world_pos;
     res.transform.scale = @splat(1.0 / @as(f32, @floatFromInt(c.SUB_BLOCKS_PER_BLOCK)));
@@ -49,11 +50,38 @@ pub fn new(world_pos: [3]f32, world_coord: [3]isize) !Self {
 
 pub fn deinit(self: *Self) void {
     self.mesh.deinit();
-    self.subvoxels.deinit(util.allocator());
+    self.subvoxels.deinit();
 }
 
+pub fn get_block_index(v: [3]usize) usize {
+    return (((v[1] * c.CHUNK_BLOCKS) + v[2]) * c.CHUNK_BLOCKS + v[0]) * c.SUBVOXEL_SIZE;
+}
+
+pub fn get_sub_block_index(v: [3]usize) usize {
+    return ((v[1] * c.SUB_BLOCKS_PER_BLOCK) + v[2]) * c.SUB_BLOCKS_PER_BLOCK + v[0];
+}
+
+// Assumes a sub-block coordinate
 pub fn get_index(v: [3]usize) usize {
-    return ((v[1] * c.CHUNK_SUB_BLOCKS) + v[2]) * c.CHUNK_SUB_BLOCKS + v[0];
+    const block_coord = [_]usize{
+        @intCast(@divFloor(v[0], c.SUB_BLOCKS_PER_BLOCK)),
+        @intCast(@divFloor(v[1], c.SUB_BLOCKS_PER_BLOCK)),
+        @intCast(@divFloor(v[2], c.SUB_BLOCKS_PER_BLOCK)),
+    };
+
+    // std.debug.print("Block coord: {any}, {any}, {any}\n", .{ block_coord[0], block_coord[1], block_coord[2] });
+
+    const block_idx = get_block_index(block_coord);
+
+    const sub_coord = [_]usize{
+        @intCast(@mod(v[0], c.SUB_BLOCKS_PER_BLOCK)),
+        @intCast(@mod(v[1], c.SUB_BLOCKS_PER_BLOCK)),
+        @intCast(@mod(v[2], c.SUB_BLOCKS_PER_BLOCK)),
+    };
+
+    const sub_idx = get_sub_block_index(sub_coord);
+
+    return block_idx + sub_idx;
 }
 
 fn try_add_face(self: *Self, neighbor_v: [3]isize, v: [3]usize, face: u3) !void {
@@ -68,7 +96,7 @@ fn try_add_face(self: *Self, neighbor_v: [3]isize, v: [3]usize, face: u3) !void 
             break :blk world.get_voxel(world_coord);
         } else {
             const idx = get_index([_]usize{ @intCast(neighbor_v[0]), @intCast(neighbor_v[1]), @intCast(neighbor_v[2]) });
-            break :blk self.subvoxels.items(.material)[idx];
+            break :blk self.subvoxels.items[idx].material;
         }
     };
 
@@ -79,7 +107,7 @@ fn try_add_face(self: *Self, neighbor_v: [3]isize, v: [3]usize, face: u3) !void 
 
 fn add_face(self: *Self, v: [3]usize, face: u3) !void {
     const idx = get_index(v);
-    const val: [3]u8 = self.subvoxels.items(.color)[idx];
+    const val: [3]u8 = self.subvoxels.items[idx].color;
 
     try self.mesh.instances.append(util.allocator(), .{ .col = val, .vert = .{
         .x = @intCast(v[0]),
@@ -108,7 +136,7 @@ pub fn update(self: *Self) !void {
                 const v = [_]usize{ x, y, z };
                 const idx = get_index(v);
 
-                const block_type: AtomKind = self.subvoxels.items(.material)[idx];
+                const block_type: AtomKind = self.subvoxels.items[idx].material;
                 if (block_type == .Air)
                     continue;
 

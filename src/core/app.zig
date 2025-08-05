@@ -37,50 +37,50 @@ pub fn deinit() void {
 
 pub fn event_loop() !void {
     // TODO: Customize?
-    const frame_rate = 60;
-    const frame_time_ns = std.time.ns_per_s / frame_rate;
+    // const frame_rate = 60;
+    // const frame_time_ns = std.time.ns_per_s / frame_rate;
 
-    var next_frame_start = std.time.nanoTimestamp() + frame_time_ns;
+    // var next_frame_start = std.time.nanoTimestamp() + frame_time_ns;
     while (running) {
-        const now = std.time.nanoTimestamp();
+        // const now = std.time.nanoTimestamp();
 
-        if (now < next_frame_start) {
-            // Poll for events
-            var new_time = std.time.nanoTimestamp();
-            while (new_time < next_frame_start) {
-                if (sdl3.events.poll()) |event| {
-                    switch (event) {
-                        .quit, .terminating => running = false,
-                        .key_down, .key_up => |t| {
-                            if (t.scancode != null) {
-                                if (input.get_key_callback(t.scancode.?)) |cbd| {
-                                    cbd.cb(cbd.ctx, t.down);
-                                }
-                            }
-                        },
-                        .mouse_button_down, .mouse_button_up => |t| {
-                            if (input.get_mouse_callback(t.button)) |cbd| {
-                                cbd.cb(cbd.ctx, t.down);
-                            }
-                        },
-                        .mouse_motion => |t| {
-                            if (input.mouse_relative_handle) |h| {
-                                h.cb(h.ctx, t.x_rel, t.y_rel);
-                            }
-                        },
-                        else => {
-                            // std.debug.print("Received unknown event! {any}\n", .{event});
-                        },
+        // if (now < next_frame_start) {
+        // Poll for events
+        // var new_time = std.time.nanoTimestamp();
+        // while (new_time < next_frame_start) {
+        while (sdl3.events.poll()) |event| {
+            switch (event) {
+                .quit, .terminating => running = false,
+                .key_down, .key_up => |t| {
+                    if (t.scancode != null) {
+                        if (input.get_key_callback(t.scancode.?)) |cbd| {
+                            cbd.cb(cbd.ctx, t.down);
+                        }
                     }
-                }
-
-                new_time = std.time.nanoTimestamp();
-                // TODO: Sleep so we don't hang this thread forever? (Within system limitations)
+                },
+                .mouse_button_down, .mouse_button_up => |t| {
+                    if (input.get_mouse_callback(t.button)) |cbd| {
+                        cbd.cb(cbd.ctx, t.down);
+                    }
+                },
+                .mouse_motion => |t| {
+                    if (input.mouse_relative_handle) |h| {
+                        h.cb(h.ctx, t.x_rel, t.y_rel);
+                    }
+                },
+                else => {
+                    // std.debug.print("Received unknown event! {any}\n", .{event});
+                },
             }
-        } else {
-            // TODO: Make this more serious
-            std.debug.print("Event handling skipped, running late!\n", .{});
         }
+
+        // new_time = std.time.nanoTimestamp();
+        // TODO: Sleep so we don't hang this thread forever? (Within system limitations)
+        // }
+        // } else {
+        // TODO: Make this more serious
+        //     std.debug.print("Event handling skipped, running late!\n", .{});
+        // }
 
         // Simulation update w/ input
         try sm.update();
@@ -91,14 +91,14 @@ pub fn event_loop() !void {
         // Commit to GPU and render to screen
         try gfx.finalize();
 
-        next_frame_start += frame_time_ns;
+        // next_frame_start += frame_time_ns;
 
-        const drift_limit_ns = frame_time_ns * 2;
-        const curr_time = std.time.nanoTimestamp();
+        // const drift_limit_ns = frame_time_ns * 2;
+        // const curr_time = std.time.nanoTimestamp();
 
-        if (curr_time > next_frame_start + drift_limit_ns) {
-            next_frame_start = curr_time;
-            std.debug.print("Fell 2 frames behind!\n", .{});
-        }
+        // if (curr_time > next_frame_start + drift_limit_ns) {
+        //     next_frame_start = curr_time;
+        //     std.debug.print("Fell 2 frames behind!\n", .{});
+        // }
     }
 }

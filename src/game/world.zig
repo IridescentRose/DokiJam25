@@ -12,6 +12,13 @@ pub const ChunkMap = std.AutoArrayHashMap(ChunkLocation, *Chunk);
 var chunkMap: ChunkMap = undefined;
 var particles: Particle = undefined;
 
+const AtomData = struct {
+    coord: AtomCoord,
+    moves: u8,
+};
+const AtomCoord = [3]isize;
+pub var active_atoms: std.ArrayList(AtomData) = undefined;
+
 var rand = std.Random.DefaultPrng.init(1337);
 pub var player: Player = undefined;
 pub fn init(seed: u32) !void {
@@ -22,6 +29,8 @@ pub fn init(seed: u32) !void {
     player.transform.pos[2] = 0;
 
     try worldgen.init(seed);
+
+    active_atoms = std.ArrayList(AtomData).init(util.allocator());
 
     chunkMap = ChunkMap.init(util.allocator());
 
@@ -37,6 +46,8 @@ pub fn deinit() void {
     player.deinit();
 
     particles.deinit();
+
+    active_atoms.deinit();
 
     worldgen.deinit();
 }
@@ -81,6 +92,55 @@ pub fn update() !void {
         });
     }
 
+    if (count % 6 == 0) {
+        std.debug.print("Updating particles... Len {}\n", .{active_atoms.items.len});
+        for (active_atoms.items) |*atom| {
+            if (atom.moves == 0) continue;
+
+            const kind = get_voxel(atom.coord);
+            if (kind == .Water) {
+                // Water accumulation
+                const below_coord = [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] };
+                if (get_voxel(below_coord) == .Air) {
+                    set_voxel(below_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
+                    set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                    atom.coord = below_coord;
+                    atom.moves -= 1;
+                    continue;
+                }
+
+                // Otherwise we randomly try to spread out
+                const next_coords = [_][3]isize{
+                    [_]isize{ atom.coord[0] + 1, atom.coord[1], atom.coord[2] },
+                    [_]isize{ atom.coord[0] - 1, atom.coord[1], atom.coord[2] },
+                    [_]isize{ atom.coord[0], atom.coord[1], atom.coord[2] + 1 },
+                    [_]isize{ atom.coord[0], atom.coord[1], atom.coord[2] - 1 },
+                };
+
+                const spread_dir = rand.random().int(u32) % 4;
+                const next_coord = next_coords[spread_dir];
+                if (get_voxel(next_coord) == .Air) {
+                    set_voxel(next_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
+                    set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                    atom.coord = next_coord;
+                }
+            }
+        }
+
+        if (active_atoms.items.len != 0) {
+            var i: usize = active_atoms.items.len - 1;
+            while (i > 0) : (i -= 1) {
+                if (active_atoms.items[i].moves == 0) {
+                    _ = active_atoms.swapRemove(i);
+                }
+            }
+        }
+
+        if (active_atoms.items.len != 0 and active_atoms.items[0].moves == 0) {
+            _ = active_atoms.orderedRemove(0);
+        }
+    }
+
     // We have a new location -- figure out what chunks are needed
     const CHUNK_RADIUS = 2;
 
@@ -105,6 +165,9 @@ pub fn update() !void {
                 const chunk = try util.allocator().create(Chunk);
                 chunk.* = try Chunk.new([_]f32{ @floatFromInt(chunk_coord[0] * c.CHUNK_BLOCKS), 0, @floatFromInt(chunk_coord[2] * c.CHUNK_BLOCKS) }, chunk_coord);
                 try worldgen.fill(chunk, [_]isize{ chunk_coord[0], chunk_coord[2] });
+
+                try chunk.update();
+                chunk.ticks = rand.random().int(u32) % 60; // Randomize the tick count to avoid all chunks updating at the same time
 
                 try chunkMap.put(
                     chunk_coord,

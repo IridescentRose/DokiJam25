@@ -51,6 +51,10 @@ var count: usize = 0;
 pub fn update(self: *Self) !void {
     self.mesh.instances.clearAndFree(util.allocator());
 
+    if (self.particles.items.len == 0) {
+        return;
+    }
+
     for (self.particles.items) |*particle| {
         if (particle.lifetime == 0) continue;
 
@@ -69,7 +73,7 @@ pub fn update(self: *Self) !void {
 
             var curr_pos = particle.pos;
 
-            const STEPS = 50;
+            const STEPS = 100;
             const step_size = 1.0 / @as(f32, @floatFromInt(STEPS));
             for (0..STEPS) |_| {
                 curr_pos[0] += (final_pos[0] - curr_pos[0]) * step_size;
@@ -87,7 +91,7 @@ pub fn update(self: *Self) !void {
 
                     if (particle.kind == .Water) {
                         count += 1;
-                        if (count % 5000 != 0) continue;
+                        if (count % 10 != 0) continue;
 
                         const adjusted_subvoxel_coord = [_]isize{
                             subvoxel_coord[0],
@@ -96,6 +100,10 @@ pub fn update(self: *Self) !void {
                         };
 
                         world.set_voxel(adjusted_subvoxel_coord, .{ .material = .Water, .color = particle.color });
+                        try world.active_atoms.append(.{
+                            .coord = adjusted_subvoxel_coord,
+                            .moves = 20, // Water particles can move around a bit
+                        });
                     }
 
                     break;
@@ -111,6 +119,10 @@ pub fn update(self: *Self) !void {
         if (self.particles.items[i].lifetime == 0) {
             _ = self.particles.swapRemove(i);
         }
+    }
+
+    if (self.particles.items.len != 0 and self.particles.items[0].lifetime == 0) {
+        _ = self.particles.orderedRemove(0);
     }
 
     self.mesh.update();

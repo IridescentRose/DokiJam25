@@ -27,6 +27,7 @@ mesh: gfx.Mesh,
 dirty: bool,
 populated: bool,
 coord: [3]isize,
+ticks: u32 = 0,
 
 const Self = @This();
 
@@ -119,6 +120,9 @@ fn add_face(self: *Self, v: [3]usize, face: u3) !void {
 }
 
 pub fn update(self: *Self) !void {
+    self.ticks += 1;
+    if (self.ticks % 30 != 0) return;
+
     if (!self.dirty)
         return;
 

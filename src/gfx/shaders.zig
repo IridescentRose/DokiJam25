@@ -90,26 +90,32 @@ pub fn init() !void {
 }
 
 pub fn set_model(matrix: zm.Mat) void {
+    use_render_shader();
     gl.uniformMatrix4fv(modelLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
 }
 
 pub fn set_projview(matrix: zm.Mat) void {
+    use_render_shader();
     gl.uniformMatrix4fv(vpLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
 }
 
 pub fn set_part_model(matrix: zm.Mat) void {
+    use_particle_shader();
     gl.uniformMatrix4fv(partModelLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
 }
 
 pub fn set_part_projview(matrix: zm.Mat) void {
+    use_particle_shader();
     gl.uniformMatrix4fv(partVpLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
 }
 
 pub fn set_part_yaw(yaw: f32) void {
+    use_particle_shader();
     gl.uniform1f(partYawLoc, yaw);
 }
 
 pub fn set_part_pitch(pitch: f32) void {
+    use_particle_shader();
     gl.uniform1f(partPitchLoc, pitch);
 }
 

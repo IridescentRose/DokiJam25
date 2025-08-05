@@ -24,9 +24,9 @@ pub var player: Player = undefined;
 pub fn init(seed: u32) !void {
     player = try Player.init();
     try player.register_input();
-    player.transform.pos[0] = 0;
+    player.transform.pos[0] = 8;
     player.transform.pos[1] = 14;
-    player.transform.pos[2] = 0;
+    player.transform.pos[2] = 8;
 
     try worldgen.init(seed);
 

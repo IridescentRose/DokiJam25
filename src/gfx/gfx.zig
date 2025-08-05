@@ -25,8 +25,8 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
     // Forces using DESKTOP OpenGL instead
     try sdl3.hints.set(.opengl_es_driver, "0");
 
-    // Force OpenGL 3.3
-    _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    // Force OpenGL 4.3
+    _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_MINOR_VERSION, 3);
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_PROFILE_MASK, sdl3.c.SDL_GL_CONTEXT_PROFILE_CORE);
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
@@ -111,8 +111,7 @@ pub fn clear_color(r: f32, g: f32, b: f32, a: f32) void {
 
 pub fn clear() void {
     fbo.bind();
+    shader.use_render_shader();
     gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
     gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    shader.use_render_shader();
 }

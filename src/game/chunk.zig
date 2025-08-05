@@ -4,6 +4,7 @@ const util = @import("../core/util.zig");
 const c = @import("consts.zig");
 const world = @import("world.zig");
 const Transform = @import("../gfx/transform.zig");
+const ChunkMesh = @import("chunkmesh.zig");
 
 pub const AtomKind = enum(u8) {
     Air,
@@ -19,6 +20,12 @@ pub const AtomFlags = packed struct(u8) {
 pub const Atom = struct {
     material: AtomKind,
     color: [3]u8,
+
+    comptime {
+        if (@sizeOf(Atom) != 4) {
+            @compileError("Atom struct size must be 4 bytes");
+        }
+    }
 };
 
 transform: Transform,
@@ -28,6 +35,7 @@ dirty: bool,
 populated: bool,
 coord: [3]isize,
 ticks: u32 = 0,
+cmesh: ChunkMesh,
 
 const Self = @This();
 
@@ -39,6 +47,7 @@ pub fn new(world_pos: [3]f32, world_coord: [3]isize) !Self {
         .populated = false,
         .mesh = try gfx.Mesh.new(),
         .coord = world_coord,
+        .cmesh = try ChunkMesh.new(),
     };
 
     try res.subvoxels.resize(c.CHUNK_SUBVOXEL_SIZE);
@@ -52,6 +61,7 @@ pub fn new(world_pos: [3]f32, world_coord: [3]isize) !Self {
 
 pub fn deinit(self: *Self) void {
     self.mesh.deinit();
+    self.cmesh.deinit();
     self.subvoxels.deinit();
 }
 
@@ -168,14 +178,17 @@ pub fn update(self: *Self) !void {
 
     const after = std.time.nanoTimestamp();
     std.debug.print("Built chunk in {}us!\n", .{@divTrunc(after - before, std.time.ns_per_us)});
+
+    self.cmesh.update_chunk_data(@ptrCast(@alignCast(self.subvoxels.items)));
 }
 
 pub fn draw(self: *Self) void {
     if (self.mesh.indices.items.len != 0 and self.populated) {
-        // self.transform.rot[1] += 0.1;
         gfx.shader.use_render_shader();
         gfx.shader.set_model(self.transform.get_matrix());
 
         self.mesh.draw();
+
+        self.cmesh.draw();
     }
 }

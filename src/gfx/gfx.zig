@@ -91,8 +91,11 @@ pub fn deinit() void {
 
 pub fn finalize() !void {
     gl.bindFramebuffer(gl.FRAMEBUFFER, 0);
+    const attachment = [_]gl.GLenum{gl.COLOR_ATTACHMENT0};
+    gl.drawBuffers(1, &attachment);
+
     gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     shader.use_post_shader();
 
     gl.activeTexture(gl.TEXTURE0);
@@ -113,5 +116,5 @@ pub fn clear() void {
     fbo.bind();
     shader.use_render_shader();
     gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 }

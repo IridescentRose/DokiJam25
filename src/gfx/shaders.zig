@@ -2,6 +2,7 @@ const std = @import("std");
 const gl = @import("gl.zig");
 const assert = std.debug.assert;
 const util = @import("../core/util.zig");
+const window = @import("window.zig");
 const zm = @import("zmath");
 
 const vert_source = @embedFile("shader_raw/uber.vert");
@@ -13,9 +14,13 @@ const post_frag_source = @embedFile("shader_raw/post.frag");
 const part_vert_source = @embedFile("shader_raw/particle.vert");
 const part_frag_source = @embedFile("shader_raw/particle.frag");
 
+const ray_vert_source = @embedFile("shader_raw/ray.vert");
+const ray_frag_source = @embedFile("shader_raw/ray.frag");
+
 var uber: c_uint = 0;
 var post: c_uint = 0;
 var part: c_uint = 0;
+var ray: c_uint = 0;
 
 var vpLoc: c_int = 0;
 var modelLoc: c_int = 0;
@@ -24,6 +29,10 @@ var partVpLoc: c_int = 0;
 var partModelLoc: c_int = 0;
 var partYawLoc: c_int = 0;
 var partPitchLoc: c_int = 0;
+
+var rayResolutionLoc: c_int = 0;
+var rayVpLoc: c_int = 0;
+var rayInvVpLoc: c_int = 0;
 
 fn compile_shader(source: [*c]const [*c]const gl.GLchar, stype: c_uint) c_uint {
     const shad = gl.createShader(stype);
@@ -80,6 +89,13 @@ pub fn init() !void {
     const part_f = compile_shader(@ptrCast(&part_frag_source), gl.FRAGMENT_SHADER);
     part = create_program(part_v, part_f);
 
+    const ray_v = compile_shader(@ptrCast(&ray_vert_source), gl.VERTEX_SHADER);
+    const ray_f = compile_shader(@ptrCast(&ray_frag_source), gl.FRAGMENT_SHADER);
+    ray = create_program(ray_v, ray_f);
+    rayResolutionLoc = gl.getUniformLocation(ray, "uResolution");
+    rayVpLoc = gl.getUniformLocation(ray, "uProjView");
+    rayInvVpLoc = gl.getUniformLocation(ray, "uInvProjView");
+
     use_particle_shader();
     partVpLoc = gl.getUniformLocation(part, "projView");
     partModelLoc = gl.getUniformLocation(part, "model");
@@ -134,4 +150,23 @@ pub fn use_post_shader() void {
 
 pub fn use_particle_shader() void {
     gl.useProgram(part);
+}
+
+pub fn use_ray_shader() void {
+    gl.useProgram(ray);
+}
+
+pub fn set_ray_resolution() void {
+    use_ray_shader();
+    gl.uniform2f(rayResolutionLoc, @floatFromInt(window.get_width() catch 0), @floatFromInt(window.get_height() catch 0));
+}
+
+pub fn set_ray_vp(matrix: zm.Mat) void {
+    use_ray_shader();
+    gl.uniformMatrix4fv(rayVpLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_ray_inv_vp(matrix: zm.Mat) void {
+    use_ray_shader();
+    gl.uniformMatrix4fv(rayInvVpLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
 }

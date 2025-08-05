@@ -5,6 +5,7 @@ const Player = @import("player.zig");
 const worldgen = @import("worldgen.zig");
 const util = @import("../core/util.zig");
 const Particle = @import("particle.zig");
+const gl = @import("../gfx/gl.zig");
 
 pub const ChunkLocation = [3]isize;
 pub const ChunkMap = std.AutoArrayHashMap(ChunkLocation, *Chunk);

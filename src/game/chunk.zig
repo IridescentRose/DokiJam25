@@ -130,64 +130,81 @@ fn add_face(self: *Self, v: [3]usize, face: u3) !void {
 }
 
 pub fn update(self: *Self) !void {
-    self.ticks += 1;
-    if (self.ticks % 30 != 0) return;
+    // self.ticks += 1;
+    // if (self.ticks % 30 != 0) return;
 
     if (!self.dirty)
         return;
 
-    if (!self.populated)
-        return;
-    const before = std.time.nanoTimestamp();
+    // if (!self.populated)
+    //     return;
+    // const before = std.time.nanoTimestamp();
 
-    self.mesh.clear();
+    // self.mesh.clear();
 
-    try self.mesh.vertices.appendSlice(util.allocator(), &c.top_face);
-    try self.mesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });
+    // try self.mesh.vertices.appendSlice(util.allocator(), &c.top_face);
+    // try self.mesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });
 
-    for (0..c.CHUNK_SUB_BLOCKS) |y| {
-        for (0..c.CHUNK_SUB_BLOCKS) |z| {
-            for (0..c.CHUNK_SUB_BLOCKS) |x| {
-                const v = [_]usize{ x, y, z };
-                const idx = get_index(v);
-
-                const block_type: AtomKind = self.subvoxels.items[idx].material;
-                if (block_type == .Air)
-                    continue;
-
-                // TODO: World lookups
-
-                const iv = [_]isize{ @intCast(x), @intCast(y), @intCast(z) };
-
-                try self.try_add_face([_]isize{ iv[0], iv[1], iv[2] + 1 }, v, 2);
-                try self.try_add_face([_]isize{ iv[0], iv[1], iv[2] - 1 }, v, 3);
-                try self.try_add_face([_]isize{ iv[0], iv[1] + 1, iv[2] }, v, 0);
-                try self.try_add_face([_]isize{ iv[0], iv[1] - 1, iv[2] }, v, 1);
-                try self.try_add_face([_]isize{ iv[0] + 1, iv[1], iv[2] }, v, 5);
-                try self.try_add_face([_]isize{ iv[0] - 1, iv[1], iv[2] }, v, 4);
-            }
-        }
-    }
-
-    // Fix overalloc
-    self.mesh.vertices.shrinkAndFree(util.allocator(), self.mesh.vertices.items.len);
-    self.mesh.indices.shrinkAndFree(util.allocator(), self.mesh.indices.items.len);
-
-    self.dirty = false;
-    self.mesh.update();
-
-    const after = std.time.nanoTimestamp();
-    std.debug.print("Built chunk in {}us!\n", .{@divTrunc(after - before, std.time.ns_per_us)});
-
+    self.cmesh.clear();
+    try self.cmesh.vertices.appendSlice(util.allocator(), &[_]ChunkMesh.Vertex{
+        ChunkMesh.Vertex{
+            .vert = [_]f32{ -1, 1, 0 },
+        },
+        ChunkMesh.Vertex{
+            .vert = [_]f32{ -1, -1, 0 },
+        },
+        ChunkMesh.Vertex{
+            .vert = [_]f32{ 1, -1, 0 },
+        },
+        ChunkMesh.Vertex{
+            .vert = [_]f32{ 1, 1, 0 },
+        },
+    });
+    try self.cmesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });
     self.cmesh.update_chunk_data(@ptrCast(@alignCast(self.subvoxels.items)));
+    self.cmesh.update();
+
+    // for (0..c.CHUNK_SUB_BLOCKS) |y| {
+    //     for (0..c.CHUNK_SUB_BLOCKS) |z| {
+    //         for (0..c.CHUNK_SUB_BLOCKS) |x| {
+    //             const v = [_]usize{ x, y, z };
+    //             const idx = get_index(v);
+
+    //             const block_type: AtomKind = self.subvoxels.items[idx].material;
+    //             if (block_type == .Air)
+    //                 continue;
+
+    //             // TODO: World lookups
+
+    //             const iv = [_]isize{ @intCast(x), @intCast(y), @intCast(z) };
+
+    //             try self.try_add_face([_]isize{ iv[0], iv[1], iv[2] + 1 }, v, 2);
+    //             try self.try_add_face([_]isize{ iv[0], iv[1], iv[2] - 1 }, v, 3);
+    //             try self.try_add_face([_]isize{ iv[0], iv[1] + 1, iv[2] }, v, 0);
+    //             try self.try_add_face([_]isize{ iv[0], iv[1] - 1, iv[2] }, v, 1);
+    //             try self.try_add_face([_]isize{ iv[0] + 1, iv[1], iv[2] }, v, 5);
+    //             try self.try_add_face([_]isize{ iv[0] - 1, iv[1], iv[2] }, v, 4);
+    //         }
+    //     }
+    // }
+
+    // // Fix overalloc
+    // self.mesh.vertices.shrinkAndFree(util.allocator(), self.mesh.vertices.items.len);
+    // self.mesh.indices.shrinkAndFree(util.allocator(), self.mesh.indices.items.len);
+
+    // self.dirty = false;
+    // self.mesh.update();
+
+    // const after = std.time.nanoTimestamp();
+    // std.debug.print("Built chunk in {}us!\n", .{@divTrunc(after - before, std.time.ns_per_us)});
+
 }
 
 pub fn draw(self: *Self) void {
-    if (self.mesh.indices.items.len != 0 and self.populated) {
-        gfx.shader.use_render_shader();
-        gfx.shader.set_model(self.transform.get_matrix());
-
-        self.mesh.draw();
+    if (self.populated) {
+        // gfx.shader.use_render_shader();
+        // gfx.shader.set_model(self.transform.get_matrix());
+        // self.mesh.draw();
 
         self.cmesh.draw();
     }

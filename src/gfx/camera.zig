@@ -33,7 +33,7 @@ pub fn update(self: *Self) void {
 pub fn get_projection_matrix(self: *Self) zm.Mat {
     const width: f32 = @floatFromInt(window.get_width() catch 0);
     const height: f32 = @floatFromInt(window.get_height() catch 0);
-    return zm.perspectiveFovRhGl(std.math.degreesToRadians(self.fov), width / height, 0.3, 1000.0);
+    return zm.perspectiveFovRhGl(std.math.degreesToRadians(self.fov), width / height, 0.3, 250.0);
 }
 
 pub fn get_projview_matrix(self: *Self) zm.Mat {

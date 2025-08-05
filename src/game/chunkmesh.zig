@@ -2,6 +2,9 @@ const std = @import("std");
 const gl = @import("../gfx/gl.zig");
 const util = @import("../core/util.zig");
 const c = @import("consts.zig");
+const shader = @import("../gfx/shaders.zig");
+const world = @import("world.zig");
+const zm = @import("zmath");
 
 pub const Vertex = struct {
     vert: [3]f32,
@@ -26,15 +29,23 @@ pub fn new() !Self {
     gl.genBuffers(1, &res.ebo);
     gl.genBuffers(1, &res.ssbo);
 
+    res.vertices = try std.ArrayListUnmanaged(Vertex).initCapacity(util.allocator(), 32);
+    res.indices = try std.ArrayListUnmanaged(Index).initCapacity(util.allocator(), 32);
+
     gl.bindVertexArray(res.vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, res.vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, @intCast(@sizeOf(Vertex) * res.vertices.items.len), res.vertices.items.ptr, gl.STATIC_DRAW);
+
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @ptrFromInt(0 + @offsetOf(Vertex, "vert")));
+    gl.enableVertexAttribArray(0);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, res.ebo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, @intCast(@sizeOf(Index) * res.indices.items.len), res.indices.items.ptr, gl.STATIC_DRAW);
 
     // Pre-allocate the ssbo for chunk data
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, res.ssbo);
     gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(@sizeOf(u32) * c.CHUNK_SUBVOXEL_SIZE), null, gl.DYNAMIC_DRAW);
     gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, res.ssbo);
-
-    res.vertices = try std.ArrayListUnmanaged(Vertex).initCapacity(util.allocator(), 32);
-    res.indices = try std.ArrayListUnmanaged(Index).initCapacity(util.allocator(), 32);
 
     return res;
 }
@@ -72,11 +83,17 @@ pub fn update_chunk_data(self: *Self, data: []u32) void {
 
     // Orphan the buffer to avoid stalls
     gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(@sizeOf(u32) * c.CHUNK_SUBVOXEL_SIZE), null, gl.DYNAMIC_DRAW);
-
     gl.bufferSubData(gl.SHADER_STORAGE_BUFFER, 0, @intCast(data.len * @sizeOf(u32)), data.ptr);
+
+    // std.debug.print("Updated {} bytes of chunk data\n", .{data.len * @sizeOf(u32)});
 }
 
 pub fn draw(self: *Self) void {
+    shader.use_ray_shader();
+    shader.set_ray_resolution();
+    shader.set_ray_vp(world.player.camera.get_projview_matrix());
+    shader.set_ray_inv_vp(zm.inverse(world.player.camera.get_projview_matrix()));
+
     gl.bindVertexArray(self.vao);
     gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, self.ssbo);
 

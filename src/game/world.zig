@@ -34,6 +34,18 @@ pub fn init(seed: u32) !void {
 
     chunkMap = ChunkMap.init(util.allocator());
 
+    const chunk = try util.allocator().create(Chunk);
+    chunk.* = try Chunk.new([_]f32{ 0, 0, 0 }, [_]isize{ 0, 0, 0 });
+    try worldgen.fill(chunk, [_]isize{ 0, 0 });
+
+    try chunk.update();
+    chunk.ticks = rand.random().int(u32) % 60; // Randomize the tick count to avoid all chunks updating at the same time
+
+    try chunkMap.put(
+        [_]isize{ 0, 0, 0 },
+        chunk,
+    );
+
     particles = try Particle.new();
 }
 
@@ -70,6 +82,63 @@ pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
         const idx = Chunk.get_index([_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) });
         chunk.subvoxels.items[idx] = atom;
         chunk.dirty = true;
+    }
+}
+
+fn update_player_surrounding_chunks() !void {
+    // We have a new location -- figure out what chunks are needed
+    const CHUNK_RADIUS = 2;
+
+    const curr_player_chunk = [_]isize{
+        @divTrunc(@as(isize, @intFromFloat(player.transform.pos[0])), c.CHUNK_BLOCKS),
+        @divTrunc(@as(isize, @intFromFloat(player.transform.pos[1])), c.CHUNK_BLOCKS),
+        @divTrunc(@as(isize, @intFromFloat(player.transform.pos[2])), c.CHUNK_BLOCKS),
+    };
+
+    var target_chunks = std.ArrayList(ChunkLocation).init(util.allocator());
+    defer target_chunks.deinit();
+
+    var z_curr = curr_player_chunk[2] - CHUNK_RADIUS - 1;
+    while (z_curr <= curr_player_chunk[2] + CHUNK_RADIUS) : (z_curr += 1) {
+        var x_curr = curr_player_chunk[0] - CHUNK_RADIUS - 1;
+        while (x_curr <= curr_player_chunk[0] + CHUNK_RADIUS) : (x_curr += 1) {
+            const chunk_coord = [_]isize{ x_curr, 0, z_curr };
+
+            try target_chunks.append(chunk_coord);
+
+            if (!chunkMap.contains(chunk_coord)) {
+                const chunk = try util.allocator().create(Chunk);
+                chunk.* = try Chunk.new([_]f32{ @floatFromInt(chunk_coord[0] * c.CHUNK_BLOCKS), 0, @floatFromInt(chunk_coord[2] * c.CHUNK_BLOCKS) }, chunk_coord);
+                try worldgen.fill(chunk, [_]isize{ chunk_coord[0], chunk_coord[2] });
+
+                try chunk.update();
+                chunk.ticks = rand.random().int(u32) % 60; // Randomize the tick count to avoid all chunks updating at the same time
+
+                try chunkMap.put(
+                    chunk_coord,
+                    chunk,
+                );
+            }
+        }
+    }
+
+    var extra_chunks = std.ArrayList(ChunkLocation).init(util.allocator());
+    defer extra_chunks.deinit();
+    for (chunkMap.keys()) |k| {
+        for (target_chunks.items) |i| {
+            if (k[0] == i[0] and k[1] == i[1] and k[2] == i[2]) {
+                break;
+            }
+        } else {
+            try extra_chunks.append(k);
+        }
+    }
+
+    for (extra_chunks.items) |i| {
+        var chunk = chunkMap.get(i).?;
+        chunk.deinit();
+        util.allocator().destroy(chunk);
+        _ = chunkMap.swapRemove(i);
     }
 }
 
@@ -141,60 +210,7 @@ pub fn update() !void {
         }
     }
 
-    // We have a new location -- figure out what chunks are needed
-    const CHUNK_RADIUS = 2;
-
-    const curr_player_chunk = [_]isize{
-        @divTrunc(@as(isize, @intFromFloat(player.transform.pos[0])), c.CHUNK_BLOCKS),
-        @divTrunc(@as(isize, @intFromFloat(player.transform.pos[1])), c.CHUNK_BLOCKS),
-        @divTrunc(@as(isize, @intFromFloat(player.transform.pos[2])), c.CHUNK_BLOCKS),
-    };
-
-    var target_chunks = std.ArrayList(ChunkLocation).init(util.allocator());
-    defer target_chunks.deinit();
-
-    var z_curr = curr_player_chunk[2] - CHUNK_RADIUS - 1;
-    while (z_curr <= curr_player_chunk[2] + CHUNK_RADIUS) : (z_curr += 1) {
-        var x_curr = curr_player_chunk[0] - CHUNK_RADIUS - 1;
-        while (x_curr <= curr_player_chunk[0] + CHUNK_RADIUS) : (x_curr += 1) {
-            const chunk_coord = [_]isize{ x_curr, 0, z_curr };
-
-            try target_chunks.append(chunk_coord);
-
-            if (!chunkMap.contains(chunk_coord)) {
-                const chunk = try util.allocator().create(Chunk);
-                chunk.* = try Chunk.new([_]f32{ @floatFromInt(chunk_coord[0] * c.CHUNK_BLOCKS), 0, @floatFromInt(chunk_coord[2] * c.CHUNK_BLOCKS) }, chunk_coord);
-                try worldgen.fill(chunk, [_]isize{ chunk_coord[0], chunk_coord[2] });
-
-                try chunk.update();
-                chunk.ticks = rand.random().int(u32) % 60; // Randomize the tick count to avoid all chunks updating at the same time
-
-                try chunkMap.put(
-                    chunk_coord,
-                    chunk,
-                );
-            }
-        }
-    }
-
-    var extra_chunks = std.ArrayList(ChunkLocation).init(util.allocator());
-    defer extra_chunks.deinit();
-    for (chunkMap.keys()) |k| {
-        for (target_chunks.items) |i| {
-            if (k[0] == i[0] and k[1] == i[1] and k[2] == i[2]) {
-                break;
-            }
-        } else {
-            try extra_chunks.append(k);
-        }
-    }
-
-    for (extra_chunks.items) |i| {
-        var chunk = chunkMap.get(i).?;
-        chunk.deinit();
-        util.allocator().destroy(chunk);
-        _ = chunkMap.swapRemove(i);
-    }
+    // try update_player_surrounding_chunks();
 
     for (chunkMap.values()) |v| {
         try v.update();

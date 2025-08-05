@@ -49,7 +49,7 @@ pub fn update() !void {
     player.update();
 
     // We have a new location -- figure out what chunks are needed
-    const CHUNK_RADIUS = 1;
+    const CHUNK_RADIUS = 2;
 
     const curr_player_chunk = [_]isize{
         @divTrunc(@as(isize, @intFromFloat(player.transform.pos[0])), c.CHUNK_BLOCKS),

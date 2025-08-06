@@ -22,7 +22,7 @@ layout(binding = 1, std430) buffer ChunkBuffer {
 };
 
 layout(binding = 2, std430) buffer ChunkMetaBuffer {
-   ChunkMeta metadata[25];
+   ChunkMeta metadata[49];
 };
 
 const int CHUNK_BLOCKS = 16; // Number of blocks in each chunk
@@ -48,7 +48,7 @@ uint getVoxel(ivec3 p) {
     ivec3 chunkCoord = floorDiv(p, CHUNK_SUB_BLOCKS);
     ivec3 localPos   = p - chunkCoord * CHUNK_SUB_BLOCKS;  
 
-    for (int i = 0; i < 25; i++) {
+    for (int i = 0; i < 49; i++) {
         if (metadata[i].offset < 0) continue;
         if (metadata[i].pos == chunkCoord) {
             uint off = uint(metadata[i].offset);
@@ -85,7 +85,7 @@ void main()
    mapPos   += ivec3(mask) * rayStep;
 
    uint voxel = 0;
-   for (int i = 0; i < 511; i++) {
+   for (int i = 0; i < 767; i++) {
       // 1) figure out which axis we cross next
       mask      = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
       sideDist += vec3(mask) * deltaDist;
@@ -137,7 +137,7 @@ void main()
     }
 
    // fogAmt → [0,1], grows with distance
-   float fogAmt = 1.0 - exp(-0.075 * tWorld);
+   float fogAmt = 1.0 - exp(-0.03 * tWorld);
    fogAmt = clamp(fogAmt, 0.0, 1.0);
 
    // mix scene with fog color

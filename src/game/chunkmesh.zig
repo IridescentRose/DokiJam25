@@ -20,7 +20,7 @@ vao: c_uint,
 
 vertices: std.ArrayListUnmanaged(Vertex),
 indices: std.ArrayListUnmanaged(Index),
-chunks: [25]IndirectionEntry,
+chunks: [49]IndirectionEntry,
 
 const Self = @This();
 
@@ -54,11 +54,11 @@ pub fn new() !Self {
 
     // Pre-allocate the ssbo for chunk data
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, res.ssbo);
-    gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(@sizeOf(u32) * c.CHUNK_SUBVOXEL_SIZE * 25), null, gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(@sizeOf(u32) * c.CHUNK_SUBVOXEL_SIZE * 49), null, gl.DYNAMIC_DRAW);
     gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, res.ssbo);
 
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, res.indirect);
-    gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(@sizeOf([25]IndirectionEntry)), null, gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(@sizeOf([49]IndirectionEntry)), null, gl.DYNAMIC_DRAW);
     gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 2, res.indirect);
 
     return res;

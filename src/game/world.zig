@@ -59,14 +59,14 @@ pub fn init(seed: u32) !void {
 
     active_atoms = std.ArrayList(AtomData).init(util.allocator());
 
-    blocks = try util.allocator().alloc(Chunk.Atom, c.CHUNK_SUBVOXEL_SIZE * 25);
+    blocks = try util.allocator().alloc(Chunk.Atom, c.CHUNK_SUBVOXEL_SIZE * 49);
     @memset(
         blocks,
         .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } },
     );
 
     chunk_freelist = std.ArrayList(usize).init(util.allocator());
-    for (0..25) |i| {
+    for (0..49) |i| {
         try chunk_freelist.append(c.CHUNK_SUBVOXEL_SIZE * i);
     }
 
@@ -116,7 +116,7 @@ pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
 
 fn update_player_surrounding_chunks() !void {
     // We have a new location -- figure out what chunks are needed
-    const CHUNK_RADIUS = 2;
+    const CHUNK_RADIUS = 3;
 
     const curr_player_chunk = [_]isize{
         @divFloor(@as(isize, @intFromFloat(player.transform.pos[0])), c.CHUNK_BLOCKS),

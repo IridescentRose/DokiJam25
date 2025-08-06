@@ -149,14 +149,35 @@ void main()
     outNormal = vec4(normal * 0.5 + 0.5, 1.0);
 
 
-    // Color shading
+    // Color shading with voxel AO
     if ((voxel & 0xFFu) != 0u) {
-        FragColor = vec4(vec3(
+        vec3 baseColor = vec3(
             float((voxel >> 8) & 0xFFu),
             float((voxel >> 16) & 0xFFu),
             float((voxel >> 24) & 0xFFu)
-        ) / 255.0, 1.0);
+        ) / 255.0;
+
+        // Sample adjacent 6 directions
+        int occlusion = 0;
+        const ivec3 offsets[6] = ivec3[6](
+            ivec3(1, 0, 0), ivec3(-1, 0, 0),
+            ivec3(0, 1, 0), ivec3(0, -1, 0),
+            ivec3(0, 0, 1), ivec3(0, 0, -1)
+        );
+
+        for (int i = 0; i < 6; ++i) {
+            if ((getVoxel(mapPos - (ivec3(mask) * rayStep) + offsets[i]) & 0xFFu) != 0u)
+                occlusion++;
+        }
+
+        float ao = 1.0 - float(occlusion) / 6.0;
+        ao = mix(0.5, 1.0, ao);
+        baseColor *= ao; // Apply AO to color
+        baseColor *= mix(vec3(1.0), vec3(ao), smoothstep(0.0, 0.7, length(baseColor)));
+
+
+        FragColor = vec4(baseColor, 1.0);
     } else {
-      FragColor = vec4(0.0);
+        FragColor = vec4(0.0);
     }
 }

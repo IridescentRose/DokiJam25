@@ -41,22 +41,8 @@ pub fn init(seed: u32) !void {
     active_atoms = std.ArrayList(AtomData).init(util.allocator());
 
     blocks = std.ArrayList(Chunk.Atom).init(util.allocator());
-    try blocks.resize(c.CHUNK_SUBVOXEL_SIZE);
-    @memset(blocks.items, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
 
     chunkMap = ChunkMap.init(util.allocator());
-
-    const chunk = Chunk{
-        .offset = 0,
-    };
-
-    try worldgen.fill(chunk, [_]isize{ 0, 0 });
-
-    try chunkMap.put(
-        [_]isize{ 0, 0, 0 },
-        chunk,
-    );
-
     particles = try Particle.new();
 }
 
@@ -96,20 +82,20 @@ pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
 
 fn update_player_surrounding_chunks() !void {
     // We have a new location -- figure out what chunks are needed
-    const CHUNK_RADIUS = 1;
+    const CHUNK_RADIUS = 2;
 
     const curr_player_chunk = [_]isize{
-        @divTrunc(@as(isize, @intFromFloat(player.transform.pos[0])), c.CHUNK_BLOCKS),
-        @divTrunc(@as(isize, @intFromFloat(player.transform.pos[1])), c.CHUNK_BLOCKS),
-        @divTrunc(@as(isize, @intFromFloat(player.transform.pos[2])), c.CHUNK_BLOCKS),
+        @divFloor(@as(isize, @intFromFloat(player.transform.pos[0])), c.CHUNK_BLOCKS),
+        @divFloor(@as(isize, @intFromFloat(player.transform.pos[1])), c.CHUNK_BLOCKS),
+        @divFloor(@as(isize, @intFromFloat(player.transform.pos[2])), c.CHUNK_BLOCKS),
     };
 
     var target_chunks = std.ArrayList(ChunkLocation).init(util.allocator());
     defer target_chunks.deinit();
 
-    var z_curr = curr_player_chunk[2] - CHUNK_RADIUS - 1;
+    var z_curr = curr_player_chunk[2] - CHUNK_RADIUS;
     while (z_curr <= curr_player_chunk[2] + CHUNK_RADIUS) : (z_curr += 1) {
-        var x_curr = curr_player_chunk[0] - CHUNK_RADIUS - 1;
+        var x_curr = curr_player_chunk[0] - CHUNK_RADIUS;
         while (x_curr <= curr_player_chunk[0] + CHUNK_RADIUS) : (x_curr += 1) {
             const chunk_coord = [_]isize{ x_curr, 0, z_curr };
 
@@ -172,19 +158,19 @@ pub fn update() !void {
 
     try update_player_surrounding_chunks();
 
+    std.debug.print("Active chunks: {}\n", .{chunkMap.count()});
+
     @memset(
         &chunk_mesh.chunks,
-        .{ .chunk_pos = [_]i32{ 0, 0, 0 }, .voxel_offset = -1 },
+        .{ .x = 0, .y = 0, .z = 0, .voxel_offset = -1 },
     );
 
     for (chunkMap.keys(), 0..) |coord, i| {
         if (i < chunk_mesh.chunks.len) {
             chunk_mesh.chunks[i] = ChunkMesh.IndirectionEntry{
-                .chunk_pos = [_]i32{
-                    @intCast(coord[0]),
-                    0,
-                    @intCast(coord[2]),
-                },
+                .x = @intCast(coord[0]),
+                .y = @intCast(coord[1]),
+                .z = @intCast(coord[2]),
                 .voxel_offset = @intCast(chunkMap.values()[i].offset),
             };
         }

@@ -22,7 +22,7 @@ layout(binding = 1, std430) buffer ChunkBuffer {
 };
 
 layout(binding = 2, std430) buffer ChunkMetaBuffer {
-   ChunkMeta metadata[64];
+   ChunkMeta metadata[25];
 };
 
 const int CHUNK_BLOCKS = 16; // Number of blocks in each chunk
@@ -48,7 +48,7 @@ uint getVoxel(ivec3 p) {
     ivec3 chunkCoord = floorDiv(p, CHUNK_SUB_BLOCKS);
     ivec3 localPos   = p - chunkCoord * CHUNK_SUB_BLOCKS;  
 
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < 25; i++) {
         if (metadata[i].offset < 0) continue;
         if (metadata[i].pos == chunkCoord) {
             uint off = uint(metadata[i].offset);

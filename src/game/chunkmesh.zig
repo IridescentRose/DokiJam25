@@ -20,12 +20,14 @@ vao: c_uint,
 
 vertices: std.ArrayListUnmanaged(Vertex),
 indices: std.ArrayListUnmanaged(Index),
-chunks: [64]IndirectionEntry,
+chunks: [25]IndirectionEntry,
 
 const Self = @This();
 
-pub const IndirectionEntry = struct {
-    chunk_pos: [3]i32,
+pub const IndirectionEntry = packed struct(u128) {
+    x: i32,
+    y: i32,
+    z: i32,
     voxel_offset: i32,
 };
 
@@ -56,7 +58,7 @@ pub fn new() !Self {
     gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, res.ssbo);
 
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, res.indirect);
-    gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(@sizeOf([64]IndirectionEntry)), null, gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(@sizeOf([25]IndirectionEntry)), null, gl.DYNAMIC_DRAW);
     gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 2, res.indirect);
 
     return res;
@@ -96,8 +98,8 @@ pub fn update_chunk_data(self: *Self, data: []u32) void {
     gl.bufferSubData(gl.SHADER_STORAGE_BUFFER, 0, @intCast(data.len * @sizeOf(u32)), data.ptr);
 
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, self.indirect);
-    gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(self.chunks.len * @sizeOf(u32)), null, gl.DYNAMIC_DRAW);
-    gl.bufferSubData(gl.SHADER_STORAGE_BUFFER, 0, @intCast(self.chunks.len * @sizeOf(u32)), &self.chunks);
+    gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(self.chunks.len * @sizeOf(IndirectionEntry)), null, gl.DYNAMIC_DRAW);
+    gl.bufferSubData(gl.SHADER_STORAGE_BUFFER, 0, @intCast(self.chunks.len * @sizeOf(IndirectionEntry)), &self.chunks);
 }
 
 pub fn draw(self: *Self) void {

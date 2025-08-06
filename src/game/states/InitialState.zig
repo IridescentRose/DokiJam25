@@ -35,6 +35,10 @@ fn draw(ctx: *anyopaque) anyerror!void {
     gfx.shader.set_comp_sun_dir(zm.Vec{ 0.72, 1, 0, 1 });
     gfx.shader.set_comp_sun_color(zm.Vec{ 0.72, 0.58, 0.48, 1 });
     gfx.shader.set_comp_ambient_color(zm.Vec{ 0.063 * 3, 0.067 * 3, 0.073 * 3, 1 });
+    gfx.shader.set_comp_fog_color(zm.Vec{ 0.5, 0.6, 0.7, 1 });
+    gfx.shader.set_comp_fog_density(0.1);
+
+    gfx.shader.set_comp_camera_pos(zm.Vec{ world.player.camera.target[0], world.player.camera.target[1], world.player.camera.target[2], 1.0 });
 }
 
 pub fn state(self: *Self) State {

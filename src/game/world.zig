@@ -25,7 +25,6 @@ var chunk_mesh: ChunkMesh = undefined;
 pub var blocks: []Chunk.Atom = undefined;
 var edit_list: std.ArrayList(VoxelEdit) = undefined;
 var chunk_freelist: std.ArrayList(usize) = undefined;
-var count: usize = 0;
 
 pub fn init(seed: u32) !void {
     chunk_mesh = try ChunkMesh.new();
@@ -65,7 +64,7 @@ pub fn init(seed: u32) !void {
     );
 
     chunk_freelist = std.ArrayList(usize).init(util.allocator());
-    for (0..49) |i| {
+    for (0..c.MAX_CHUNKS) |i| {
         try chunk_freelist.append(c.CHUNK_SUBVOXEL_SIZE * i);
     }
 
@@ -122,7 +121,7 @@ pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
 
 fn update_player_surrounding_chunks() !void {
     // We have a new location -- figure out what chunks are needed
-    const CHUNK_RADIUS = 3;
+    const CHUNK_RADIUS = c.CHUNK_RADIUS;
 
     const curr_player_chunk = [_]isize{
         @divFloor(@as(isize, @intFromFloat(player.transform.pos[0])), c.CHUNK_BLOCKS),
@@ -213,81 +212,79 @@ pub fn update() !void {
 
     player.update();
 
-    count += 1;
+    // // Rain
+    // for (0..8) |_| {
+    //     const rx = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
+    //     const rz = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
+    //     try particles.add_particle(Particle.Particle{
+    //         .kind = .Water,
+    //         .pos = [_]f32{ player.transform.pos[0] + rx * 0.25, player.transform.pos[1] + 24.0, player.transform.pos[2] + rz * 0.25 },
+    //         .color = [_]u8{ 0xC0, 0xD0, 0xFF },
+    //         .vel = [_]f32{ 0, -48, 0 },
+    //         .lifetime = 300,
+    //     });
+    // }
 
-    // Rain
-    for (0..8) |_| {
-        const rx = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
-        const rz = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
-        try particles.add_particle(Particle.Particle{
-            .kind = .Water,
-            .pos = [_]f32{ player.transform.pos[0] + rx * 0.25, player.transform.pos[1] + 24.0, player.transform.pos[2] + rz * 0.25 },
-            .color = [_]u8{ 0xC0, 0xD0, 0xFF },
-            .vel = [_]f32{ 0, -48, 0 },
-            .lifetime = 300,
-        });
-    }
+    // if (count % 6 == 0) {
+    //     for (active_atoms.items) |*atom| {
+    //         if (atom.moves == 0) continue;
 
-    if (count % 6 == 0) {
-        for (active_atoms.items) |*atom| {
-            if (atom.moves == 0) continue;
+    //         if (!is_in_world(atom.coord)) {
+    //             atom.moves = 0;
+    //             continue;
+    //             // Will be removed in the next update
+    //         }
 
-            if (!is_in_world(atom.coord)) {
-                atom.moves = 0;
-                continue;
-                // Will be removed in the next update
-            }
+    //         const kind = get_voxel(atom.coord);
+    //         if (kind == .Water) {
+    //             // Water accumulation
+    //             const below_coord = [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] };
+    //             if (get_voxel(below_coord) == .Air) {
+    //                 set_voxel(below_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
+    //                 set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+    //                 atom.coord = below_coord;
+    //                 atom.moves -= 1;
+    //                 continue;
+    //             }
 
-            const kind = get_voxel(atom.coord);
-            if (kind == .Water) {
-                // Water accumulation
-                const below_coord = [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] };
-                if (get_voxel(below_coord) == .Air) {
-                    set_voxel(below_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
-                    set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
-                    atom.coord = below_coord;
-                    atom.moves -= 1;
-                    continue;
-                }
+    //             // Otherwise we randomly try to spread out
+    //             const next_coords = [_][3]isize{
+    //                 [_]isize{ atom.coord[0] + 1, atom.coord[1], atom.coord[2] },
+    //                 [_]isize{ atom.coord[0] - 1, atom.coord[1], atom.coord[2] },
+    //                 [_]isize{ atom.coord[0], atom.coord[1], atom.coord[2] + 1 },
+    //                 [_]isize{ atom.coord[0], atom.coord[1], atom.coord[2] - 1 },
+    //             };
 
-                // Otherwise we randomly try to spread out
-                const next_coords = [_][3]isize{
-                    [_]isize{ atom.coord[0] + 1, atom.coord[1], atom.coord[2] },
-                    [_]isize{ atom.coord[0] - 1, atom.coord[1], atom.coord[2] },
-                    [_]isize{ atom.coord[0], atom.coord[1], atom.coord[2] + 1 },
-                    [_]isize{ atom.coord[0], atom.coord[1], atom.coord[2] - 1 },
-                };
+    //             const spread_dir = rand.random().int(u32) % 4;
+    //             const next_coord = next_coords[spread_dir];
+    //             if (get_voxel(next_coord) == .Air) {
+    //                 set_voxel(next_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
+    //                 set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+    //                 atom.coord = next_coord;
+    //             }
+    //         }
+    //     }
 
-                const spread_dir = rand.random().int(u32) % 4;
-                const next_coord = next_coords[spread_dir];
-                if (get_voxel(next_coord) == .Air) {
-                    set_voxel(next_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
-                    set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
-                    atom.coord = next_coord;
-                }
-            }
-        }
+    //     if (active_atoms.items.len != 0) {
+    //         var i: usize = active_atoms.items.len - 1;
+    //         while (i > 0) : (i -= 1) {
+    //             if (active_atoms.items[i].moves == 0) {
+    //                 _ = active_atoms.swapRemove(i);
+    //             }
+    //         }
+    //     }
 
-        if (active_atoms.items.len != 0) {
-            var i: usize = active_atoms.items.len - 1;
-            while (i > 0) : (i -= 1) {
-                if (active_atoms.items[i].moves == 0) {
-                    _ = active_atoms.swapRemove(i);
-                }
-            }
-        }
+    //     if (active_atoms.items.len != 0 and active_atoms.items[0].moves == 0) {
+    //         _ = active_atoms.orderedRemove(0);
+    //     }
+    // }
 
-        if (active_atoms.items.len != 0 and active_atoms.items[0].moves == 0) {
-            _ = active_atoms.orderedRemove(0);
-        }
-    }
-
-    try particles.update();
+    // try particles.update();
 }
 
 pub fn draw() void {
     chunk_mesh.draw();
 
     player.draw();
-    particles.draw();
+    // particles.draw();
 }

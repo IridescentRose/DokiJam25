@@ -21,8 +21,9 @@ layout(binding = 1, std430) buffer ChunkBuffer {
    uint voxels[];
 };
 
+#define MAX_CHUNKS 225 // 11x11 grid of chunks (5 radius)
 layout(binding = 2, std430) buffer ChunkMetaBuffer {
-   ChunkMeta metadata[49]; // c.MAX_CHUNKS
+   ChunkMeta metadata[MAX_CHUNKS]; // c.MAX_CHUNKS
 };
 
 const int CHUNK_BLOCKS = 16; // Number of blocks in each chunk
@@ -44,7 +45,7 @@ ivec3 floorDiv(ivec3 v, int d) {
 
 int binarySearchMetadata(ivec3 target) {
     int low = 0;
-    int high = 48; // or 48 for a fixed 7×7
+    int high = MAX_CHUNKS - 1;
 
     while (low <= high) {
         int mid = (low + high) / 2;
@@ -85,6 +86,7 @@ uint getVoxel(ivec3 p) {
     return voxels[offset + uint(idx)];
 }
 
+#define DRAW_DISTANCE 384
 
 void main()
 {
@@ -105,12 +107,9 @@ void main()
 	bvec3 mask;
 
 
-   mask      = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
-   sideDist += vec3(mask) * deltaDist;
-   mapPos   += ivec3(mask) * rayStep;
-
+    // DDA Loops
    uint voxel = 0;
-   for (int i = 0; i < 511; i++) {
+   for (int i = 0; i < DRAW_DISTANCE; i++) {
       // 1) figure out which axis we cross next
       mask      = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
       sideDist += vec3(mask) * deltaDist;
@@ -123,6 +122,24 @@ void main()
       if (material != 0u) {
          break;
       }
+   }
+
+   if(voxel == 0u) {
+      // Half detail
+         for (int i = 0; i < DRAW_DISTANCE / 2; i++) {
+            // 1) figure out which axis we cross next
+            mask      = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
+            sideDist += vec3(mask) * deltaDist;
+            mapPos   += ivec3(mask) * rayStep * 2;
+
+
+            // 2) now sample that new cell
+            voxel     = getVoxel(mapPos);
+            uint material  = voxel & 0xFFu;
+            if (material != 0u) {
+                break;
+            }
+       }
    }
 
    // Compute grid-space hit distance
@@ -171,8 +188,7 @@ void main()
         }
 
         float ao = 1.0 - float(occlusion) / 6.0;
-        ao = mix(0.5, 1.0, ao);
-        baseColor *= ao; // Apply AO to color
+        ao = mix(0.7, 1.0, ao);
         baseColor *= mix(vec3(1.0), vec3(ao), smoothstep(0.0, 0.7, length(baseColor)));
 
 

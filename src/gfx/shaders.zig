@@ -48,6 +48,10 @@ var compGAlbedoLoc: c_int = 0;
 var compGNormalLoc: c_int = 0;
 var compGDepthLoc: c_int = 0;
 
+var compFogColorLoc: c_int = 0;
+var compFogDensityLoc: c_int = 0;
+var compCameraPosLoc: c_int = 0;
+
 fn compile_shader(source: [*c]const [*c]const gl.GLchar, stype: c_uint) c_uint {
     const shad = gl.createShader(stype);
     gl.shaderSource(shad, 1, source, 0);
@@ -107,6 +111,9 @@ pub fn init() !void {
     compGAlbedoLoc = gl.getUniformLocation(comp, "gAlbedo");
     compGNormalLoc = gl.getUniformLocation(comp, "gNormal");
     compGDepthLoc = gl.getUniformLocation(comp, "gDepth");
+    compFogColorLoc = gl.getUniformLocation(comp, "uFogColor");
+    compFogDensityLoc = gl.getUniformLocation(comp, "uFogDensity");
+    compCameraPosLoc = gl.getUniformLocation(comp, "cameraPos");
 
     const part_v = compile_shader(@ptrCast(&part_vert_source), gl.VERTEX_SHADER);
     const part_f = compile_shader(@ptrCast(&part_frag_source), gl.FRAGMENT_SHADER);
@@ -260,4 +267,19 @@ pub fn set_comp_depth(tex: c_uint) void {
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.uniform1i(compGDepthLoc, 2);
+}
+
+pub fn set_comp_fog_color(color: zm.Vec) void {
+    use_comp_shader();
+    gl.uniform3f(compFogColorLoc, color[0], color[1], color[2]);
+}
+
+pub fn set_comp_fog_density(density: f32) void {
+    use_comp_shader();
+    gl.uniform1f(compFogDensityLoc, density);
+}
+
+pub fn set_comp_camera_pos(pos: zm.Vec) void {
+    use_comp_shader();
+    gl.uniform3f(compCameraPosLoc, pos[0], pos[1], pos[2]);
 }

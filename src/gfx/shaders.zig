@@ -17,6 +17,9 @@ const part_frag_source = @embedFile("shader_raw/particle.frag");
 const ray_vert_source = @embedFile("shader_raw/ray.vert");
 const ray_frag_source = @embedFile("shader_raw/ray.frag");
 
+const post_vert_source = @embedFile("shader_raw/post.vert");
+const post_frag_source = @embedFile("shader_raw/post.frag");
+
 const edit_comp_source = @embedFile("shader_raw/apply_voxel_edit.comp");
 
 var uber: c_uint = 0;
@@ -24,6 +27,7 @@ var comp: c_uint = 0;
 var part: c_uint = 0;
 var ray: c_uint = 0;
 var edit: c_uint = 0;
+var post: c_uint = 0;
 
 var vpLoc: c_int = 0;
 var modelLoc: c_int = 0;
@@ -51,6 +55,8 @@ var compGDepthLoc: c_int = 0;
 var compFogColorLoc: c_int = 0;
 var compFogDensityLoc: c_int = 0;
 var compCameraPosLoc: c_int = 0;
+
+var postResolutionLoc: c_int = 0;
 
 fn compile_shader(source: [*c]const [*c]const gl.GLchar, stype: c_uint) c_uint {
     const shad = gl.createShader(stype);
@@ -125,6 +131,11 @@ pub fn init() !void {
     rayResolutionLoc = gl.getUniformLocation(ray, "uResolution");
     rayVpLoc = gl.getUniformLocation(ray, "uProjView");
     rayInvVpLoc = gl.getUniformLocation(ray, "uInvProjView");
+
+    const post_v = compile_shader(@ptrCast(&post_vert_source), gl.VERTEX_SHADER);
+    const post_f = compile_shader(@ptrCast(&post_frag_source), gl.FRAGMENT_SHADER);
+    post = create_program(post_v, post_f);
+    postResolutionLoc = gl.getUniformLocation(post, "uResolution");
 
     const edit_comp = compile_shader(@ptrCast(&edit_comp_source), gl.COMPUTE_SHADER);
     edit = gl.createProgram();
@@ -282,4 +293,13 @@ pub fn set_comp_fog_density(density: f32) void {
 pub fn set_comp_camera_pos(pos: zm.Vec) void {
     use_comp_shader();
     gl.uniform3f(compCameraPosLoc, pos[0], pos[1], pos[2]);
+}
+
+pub fn set_post_resolution() void {
+    use_post_shader();
+    gl.uniform2f(postResolutionLoc, @floatFromInt(window.get_width() catch 0), @floatFromInt(window.get_height() catch 0));
+}
+
+pub fn use_post_shader() void {
+    gl.useProgram(post);
 }

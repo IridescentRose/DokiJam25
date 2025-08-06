@@ -12,6 +12,7 @@ pub const FBO = @import("framebuffer.zig");
 
 var context: sdl3.c.SDL_GLContext = undefined;
 var fbo: FBO = undefined;
+var intermediateFBO: FBO = undefined;
 var mesh: TexMesh = undefined;
 
 fn get_context(ctx: sdl3.c.SDL_GLContext, proc: [:0]const u8) ?*const anyopaque {
@@ -53,6 +54,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
     shader.set_projview(zm.perspectiveFovRhGl(90.0, 16.0 / 9.0, 0.3, 1000.0));
 
     fbo = try FBO.init();
+    intermediateFBO = try FBO.init();
 
     mesh = try TexMesh.new();
     try mesh.vertices.appendSlice(util.allocator(), &[_]TexMesh.Vertex{
@@ -89,9 +91,7 @@ pub fn deinit() void {
 }
 
 pub fn finalize() !void {
-    // Composite the framebuffer
-    gl.bindFramebuffer(gl.FRAMEBUFFER, 0);
-
+    intermediateFBO.bind();
     gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     shader.use_comp_shader();
@@ -102,6 +102,19 @@ pub fn finalize() !void {
     shader.set_comp_depth(fbo.tex_depth_buffer);
 
     mesh.draw();
+
+    // Finalize with post processing
+    gl.bindFramebuffer(gl.FRAMEBUFFER, 0);
+    gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    shader.use_post_shader();
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, intermediateFBO.tex_color_buffer);
+
+    shader.set_post_resolution();
+    mesh.draw();
+
     try window.draw();
 }
 

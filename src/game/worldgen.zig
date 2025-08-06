@@ -69,7 +69,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                 const yf = @as(f64, @floatFromInt(y));
                 if (yf < h) {
                     const idx = Chunk.get_index([_]usize{ x, y, z });
-                    world.blocks.items[chunk.offset + idx] = stencil[((y % c.SUB_BLOCKS_PER_BLOCK) * c.SUB_BLOCKS_PER_BLOCK + (z % c.SUB_BLOCKS_PER_BLOCK)) * c.SUB_BLOCKS_PER_BLOCK + (x % c.SUB_BLOCKS_PER_BLOCK)];
+                    world.blocks[chunk.offset + idx] = stencil[((y % c.SUB_BLOCKS_PER_BLOCK) * c.SUB_BLOCKS_PER_BLOCK + (z % c.SUB_BLOCKS_PER_BLOCK)) * c.SUB_BLOCKS_PER_BLOCK + (x % c.SUB_BLOCKS_PER_BLOCK)];
                 }
             }
         }

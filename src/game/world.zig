@@ -26,7 +26,7 @@ var rand = std.Random.DefaultPrng.init(1337);
 pub var player: Player = undefined;
 
 var chunk_mesh: ChunkMesh = undefined;
-pub var blocks: std.ArrayList(Chunk.Atom) = undefined;
+pub var blocks: []Chunk.Atom = undefined;
 
 pub fn init(seed: u32) !void {
     chunk_mesh = try ChunkMesh.new();
@@ -40,7 +40,11 @@ pub fn init(seed: u32) !void {
 
     active_atoms = std.ArrayList(AtomData).init(util.allocator());
 
-    blocks = std.ArrayList(Chunk.Atom).init(util.allocator());
+    blocks = try util.allocator().alloc(Chunk.Atom, c.CHUNK_SUBVOXEL_SIZE * 25);
+    @memset(
+        blocks,
+        .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } },
+    );
 
     chunkMap = ChunkMap.init(util.allocator());
     particles = try Particle.new();
@@ -56,7 +60,7 @@ pub fn deinit() void {
 
     worldgen.deinit();
 
-    blocks.deinit();
+    util.allocator().free(blocks);
     chunk_mesh.deinit();
 }
 
@@ -65,7 +69,7 @@ pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
 
     if (chunkMap.get(chunk_coord)) |chunk| {
         const idx = Chunk.get_index([_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) });
-        return blocks.items[chunk.offset + idx].material;
+        return blocks[chunk.offset + idx].material;
     } else {
         return .Air;
     }
@@ -76,10 +80,11 @@ pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
 
     if (chunkMap.get(chunk_coord)) |chunk| {
         const idx = Chunk.get_index([_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) });
-        blocks.items[chunk.offset + idx] = atom;
+        blocks[chunk.offset + idx] = atom;
     }
 }
 
+var alloc_len: usize = 0;
 fn update_player_surrounding_chunks() !void {
     // We have a new location -- figure out what chunks are needed
     const CHUNK_RADIUS = 2;
@@ -101,9 +106,9 @@ fn update_player_surrounding_chunks() !void {
 
             try target_chunks.append(chunk_coord);
             if (!chunkMap.contains(chunk_coord)) {
-                const curr_len = blocks.items.len;
-                try blocks.resize(c.CHUNK_SUBVOXEL_SIZE + curr_len);
-                @memset(blocks.items[curr_len..], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                const curr_len = alloc_len;
+                alloc_len += c.CHUNK_SUBVOXEL_SIZE;
+                @memset(blocks[alloc_len..], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
 
                 const chunk = Chunk{
                     .offset = @intCast(curr_len),
@@ -176,7 +181,7 @@ pub fn update() !void {
         }
     }
 
-    chunk_mesh.update_chunk_data(@ptrCast(@alignCast(blocks.items)));
+    chunk_mesh.update_chunk_data(@ptrCast(@alignCast(blocks)));
     chunk_mesh.update();
 
     player.update();

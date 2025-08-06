@@ -103,6 +103,14 @@ pub fn init() !void {
     edit = gl.createProgram();
     gl.attachShader(edit, edit_comp);
     gl.linkProgram(edit);
+    var success: c_uint = 0;
+    gl.getProgramiv(edit, gl.LINK_STATUS, @ptrCast(&success));
+    if (success == 0) {
+        var buf: [512]u8 = @splat(0);
+        var len: c_uint = 0;
+        gl.getProgramInfoLog(edit, 512, @ptrCast(&len), &buf);
+        std.debug.print("ERROR Program:\n{s}\n", .{buf[0..len]});
+    }
 
     use_particle_shader();
     partVpLoc = gl.getUniformLocation(part, "projView");
@@ -162,6 +170,10 @@ pub fn use_particle_shader() void {
 
 pub fn use_ray_shader() void {
     gl.useProgram(ray);
+}
+
+pub fn use_compute_shader() void {
+    gl.useProgram(edit);
 }
 
 pub fn set_ray_resolution() void {

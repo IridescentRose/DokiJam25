@@ -14,6 +14,11 @@ pub const ChunkMap = std.AutoArrayHashMap(ChunkLocation, Chunk);
 var chunkMap: ChunkMap = undefined;
 var particles: Particle = undefined;
 
+const VoxelEdit = struct {
+    offset: u32,
+    atom: Chunk.Atom,
+};
+
 const AtomData = struct {
     coord: AtomCoord,
     moves: u8,
@@ -28,6 +33,7 @@ pub var player: Player = undefined;
 var chunk_mesh: ChunkMesh = undefined;
 pub var blocks: []Chunk.Atom = undefined;
 
+var edit_list: std.ArrayList(VoxelEdit) = undefined;
 var chunk_freelist: std.ArrayList(usize) = undefined;
 
 pub fn init(seed: u32) !void {
@@ -70,6 +76,8 @@ pub fn init(seed: u32) !void {
         try chunk_freelist.append(c.CHUNK_SUBVOXEL_SIZE * i);
     }
 
+    edit_list = std.ArrayList(VoxelEdit).init(util.allocator());
+
     chunkMap = ChunkMap.init(util.allocator());
     particles = try Particle.new();
 }
@@ -81,6 +89,7 @@ pub fn deinit() void {
     particles.deinit();
 
     active_atoms.deinit();
+    edit_list.deinit();
 
     worldgen.deinit();
 
@@ -111,6 +120,10 @@ pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
     if (chunkMap.get(chunk_coord)) |chunk| {
         const idx = Chunk.get_index([_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) });
         blocks[chunk.offset + idx] = atom;
+        edit_list.append(VoxelEdit{
+            .offset = @intCast(chunk.offset + idx),
+            .atom = atom,
+        }) catch unreachable;
     }
 }
 
@@ -192,6 +205,9 @@ pub fn update() !void {
         }
     }
     chunk_mesh.update_indirect_data();
+
+    chunk_mesh.update_edits(@ptrCast(@alignCast(edit_list.items)));
+    edit_list.clearAndFree();
 
     player.update();
 

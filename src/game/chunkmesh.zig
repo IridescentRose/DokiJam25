@@ -16,6 +16,7 @@ vbo: c_uint,
 ebo: c_uint,
 ssbo: c_uint,
 indirect: c_uint,
+edits: c_uint,
 vao: c_uint,
 
 vertices: std.ArrayListUnmanaged(Vertex),
@@ -38,6 +39,7 @@ pub fn new() !Self {
     gl.genBuffers(1, &res.ebo);
     gl.genBuffers(1, &res.ssbo);
     gl.genBuffers(1, &res.indirect);
+    gl.genBuffers(1, &res.edits);
 
     res.vertices = try std.ArrayListUnmanaged(Vertex).initCapacity(util.allocator(), 32);
     res.indices = try std.ArrayListUnmanaged(Index).initCapacity(util.allocator(), 32);
@@ -60,6 +62,10 @@ pub fn new() !Self {
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, res.indirect);
     gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(@sizeOf([49]IndirectionEntry)), null, gl.DYNAMIC_DRAW);
     gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 2, res.indirect);
+
+    gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, res.edits);
+    gl.bufferData(gl.SHADER_STORAGE_BUFFER, 0, null, gl.DYNAMIC_DRAW);
+    gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 3, res.edits);
 
     return res;
 }
@@ -103,12 +109,31 @@ pub fn update_indirect_data(self: *Self) void {
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, self.indirect);
     gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(self.chunks.len * @sizeOf(IndirectionEntry)), null, gl.DYNAMIC_DRAW);
     gl.bufferSubData(gl.SHADER_STORAGE_BUFFER, 0, @intCast(self.chunks.len * @sizeOf(IndirectionEntry)), &self.chunks);
+    gl.memoryBarrier(gl.SHADER_STORAGE_BARRIER_BIT);
 }
 
 pub fn update_chunk_sub_data(self: *Self, data: []u32, offset: usize, size: usize) void {
     gl.bindVertexArray(self.vao);
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, self.ssbo);
     gl.bufferSubData(gl.SHADER_STORAGE_BUFFER, @intCast(offset * @sizeOf(u32)), @intCast(size * @sizeOf(u32)), data.ptr + offset);
+}
+
+pub fn update_edits(self: *Self, edits: []u64) void {
+    if (edits.len == 0) {
+        return; // No edits to apply
+    }
+
+    shader.use_compute_shader();
+    gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, self.edits);
+    gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(edits.len * @sizeOf(u64)), null, gl.DYNAMIC_DRAW);
+    gl.bufferSubData(gl.SHADER_STORAGE_BUFFER, 0, @intCast(edits.len * @sizeOf(u64)), edits.ptr);
+
+    gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, self.ssbo);
+    gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 3, self.edits);
+
+    const group_count = (edits.len + 63) / 64;
+    gl.dispatchCompute(@intCast(group_count), 1, 1);
+    gl.memoryBarrier(gl.SHADER_STORAGE_BARRIER_BIT);
 }
 
 pub fn draw(self: *Self) void {
@@ -119,6 +144,5 @@ pub fn draw(self: *Self) void {
 
     gl.bindVertexArray(self.vao);
 
-    gl.memoryBarrier(gl.SHADER_STORAGE_BARRIER_BIT);
     gl.drawElements(gl.TRIANGLES, @intCast(self.indices.items.len), gl.UNSIGNED_INT, null);
 }

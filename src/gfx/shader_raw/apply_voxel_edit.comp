@@ -1,19 +1,21 @@
 #version 430
 
-layout(binding = 1, std430) buffer Voxels {
-   uint atoms[];
+layout(local_size_x = 64) in;
+
+layout(std430, binding = 1) buffer Voxels {
+    uint atoms[]; // Voxel buffer
 };
 
-layout(binding = 2, std430) buffer VoxelEdits {
-   uvec2 edits[];
+layout(std430, binding = 3) buffer VoxelEdits {
+    uvec2 edits[]; // Each edit: (offset, atom)
 };
 
 void main() {
-   uint i = gl_GlobalInvocationID.x;
-   if (i >= edits.length()) return;
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= edits.length()) return;
 
-   uint offset = edits[i].x;
-   uint new_atom = edits[i].y;
+    uint offset = edits[i].x;
+    uint new_atom = edits[i].y;
 
-   atoms[offset] = new_atom;
+    atoms[offset] = new_atom;
 }

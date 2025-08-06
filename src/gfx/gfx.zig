@@ -38,7 +38,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
 
     try shader.init();
 
-    // gl.enable(gl.FRAMEBUFFER_SRGB);
+    gl.enable(gl.FRAMEBUFFER_SRGB);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
     gl.frontFace(gl.CCW);
@@ -89,17 +89,17 @@ pub fn deinit() void {
 }
 
 pub fn finalize() !void {
+    // Composite the framebuffer
     gl.bindFramebuffer(gl.FRAMEBUFFER, 0);
 
     gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    shader.use_post_shader();
+    shader.use_comp_shader();
+    shader.set_comp_resolution();
 
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, fbo.tex_color_buffer);
-
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, fbo.tex_normal_buffer);
+    shader.set_comp_albedo(fbo.tex_color_buffer);
+    shader.set_comp_normal(fbo.tex_normal_buffer);
+    shader.set_comp_depth(fbo.tex_depth_buffer);
 
     mesh.draw();
     try window.draw();

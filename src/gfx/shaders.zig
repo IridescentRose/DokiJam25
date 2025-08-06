@@ -8,8 +8,8 @@ const zm = @import("zmath");
 const vert_source = @embedFile("shader_raw/uber.vert");
 const frag_source = @embedFile("shader_raw/uber.frag");
 
-const post_vert_source = @embedFile("shader_raw/post.vert");
-const post_frag_source = @embedFile("shader_raw/post.frag");
+const comp_vert_source = @embedFile("shader_raw/comp.vert");
+const comp_frag_source = @embedFile("shader_raw/comp.frag");
 
 const part_vert_source = @embedFile("shader_raw/particle.vert");
 const part_frag_source = @embedFile("shader_raw/particle.frag");
@@ -20,7 +20,7 @@ const ray_frag_source = @embedFile("shader_raw/ray.frag");
 const edit_comp_source = @embedFile("shader_raw/apply_voxel_edit.comp");
 
 var uber: c_uint = 0;
-var post: c_uint = 0;
+var comp: c_uint = 0;
 var part: c_uint = 0;
 var ray: c_uint = 0;
 var edit: c_uint = 0;
@@ -36,6 +36,17 @@ var partPitchLoc: c_int = 0;
 var rayResolutionLoc: c_int = 0;
 var rayVpLoc: c_int = 0;
 var rayInvVpLoc: c_int = 0;
+
+var compResolutionLoc: c_int = 0;
+var compInvProjLoc: c_int = 0;
+var compInvViewLoc: c_int = 0;
+var compSunDirLoc: c_int = 0;
+var compSunColorLoc: c_int = 0;
+var compAmbientColorLoc: c_int = 0;
+
+var compGAlbedoLoc: c_int = 0;
+var compGNormalLoc: c_int = 0;
+var compGDepthLoc: c_int = 0;
 
 fn compile_shader(source: [*c]const [*c]const gl.GLchar, stype: c_uint) c_uint {
     const shad = gl.createShader(stype);
@@ -84,9 +95,18 @@ pub fn init() !void {
     vpLoc = gl.getUniformLocation(uber, "projView");
     modelLoc = gl.getUniformLocation(uber, "model");
 
-    const pv = compile_shader(@ptrCast(&post_vert_source), gl.VERTEX_SHADER);
-    const pf = compile_shader(@ptrCast(&post_frag_source), gl.FRAGMENT_SHADER);
-    post = create_program(pv, pf);
+    const pv = compile_shader(@ptrCast(&comp_vert_source), gl.VERTEX_SHADER);
+    const pf = compile_shader(@ptrCast(&comp_frag_source), gl.FRAGMENT_SHADER);
+    comp = create_program(pv, pf);
+    compResolutionLoc = gl.getUniformLocation(comp, "uResolution");
+    compInvProjLoc = gl.getUniformLocation(comp, "uInvProj");
+    compInvViewLoc = gl.getUniformLocation(comp, "uInvView");
+    compSunDirLoc = gl.getUniformLocation(comp, "uSunDir");
+    compSunColorLoc = gl.getUniformLocation(comp, "uSunColor");
+    compAmbientColorLoc = gl.getUniformLocation(comp, "uAmbientColor");
+    compGAlbedoLoc = gl.getUniformLocation(comp, "gAlbedo");
+    compGNormalLoc = gl.getUniformLocation(comp, "gNormal");
+    compGDepthLoc = gl.getUniformLocation(comp, "gDepth");
 
     const part_v = compile_shader(@ptrCast(&part_vert_source), gl.VERTEX_SHADER);
     const part_f = compile_shader(@ptrCast(&part_frag_source), gl.FRAGMENT_SHADER);
@@ -160,8 +180,8 @@ pub fn use_render_shader() void {
     gl.useProgram(uber);
 }
 
-pub fn use_post_shader() void {
-    gl.useProgram(post);
+pub fn use_comp_shader() void {
+    gl.useProgram(comp);
 }
 
 pub fn use_particle_shader() void {
@@ -189,4 +209,55 @@ pub fn set_ray_vp(matrix: zm.Mat) void {
 pub fn set_ray_inv_vp(matrix: zm.Mat) void {
     use_ray_shader();
     gl.uniformMatrix4fv(rayInvVpLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_comp_resolution() void {
+    use_comp_shader();
+    gl.uniform2f(compResolutionLoc, @floatFromInt(window.get_width() catch 0), @floatFromInt(window.get_height() catch 0));
+}
+
+pub fn set_comp_inv_proj(matrix: zm.Mat) void {
+    use_comp_shader();
+    gl.uniformMatrix4fv(compInvProjLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_comp_inv_view(matrix: zm.Mat) void {
+    use_comp_shader();
+    gl.uniformMatrix4fv(compInvViewLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_comp_sun_dir(dir: zm.Vec) void {
+    use_comp_shader();
+    gl.uniform3f(compSunDirLoc, dir[0], dir[1], dir[2]);
+}
+
+pub fn set_comp_sun_color(color: zm.Vec) void {
+    use_comp_shader();
+    gl.uniform3f(compSunColorLoc, color[0], color[1], color[2]);
+}
+
+pub fn set_comp_ambient_color(color: zm.Vec) void {
+    use_comp_shader();
+    gl.uniform3f(compAmbientColorLoc, color[0], color[1], color[2]);
+}
+
+pub fn set_comp_albedo(tex: c_uint) void {
+    use_comp_shader();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(compGAlbedoLoc, 0);
+}
+
+pub fn set_comp_normal(tex: c_uint) void {
+    use_comp_shader();
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(compGNormalLoc, 1);
+}
+
+pub fn set_comp_depth(tex: c_uint) void {
+    use_comp_shader();
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(compGDepthLoc, 2);
 }

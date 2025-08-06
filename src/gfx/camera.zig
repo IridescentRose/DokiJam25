@@ -12,22 +12,7 @@ yaw: f32,
 const Self = @This();
 
 pub fn update(self: *Self) void {
-    const perspective = self.get_projection_matrix();
-
-    const eye = [_]f32{ self.target[0] + self.distance * std.math.cos(std.math.degreesToRadians(self.pitch)) * std.math.cos(std.math.degreesToRadians(self.yaw)), self.target[1] + self.distance * std.math.sin(std.math.degreesToRadians(self.pitch)), self.target[2] + self.distance * std.math.cos(std.math.degreesToRadians(self.pitch)) * std.math.sin(std.math.degreesToRadians(self.yaw)), 1.0 };
-    const up = [_]f32{ 0, 1, 0, 0 };
-
-    const target_4 = [_]f32{
-        self.target[0],
-        self.target[1],
-        self.target[2],
-        1.0,
-    };
-
-    const view = zm.lookAtRh(eye, target_4, up);
-    const projView = zm.mul(view, perspective);
-
-    shaders.set_projview(projView);
+    shaders.set_projview(self.get_projview_matrix());
 }
 
 pub fn get_projection_matrix(self: *Self) zm.Mat {
@@ -36,9 +21,7 @@ pub fn get_projection_matrix(self: *Self) zm.Mat {
     return zm.perspectiveFovRhGl(std.math.degreesToRadians(self.fov), width / height, 0.3, 250.0);
 }
 
-pub fn get_projview_matrix(self: *Self) zm.Mat {
-    const perspective = self.get_projection_matrix();
-
+pub fn get_view_matrix(self: *Self) zm.Mat {
     const eye = [_]f32{ self.target[0] + self.distance * std.math.cos(std.math.degreesToRadians(self.pitch)) * std.math.cos(std.math.degreesToRadians(self.yaw)), self.target[1] + self.distance * std.math.sin(std.math.degreesToRadians(self.pitch)), self.target[2] + self.distance * std.math.cos(std.math.degreesToRadians(self.pitch)) * std.math.sin(std.math.degreesToRadians(self.yaw)), 1.0 };
     const up = [_]f32{ 0, 1, 0, 0 };
 
@@ -49,5 +32,11 @@ pub fn get_projview_matrix(self: *Self) zm.Mat {
         1.0,
     };
 
-    return zm.mul(zm.lookAtRh(eye, target_4, up), perspective);
+    return zm.lookAtRh(eye, target_4, up);
+}
+
+pub fn get_projview_matrix(self: *Self) zm.Mat {
+    const perspective = self.get_projection_matrix();
+    const view = self.get_view_matrix();
+    return zm.mul(view, perspective);
 }

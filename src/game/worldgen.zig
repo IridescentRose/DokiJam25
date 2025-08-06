@@ -29,7 +29,7 @@ pub fn init(s: u32) !void {
     var rng = std.Random.DefaultPrng.init(s);
     stencil = try util.allocator().alloc(Chunk.Atom, c.SUBVOXEL_SIZE);
     for (stencil) |*atom| {
-        const gray = rng.random().int(u8) % 32 + 96;
+        const gray = rng.random().int(u8) % 64 + 96;
         atom.* = .{
             .material = .Stone,
             .color = [_]u8{ gray, gray, gray },

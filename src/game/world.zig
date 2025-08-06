@@ -222,7 +222,7 @@ pub fn update() !void {
         try particles.add_particle(Particle.Particle{
             .kind = .Water,
             .pos = [_]f32{ player.transform.pos[0] + rx * 0.25, player.transform.pos[1] + 24.0, player.transform.pos[2] + rz * 0.25 },
-            .color = [_]u8{ 0x46, 0x67, 0xC3 },
+            .color = [_]u8{ 0xC0, 0xD0, 0xFF },
             .vel = [_]f32{ 0, -48, 0 },
             .lifetime = 300,
         });

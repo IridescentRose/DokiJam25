@@ -85,7 +85,7 @@ void main()
    mapPos   += ivec3(mask) * rayStep;
 
    uint voxel = 0;
-   for (int i = 0; i < 511; i++) {
+   for (int i = 0; i < 767; i++) {
       // 1) figure out which axis we cross next
       mask      = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
       sideDist += vec3(mask) * deltaDist;

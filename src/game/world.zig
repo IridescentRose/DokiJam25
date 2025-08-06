@@ -28,6 +28,8 @@ pub var player: Player = undefined;
 var chunk_mesh: ChunkMesh = undefined;
 pub var blocks: []Chunk.Atom = undefined;
 
+var chunk_freelist: std.ArrayList(usize) = undefined;
+
 pub fn init(seed: u32) !void {
     chunk_mesh = try ChunkMesh.new();
     player = try Player.init();
@@ -46,6 +48,11 @@ pub fn init(seed: u32) !void {
         .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } },
     );
 
+    chunk_freelist = std.ArrayList(usize).init(util.allocator());
+    for (0..25) |i| {
+        try chunk_freelist.append(c.CHUNK_SUBVOXEL_SIZE * i);
+    }
+
     chunkMap = ChunkMap.init(util.allocator());
     particles = try Particle.new();
 }
@@ -62,6 +69,7 @@ pub fn deinit() void {
 
     util.allocator().free(blocks);
     chunk_mesh.deinit();
+    chunk_freelist.deinit();
 }
 
 pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
@@ -75,6 +83,11 @@ pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
     }
 }
 
+pub fn is_in_world(coord: [3]isize) bool {
+    const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_SUB_BLOCKS), @divFloor(coord[1], c.CHUNK_SUB_BLOCKS), @divFloor(coord[2], c.CHUNK_SUB_BLOCKS) };
+    return chunkMap.contains(chunk_coord);
+}
+
 pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
     const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_SUB_BLOCKS), @divFloor(coord[1], c.CHUNK_SUB_BLOCKS), @divFloor(coord[2], c.CHUNK_SUB_BLOCKS) };
 
@@ -84,7 +97,6 @@ pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
     }
 }
 
-var alloc_len: usize = 0;
 fn update_player_surrounding_chunks() !void {
     // We have a new location -- figure out what chunks are needed
     const CHUNK_RADIUS = 2;
@@ -106,12 +118,11 @@ fn update_player_surrounding_chunks() !void {
 
             try target_chunks.append(chunk_coord);
             if (!chunkMap.contains(chunk_coord)) {
-                const curr_len = alloc_len;
-                alloc_len += c.CHUNK_SUBVOXEL_SIZE;
-                @memset(blocks[alloc_len..], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                const offset = chunk_freelist.pop() orelse continue;
+                @memset(blocks[offset .. offset + c.CHUNK_SUBVOXEL_SIZE], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
 
                 const chunk = Chunk{
-                    .offset = @intCast(curr_len),
+                    .offset = @intCast(offset),
                 };
                 try worldgen.fill(chunk, [_]isize{ chunk_coord[0], chunk_coord[2] });
 
@@ -136,9 +147,9 @@ fn update_player_surrounding_chunks() !void {
     }
 
     for (extra_chunks.items) |i| {
+        const chunk = chunkMap.get(i) orelse unreachable;
+        try chunk_freelist.append(chunk.offset);
         _ = chunkMap.swapRemove(i);
-
-        // TODO: Free slot
     }
 }
 
@@ -162,8 +173,6 @@ pub fn update() !void {
     try chunk_mesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });
 
     try update_player_surrounding_chunks();
-
-    std.debug.print("Active chunks: {}\n", .{chunkMap.count()});
 
     @memset(
         &chunk_mesh.chunks,
@@ -204,6 +213,12 @@ pub fn update() !void {
     if (count % 6 == 0) {
         for (active_atoms.items) |*atom| {
             if (atom.moves == 0) continue;
+
+            if (!is_in_world(atom.coord)) {
+                atom.moves = 0;
+                continue;
+                // Will be removed in the next update
+            }
 
             const kind = get_voxel(atom.coord);
             if (kind == .Water) {

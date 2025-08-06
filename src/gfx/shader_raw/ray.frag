@@ -85,7 +85,7 @@ void main()
    mapPos   += ivec3(mask) * rayStep;
 
    uint voxel = 0;
-   for (int i = 0; i < 767; i++) {
+   for (int i = 0; i < 511; i++) {
       // 1) figure out which axis we cross next
       mask      = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
       sideDist += vec3(mask) * deltaDist;
@@ -122,14 +122,25 @@ void main()
     // Output normal packed to [0,1]
     outNormal = vec4(normal * 0.5 + 0.5, 1.0);
 
+
+    vec4 sceneCol = vec4(0.0);
     // Color shading
     if ((voxel & 0xFFu) != 0u) {
-        FragColor = vec4(vec3(
+        sceneCol = vec4(vec3(
             float((voxel >> 8) & 0xFFu),
             float((voxel >> 16) & 0xFFu),
             float((voxel >> 24) & 0xFFu)
         ) / 255.0, 1.0);
     } else {
       FragColor = vec4(0.0);
+      return;
     }
+
+   // fogAmt → [0,1], grows with distance
+   float fogAmt = 1.0 - exp(-0.075 * tWorld);
+   fogAmt = clamp(fogAmt, 0.0, 1.0);
+
+   // mix scene with fog color
+   vec4 finalCol = mix(sceneCol, vec4(128.0 / 255.0, 143.0 / 255.0, 204.0 / 255.0, 1), fogAmt);
+   FragColor = finalCol;
 }

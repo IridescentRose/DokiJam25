@@ -32,6 +32,23 @@ var chunk_freelist: std.ArrayList(usize) = undefined;
 
 pub fn init(seed: u32) !void {
     chunk_mesh = try ChunkMesh.new();
+    try chunk_mesh.vertices.appendSlice(util.allocator(), &[_]ChunkMesh.Vertex{
+        ChunkMesh.Vertex{
+            .vert = [_]f32{ -1, 1, 0 },
+        },
+        ChunkMesh.Vertex{
+            .vert = [_]f32{ -1, -1, 0 },
+        },
+        ChunkMesh.Vertex{
+            .vert = [_]f32{ 1, -1, 0 },
+        },
+        ChunkMesh.Vertex{
+            .vert = [_]f32{ 1, 1, 0 },
+        },
+    });
+    try chunk_mesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });
+    chunk_mesh.update();
+
     player = try Player.init();
     try player.register_input();
     player.transform.pos[0] = 8;
@@ -130,6 +147,8 @@ fn update_player_surrounding_chunks() !void {
                     chunk_coord,
                     chunk,
                 );
+
+                chunk_mesh.update_chunk_sub_data(@ptrCast(@alignCast(blocks)), chunk.offset, c.CHUNK_SUBVOXEL_SIZE);
             }
         }
     }
@@ -155,23 +174,6 @@ fn update_player_surrounding_chunks() !void {
 
 var count: usize = 0;
 pub fn update() !void {
-    chunk_mesh.clear();
-    try chunk_mesh.vertices.appendSlice(util.allocator(), &[_]ChunkMesh.Vertex{
-        ChunkMesh.Vertex{
-            .vert = [_]f32{ -1, 1, 0 },
-        },
-        ChunkMesh.Vertex{
-            .vert = [_]f32{ -1, -1, 0 },
-        },
-        ChunkMesh.Vertex{
-            .vert = [_]f32{ 1, -1, 0 },
-        },
-        ChunkMesh.Vertex{
-            .vert = [_]f32{ 1, 1, 0 },
-        },
-    });
-    try chunk_mesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });
-
     try update_player_surrounding_chunks();
 
     @memset(
@@ -189,9 +191,7 @@ pub fn update() !void {
             };
         }
     }
-
-    chunk_mesh.update_chunk_data(@ptrCast(@alignCast(blocks)));
-    chunk_mesh.update();
+    chunk_mesh.update_indirect_data();
 
     player.update();
 

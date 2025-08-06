@@ -17,10 +17,13 @@ const part_frag_source = @embedFile("shader_raw/particle.frag");
 const ray_vert_source = @embedFile("shader_raw/ray.vert");
 const ray_frag_source = @embedFile("shader_raw/ray.frag");
 
+const edit_comp_source = @embedFile("shader_raw/apply_voxel_edit.comp");
+
 var uber: c_uint = 0;
 var post: c_uint = 0;
 var part: c_uint = 0;
 var ray: c_uint = 0;
+var edit: c_uint = 0;
 
 var vpLoc: c_int = 0;
 var modelLoc: c_int = 0;
@@ -95,6 +98,11 @@ pub fn init() !void {
     rayResolutionLoc = gl.getUniformLocation(ray, "uResolution");
     rayVpLoc = gl.getUniformLocation(ray, "uProjView");
     rayInvVpLoc = gl.getUniformLocation(ray, "uInvProjView");
+
+    const edit_comp = compile_shader(@ptrCast(&edit_comp_source), gl.COMPUTE_SHADER);
+    edit = gl.createProgram();
+    gl.attachShader(edit, edit_comp);
+    gl.linkProgram(edit);
 
     use_particle_shader();
     partVpLoc = gl.getUniformLocation(part, "projView");

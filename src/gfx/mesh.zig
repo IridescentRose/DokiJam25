@@ -2,17 +2,9 @@ const std = @import("std");
 const gl = @import("gl.zig");
 const util = @import("../core/util.zig");
 
-pub const PosPacked = packed struct(u32) {
-    x: u9,
-    y: u9,
-    z: u9,
-    face: u3,
-    reserved: u2 = 0x3,
-};
-
 pub const Instance = struct {
-    vert: PosPacked,
-    col: [3]u8,
+    vert: [3]f32,
+    col: [4]u8,
 };
 
 pub const Vertex = struct {
@@ -75,11 +67,11 @@ pub fn update(self: *Self) void {
     gl.bindBuffer(gl.ARRAY_BUFFER, self.ibo);
     gl.bufferData(gl.ARRAY_BUFFER, @intCast(@sizeOf(Instance) * self.instances.items.len), self.instances.items.ptr, gl.STATIC_DRAW);
 
-    gl.vertexAttribIPointer(1, 1, gl.UNSIGNED_INT, @sizeOf(Instance), @ptrFromInt(0 + @offsetOf(Instance, "vert")));
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, gl.FALSE, @sizeOf(Instance), @ptrFromInt(0 + @offsetOf(Instance, "vert")));
     gl.enableVertexAttribArray(1);
     gl.vertexAttribDivisor(1, 1);
 
-    gl.vertexAttribPointer(2, 3, gl.UNSIGNED_BYTE, gl.FALSE, @sizeOf(Instance), @ptrFromInt(0 + @offsetOf(Instance, "col")));
+    gl.vertexAttribPointer(2, 4, gl.UNSIGNED_BYTE, gl.FALSE, @sizeOf(Instance), @ptrFromInt(0 + @offsetOf(Instance, "col")));
     gl.enableVertexAttribArray(2);
     gl.vertexAttribDivisor(2, 1);
 

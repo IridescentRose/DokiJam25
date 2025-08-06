@@ -19,18 +19,18 @@ pub const Particle = struct {
     lifetime: u16,
 };
 
-mesh: gfx.ParticleMesh,
+mesh: gfx.Mesh,
 transform: Transform,
 particles: std.ArrayList(Particle),
 
 pub fn new() !Self {
     var res: Self = .{
-        .mesh = try gfx.ParticleMesh.new(),
+        .mesh = try gfx.Mesh.new(),
         .transform = Transform.new(),
         .particles = std.ArrayList(Particle).init(util.allocator()),
     };
 
-    try res.mesh.vertices.appendSlice(util.allocator(), &c.particle_front_face);
+    try res.mesh.vertices.appendSlice(util.allocator(), &c.top_face);
     try res.mesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });
 
     res.transform.pos = [_]f32{ 0, 2, 0 };
@@ -60,9 +60,9 @@ pub fn update(self: *Self) !void {
 
         particle.lifetime -= 1;
         if (particle.lifetime > 0) {
-            try self.mesh.instances.append(util.allocator(), gfx.ParticleMesh.Instance{
+            try self.mesh.instances.append(util.allocator(), gfx.Mesh.Instance{
                 .vert = [_]f32{ particle.pos[0], particle.pos[1], particle.pos[2] },
-                .col = particle.color,
+                .col = [_]u8{ particle.color[0], particle.color[1], particle.color[2], 2 },
             });
 
             const final_pos = [_]f32{
@@ -134,6 +134,7 @@ pub fn draw(self: *Self) void {
         gfx.shader.set_part_projview(world.player.camera.get_projview_matrix());
         gfx.shader.set_part_yaw(std.math.degreesToRadians(-world.player.camera.yaw + 90.0));
         gfx.shader.set_part_pitch(std.math.degreesToRadians(0));
+        self.transform.scale = [_]f32{ 0.125, 3.5, 0.125 };
         gfx.shader.set_part_model(self.transform.get_matrix());
 
         self.mesh.draw();

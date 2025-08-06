@@ -1,7 +1,7 @@
 #version 330
 layout (location = 0) in vec3 aPos;
-layout (location = 1) in uint encodedOffset;
-layout (location = 2) in vec3 aCol;
+layout (location = 1) in vec3 off;
+layout (location = 2) in vec4 aCol;
 
 out vec3 vertexColor;
 out vec2 uv;
@@ -44,23 +44,15 @@ mat3 getFaceRotation(int face) {
 
 void main()
 {
-    const uint MASK = 511u;
-
     vec3 pos = aPos;
-    int face = int((encodedOffset >> 27) & 7u);
 
+    int face = int(aCol.a);
     mat3 rot = getFaceRotation(face);
  
     vec3 rotated = rot * pos;
-    norm = rot * vec3(0, 1, 0); //(projView * model * vec4(rot * vec3(0, 1, 0), 1.0)).xyz;
+    norm = rot * vec3(0, 1, 0);
 
     norm = mat3(transpose(inverse(model))) * norm;
-
-    float xoff = float((encodedOffset) & MASK);
-    float yoff = float((encodedOffset >> 9) & MASK);
-    float zoff = float((encodedOffset >> 18) & MASK);
-
-    vec3 off = vec3(xoff, yoff, zoff);
 
     gl_Position = projView * model * vec4(rotated + off, 1.0);
     vertexColor = aCol.rgb / 255.0;

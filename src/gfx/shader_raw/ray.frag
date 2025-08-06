@@ -22,7 +22,7 @@ layout(binding = 1, std430) buffer ChunkBuffer {
 };
 
 layout(binding = 2, std430) buffer ChunkMetaBuffer {
-   ChunkMeta metadata[49];
+   ChunkMeta metadata[49]; // c.MAX_CHUNKS
 };
 
 const int CHUNK_BLOCKS = 16; // Number of blocks in each chunk
@@ -149,24 +149,14 @@ void main()
     outNormal = vec4(normal * 0.5 + 0.5, 1.0);
 
 
-    vec4 sceneCol = vec4(0.0);
     // Color shading
     if ((voxel & 0xFFu) != 0u) {
-        sceneCol = vec4(vec3(
+        FragColor = vec4(vec3(
             float((voxel >> 8) & 0xFFu),
             float((voxel >> 16) & 0xFFu),
             float((voxel >> 24) & 0xFFu)
         ) / 255.0, 1.0);
     } else {
       FragColor = vec4(0.0);
-      return;
     }
-
-   // fogAmt → [0,1], grows with distance
-   float fogAmt = 1.0 - exp(-0.03 * tWorld);
-   fogAmt = clamp(fogAmt, 0.0, 1.0);
-
-   // mix scene with fog color
-   vec4 finalCol = mix(sceneCol, vec4(128.0 / 255.0, 143.0 / 255.0, 204.0 / 255.0, 1), fogAmt);
-   FragColor = finalCol;
 }

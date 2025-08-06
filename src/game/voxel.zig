@@ -43,20 +43,19 @@ fn add_face(self: *Self, v: [3]usize, face: u3) !void {
     const idx = self.get_index(v);
     const val: [4]u8 = std.mem.toBytes(self.texture.data[idx]);
 
-    var instance = gfx.Mesh.Instance{
-        .col = undefined,
-        .vert = .{
-            .x = @intCast(v[0]),
-            .y = @intCast(v[1]),
-            .z = @intCast(v[2]),
-            .face = face,
+    try self.mesh.instances.append(util.allocator(), .{
+        .col = [_]u8{
+            val[0],
+            val[1],
+            val[2],
+            face,
         },
-    };
-    instance.col[0] = val[0];
-    instance.col[1] = val[1];
-    instance.col[2] = val[2];
-
-    try self.mesh.instances.append(util.allocator(), instance);
+        .vert = [_]f32{
+            @floatFromInt(v[0]),
+            @floatFromInt(v[1]),
+            @floatFromInt(v[2]),
+        },
+    });
 }
 
 pub fn build(self: *Self) !void {

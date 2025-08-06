@@ -11,30 +11,21 @@ const ChunkMesh = @import("chunkmesh.zig");
 pub const ChunkLocation = [3]isize;
 pub const ChunkMap = std.AutoArrayHashMap(ChunkLocation, Chunk);
 
-var chunkMap: ChunkMap = undefined;
-var particles: Particle = undefined;
-
 const VoxelEdit = struct {
     offset: u32,
     atom: Chunk.Atom,
 };
 
-const AtomData = struct {
-    coord: AtomCoord,
-    moves: u8,
-};
-const AtomCoord = [3]isize;
-
-pub var active_atoms: std.ArrayList(AtomData) = undefined;
-
+var chunkMap: ChunkMap = undefined;
+var particles: Particle = undefined;
+pub var active_atoms: std.ArrayList(Chunk.AtomData) = undefined;
 var rand = std.Random.DefaultPrng.init(1337);
 pub var player: Player = undefined;
-
 var chunk_mesh: ChunkMesh = undefined;
 pub var blocks: []Chunk.Atom = undefined;
-
 var edit_list: std.ArrayList(VoxelEdit) = undefined;
 var chunk_freelist: std.ArrayList(usize) = undefined;
+var count: usize = 0;
 
 pub fn init(seed: u32) !void {
     chunk_mesh = try ChunkMesh.new();
@@ -57,15 +48,17 @@ pub fn init(seed: u32) !void {
 
     player = try Player.init();
     try player.register_input();
+
+    // TODO: Random spawn location
     player.transform.pos[0] = 8;
     player.transform.pos[1] = 14;
     player.transform.pos[2] = 8;
 
     try worldgen.init(seed);
 
-    active_atoms = std.ArrayList(AtomData).init(util.allocator());
+    active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
 
-    blocks = try util.allocator().alloc(Chunk.Atom, c.CHUNK_SUBVOXEL_SIZE * 49);
+    blocks = try util.allocator().alloc(Chunk.Atom, c.CHUNK_SUBVOXEL_SIZE * c.MAX_CHUNKS);
     @memset(
         blocks,
         .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } },
@@ -192,7 +185,6 @@ fn lessThan(_: usize, a: ChunkMesh.IndirectionEntry, b: ChunkMesh.IndirectionEnt
     return a.x < b.x;
 }
 
-var count: usize = 0;
 pub fn update() !void {
     try update_player_surrounding_chunks();
 

@@ -5,7 +5,6 @@ const gl = @import("gl.zig");
 pub const zm = @import("zmath");
 pub const Mesh = @import("mesh.zig");
 pub const TexMesh = @import("texmesh.zig");
-pub const ParticleMesh = @import("particlemesh.zig");
 pub const texture = @import("textures.zig");
 pub const window = @import("window.zig");
 pub const shader = @import("shaders.zig");

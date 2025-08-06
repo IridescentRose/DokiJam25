@@ -18,6 +18,14 @@ pub const Atom = struct {
     }
 };
 
+// Simulation data for active atoms (e.g. falling sand)
+pub const AtomData = struct {
+    coord: AtomCoord,
+    moves: u8,
+};
+
+pub const AtomCoord = [3]isize;
+
 offset: u32,
 size: u32 = c.CHUNK_SUBVOXEL_SIZE,
 

@@ -91,8 +91,6 @@ pub fn deinit() void {
 
 pub fn finalize() !void {
     gl.bindFramebuffer(gl.FRAMEBUFFER, 0);
-    const attachment = [_]gl.GLenum{gl.COLOR_ATTACHMENT0};
-    gl.drawBuffers(1, &attachment);
 
     gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);

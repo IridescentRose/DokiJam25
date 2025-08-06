@@ -18,8 +18,8 @@ pub const Atom = struct {
     }
 };
 
-offset: usize,
-size: usize = c.CHUNK_SUBVOXEL_SIZE,
+offset: u32,
+size: u32 = c.CHUNK_SUBVOXEL_SIZE,
 
 pub fn get_index(coord: [3]usize) usize {
     return (coord[1] * c.CHUNK_SUB_BLOCKS + coord[2]) * c.CHUNK_SUB_BLOCKS + coord[0];

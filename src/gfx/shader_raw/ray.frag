@@ -11,11 +11,19 @@ uniform vec2 uResolution; // viewport resolution (in pixels)
 uniform mat4 uProjView; // combined projection and view matrix
 uniform mat4 uInvProjView; // inverse of the combined projection and view matrix
 
+struct ChunkMeta {
+   ivec3 pos; // Chunk position in chunk coordinates
+   int offset; // Offset in the voxels buffer where this chunk's data starts
+};
+
 // SSBO of all chunks
 layout(binding = 1, std430) buffer ChunkBuffer {
-   uint data[];
-} voxels;
+   uint voxels[];
+};
 
+layout(binding = 2, std430) buffer ChunkMetaBuffer {
+   ChunkMeta metadata[64];
+};
 
 const int CHUNK_BLOCKS = 16; // Number of blocks in each chunk
 const int SUB_BLOCKS_PER_BLOCK = 8;
@@ -25,14 +33,33 @@ const int SUBVOXEL_SIZE = SUB_BLOCKS_PER_BLOCK * SUB_BLOCKS_PER_BLOCK * SUB_BLOC
 // Shrink the scene
 const float GRID_SCALE = 8.0;
 
-uint getVoxel(ivec3 p) {
-   if(any(lessThan(p, ivec3(0))) || any(greaterThanEqual(p, ivec3(CHUNK_SUB_BLOCKS)))) {
-      return 0; // Out of bounds, treat as empty voxel
-   }
+// Helper: exact floor‐division for negative coords
+ivec3 floorDiv(ivec3 v, int d) {
+    ivec3 q = v / d;                       // truncates toward zero
+    bvec3 rem = notEqual(v - q * d, ivec3(0));
+    bvec3 neg = lessThan(v, ivec3(0));
+    q -= ivec3(rem) * ivec3(neg);
+    return q;
+}
 
-    int idx = (p.y * CHUNK_SUB_BLOCKS + p.z) * CHUNK_SUB_BLOCKS + p.x;
-    return voxels.data[idx];
-} 
+uint getVoxel(ivec3 p) {
+    if (p.y < 0 || p.y >= CHUNK_SUB_BLOCKS) return 0u;
+
+    ivec3 chunkCoord = floorDiv(p, CHUNK_SUB_BLOCKS);
+    ivec3 localPos   = p - chunkCoord * CHUNK_SUB_BLOCKS;  
+
+    for (int i = 0; i < 64; i++) {
+        if (metadata[i].offset < 0) continue;
+        if (metadata[i].pos == chunkCoord) {
+            uint off = uint(metadata[i].offset);
+            int idx = (localPos.y * CHUNK_SUB_BLOCKS + localPos.z) * CHUNK_SUB_BLOCKS
+                    + localPos.x;
+            return voxels[off + uint(idx)];
+        }
+    }
+    return 0u;
+}
+
 
 void main()
 {

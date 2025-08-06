@@ -80,12 +80,12 @@ pub fn event_loop() !void {
 
         handle_updates();
 
-        fps += 1;
         if (std.time.nanoTimestamp() > second_timer) {
             std.debug.print("FPS: {}\n", .{fps});
             fps = 0;
             second_timer = std.time.nanoTimestamp() + std.time.ns_per_s;
         }
+        fps += 1;
 
         if (now < next_frame_start and stable_fps) {
             // Poll for events

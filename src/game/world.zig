@@ -19,6 +19,7 @@ const AtomData = struct {
     moves: u8,
 };
 const AtomCoord = [3]isize;
+
 pub var active_atoms: std.ArrayList(AtomData) = undefined;
 
 var rand = std.Random.DefaultPrng.init(1337);
@@ -95,7 +96,7 @@ pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
 
 fn update_player_surrounding_chunks() !void {
     // We have a new location -- figure out what chunks are needed
-    const CHUNK_RADIUS = 2;
+    const CHUNK_RADIUS = 1;
 
     const curr_player_chunk = [_]isize{
         @divTrunc(@as(isize, @intFromFloat(player.transform.pos[0])), c.CHUNK_BLOCKS),
@@ -113,14 +114,15 @@ fn update_player_surrounding_chunks() !void {
             const chunk_coord = [_]isize{ x_curr, 0, z_curr };
 
             try target_chunks.append(chunk_coord);
-
             if (!chunkMap.contains(chunk_coord)) {
-                const chunk = try util.allocator().create(Chunk);
-                chunk.* = try Chunk.new([_]f32{ @floatFromInt(chunk_coord[0] * c.CHUNK_BLOCKS), 0, @floatFromInt(chunk_coord[2] * c.CHUNK_BLOCKS) }, chunk_coord);
-                try worldgen.fill(chunk, [_]isize{ chunk_coord[0], chunk_coord[2] });
+                const curr_len = blocks.items.len;
+                try blocks.resize(c.CHUNK_SUBVOXEL_SIZE + curr_len);
+                @memset(blocks.items[curr_len..], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
 
-                try chunk.update();
-                chunk.ticks = rand.random().int(u32) % 60; // Randomize the tick count to avoid all chunks updating at the same time
+                const chunk = Chunk{
+                    .offset = @intCast(curr_len),
+                };
+                try worldgen.fill(chunk, [_]isize{ chunk_coord[0], chunk_coord[2] });
 
                 try chunkMap.put(
                     chunk_coord,
@@ -143,10 +145,9 @@ fn update_player_surrounding_chunks() !void {
     }
 
     for (extra_chunks.items) |i| {
-        var chunk = chunkMap.get(i).?;
-        chunk.deinit();
-        util.allocator().destroy(chunk);
         _ = chunkMap.swapRemove(i);
+
+        // TODO: Free slot
     }
 }
 
@@ -168,6 +169,27 @@ pub fn update() !void {
         },
     });
     try chunk_mesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });
+
+    try update_player_surrounding_chunks();
+
+    @memset(
+        &chunk_mesh.chunks,
+        .{ .chunk_pos = [_]i32{ 0, 0, 0 }, .voxel_offset = -1 },
+    );
+
+    for (chunkMap.keys(), 0..) |coord, i| {
+        if (i < chunk_mesh.chunks.len) {
+            chunk_mesh.chunks[i] = ChunkMesh.IndirectionEntry{
+                .chunk_pos = [_]i32{
+                    @intCast(coord[0]),
+                    0,
+                    @intCast(coord[2]),
+                },
+                .voxel_offset = @intCast(chunkMap.values()[i].offset),
+            };
+        }
+    }
+
     chunk_mesh.update_chunk_data(@ptrCast(@alignCast(blocks.items)));
     chunk_mesh.update();
 
@@ -235,8 +257,6 @@ pub fn update() !void {
             _ = active_atoms.orderedRemove(0);
         }
     }
-
-    // try update_player_surrounding_chunks();
 
     try particles.update();
 }

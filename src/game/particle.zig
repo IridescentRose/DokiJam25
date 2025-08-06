@@ -91,7 +91,7 @@ pub fn update(self: *Self) !void {
 
                     if (particle.kind == .Water) {
                         count += 1;
-                        if (count % 10 != 0) continue;
+                        if (count % 1000 != 0) continue;
 
                         const adjusted_subvoxel_coord = [_]isize{
                             subvoxel_coord[0],
@@ -102,7 +102,7 @@ pub fn update(self: *Self) !void {
                         world.set_voxel(adjusted_subvoxel_coord, .{ .material = .Water, .color = particle.color });
                         try world.active_atoms.append(.{
                             .coord = adjusted_subvoxel_coord,
-                            .moves = 20, // Water particles can move around a bit
+                            .moves = 10, // Water particles can move around a bit
                         });
                     }
 

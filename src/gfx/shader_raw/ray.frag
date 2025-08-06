@@ -42,22 +42,47 @@ ivec3 floorDiv(ivec3 v, int d) {
     return q;
 }
 
-uint getVoxel(ivec3 p) {
-    if (p.y < 0 || p.y >= CHUNK_SUB_BLOCKS) return 0u;
+int binarySearchMetadata(ivec3 target) {
+    int low = 0;
+    int high = 48; // or 48 for a fixed 7×7
 
-    ivec3 chunkCoord = floorDiv(p, CHUNK_SUB_BLOCKS);
-    ivec3 localPos   = p - chunkCoord * CHUNK_SUB_BLOCKS;  
+    while (low <= high) {
+        int mid = (low + high) / 2;
+        ivec3 pos = metadata[mid].pos;
 
-    for (int i = 0; i < 49; i++) {
-        if (metadata[i].offset < 0) continue;
-        if (metadata[i].pos == chunkCoord) {
-            uint off = uint(metadata[i].offset);
-            int idx = (localPos.y * CHUNK_SUB_BLOCKS + localPos.z) * CHUNK_SUB_BLOCKS
-                    + localPos.x;
-            return voxels[off + uint(idx)];
+        if (all(equal(pos, target))) {
+            return mid;
+        }
+
+        // YZX ordering comparison
+        if (
+            pos.y < target.y ||
+            (pos.y == target.y && pos.z < target.z) ||
+            (pos.y == target.y && pos.z == target.z && pos.x < target.x)
+        ) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
         }
     }
-    return 0u;
+
+    return -1; // not found
+}
+
+uint getVoxel(ivec3 p) {
+    if (p.y < 0 || p.y >= CHUNK_SUB_BLOCKS)
+        return 0u;
+
+    ivec3 chunkCoord = floorDiv(p, CHUNK_SUB_BLOCKS);
+    ivec3 localPos   = p - chunkCoord * CHUNK_SUB_BLOCKS;
+
+    int idx = (localPos.y * CHUNK_SUB_BLOCKS + localPos.z) * CHUNK_SUB_BLOCKS + localPos.x;
+
+    int metaIndex = binarySearchMetadata(chunkCoord);
+    if (metaIndex < 0) return 0u;
+
+    uint offset = uint(metadata[metaIndex].offset);
+    return voxels[offset + uint(idx)];
 }
 
 
@@ -85,11 +110,12 @@ void main()
    mapPos   += ivec3(mask) * rayStep;
 
    uint voxel = 0;
-   for (int i = 0; i < 767; i++) {
+   for (int i = 0; i < 511; i++) {
       // 1) figure out which axis we cross next
       mask      = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
       sideDist += vec3(mask) * deltaDist;
       mapPos   += ivec3(mask) * rayStep;
+
 
       // 2) now sample that new cell
       voxel     = getVoxel(mapPos);

@@ -109,7 +109,6 @@ pub fn update_indirect_data(self: *Self) void {
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, self.indirect);
     gl.bufferData(gl.SHADER_STORAGE_BUFFER, @intCast(self.chunks.len * @sizeOf(IndirectionEntry)), null, gl.DYNAMIC_DRAW);
     gl.bufferSubData(gl.SHADER_STORAGE_BUFFER, 0, @intCast(self.chunks.len * @sizeOf(IndirectionEntry)), &self.chunks);
-    gl.memoryBarrier(gl.SHADER_STORAGE_BARRIER_BIT);
 }
 
 pub fn update_chunk_sub_data(self: *Self, data: []u32, offset: usize, size: usize) void {

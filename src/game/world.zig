@@ -6,9 +6,10 @@ const worldgen = @import("worldgen.zig");
 const util = @import("../core/util.zig");
 const Particle = @import("particle.zig");
 const gl = @import("../gfx/gl.zig");
+const ChunkMesh = @import("chunkmesh.zig");
 
 pub const ChunkLocation = [3]isize;
-pub const ChunkMap = std.AutoArrayHashMap(ChunkLocation, *Chunk);
+pub const ChunkMap = std.AutoArrayHashMap(ChunkLocation, Chunk);
 
 var chunkMap: ChunkMap = undefined;
 var particles: Particle = undefined;
@@ -22,7 +23,12 @@ pub var active_atoms: std.ArrayList(AtomData) = undefined;
 
 var rand = std.Random.DefaultPrng.init(1337);
 pub var player: Player = undefined;
+
+var chunk_mesh: ChunkMesh = undefined;
+pub var blocks: std.ArrayList(Chunk.Atom) = undefined;
+
 pub fn init(seed: u32) !void {
+    chunk_mesh = try ChunkMesh.new();
     player = try Player.init();
     try player.register_input();
     player.transform.pos[0] = 8;
@@ -33,12 +39,17 @@ pub fn init(seed: u32) !void {
 
     active_atoms = std.ArrayList(AtomData).init(util.allocator());
 
+    blocks = std.ArrayList(Chunk.Atom).init(util.allocator());
+    try blocks.resize(c.CHUNK_SUBVOXEL_SIZE);
+    @memset(blocks.items, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+
     chunkMap = ChunkMap.init(util.allocator());
 
-    const chunk = try util.allocator().create(Chunk);
-    chunk.* = try Chunk.new();
+    const chunk = Chunk{
+        .offset = 0,
+    };
+
     try worldgen.fill(chunk, [_]isize{ 0, 0 });
-    try chunk.update();
 
     try chunkMap.put(
         [_]isize{ 0, 0, 0 },
@@ -49,10 +60,6 @@ pub fn init(seed: u32) !void {
 }
 
 pub fn deinit() void {
-    for (chunkMap.values()) |v| {
-        v.deinit();
-        util.allocator().destroy(v);
-    }
     chunkMap.deinit();
     player.deinit();
 
@@ -61,6 +68,9 @@ pub fn deinit() void {
     active_atoms.deinit();
 
     worldgen.deinit();
+
+    blocks.deinit();
+    chunk_mesh.deinit();
 }
 
 pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
@@ -68,7 +78,7 @@ pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
 
     if (chunkMap.get(chunk_coord)) |chunk| {
         const idx = Chunk.get_index([_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) });
-        return chunk.subvoxels.items[idx].material;
+        return blocks.items[chunk.offset + idx].material;
     } else {
         return .Air;
     }
@@ -79,7 +89,7 @@ pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
 
     if (chunkMap.get(chunk_coord)) |chunk| {
         const idx = Chunk.get_index([_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) });
-        chunk.subvoxels.items[idx] = atom;
+        blocks.items[chunk.offset + idx] = atom;
     }
 }
 
@@ -142,6 +152,25 @@ fn update_player_surrounding_chunks() !void {
 
 var count: usize = 0;
 pub fn update() !void {
+    chunk_mesh.clear();
+    try chunk_mesh.vertices.appendSlice(util.allocator(), &[_]ChunkMesh.Vertex{
+        ChunkMesh.Vertex{
+            .vert = [_]f32{ -1, 1, 0 },
+        },
+        ChunkMesh.Vertex{
+            .vert = [_]f32{ -1, -1, 0 },
+        },
+        ChunkMesh.Vertex{
+            .vert = [_]f32{ 1, -1, 0 },
+        },
+        ChunkMesh.Vertex{
+            .vert = [_]f32{ 1, 1, 0 },
+        },
+    });
+    try chunk_mesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });
+    chunk_mesh.update_chunk_data(@ptrCast(@alignCast(blocks.items)));
+    chunk_mesh.update();
+
     player.update();
 
     count += 1;
@@ -209,17 +238,11 @@ pub fn update() !void {
 
     // try update_player_surrounding_chunks();
 
-    for (chunkMap.values()) |v| {
-        try v.update();
-    }
-
     try particles.update();
 }
 
 pub fn draw() void {
-    for (chunkMap.values()) |v| {
-        v.draw();
-    }
+    chunk_mesh.draw();
 
     player.draw();
     particles.draw();

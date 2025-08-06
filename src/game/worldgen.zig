@@ -3,6 +3,7 @@ const Chunk = @import("chunk.zig");
 const util = @import("../core/util.zig");
 const c = @import("consts.zig");
 const znoise = @import("znoise");
+const world = @import("world.zig");
 
 const gen = znoise.FnlGenerator{
     .seed = 1337,
@@ -40,7 +41,7 @@ pub fn deinit() void {
     util.allocator().free(stencil);
 }
 
-pub fn fill(chunk: *Chunk, location: [2]isize) !void {
+pub fn fill(chunk: Chunk, location: [2]isize) !void {
     const before = std.time.nanoTimestamp();
 
     const blocks_per_chunk = c.CHUNK_SUB_BLOCKS;
@@ -68,7 +69,7 @@ pub fn fill(chunk: *Chunk, location: [2]isize) !void {
                 const yf = @as(f64, @floatFromInt(y));
                 if (yf < h) {
                     const idx = Chunk.get_index([_]usize{ x, y, z });
-                    chunk.subvoxels.items[idx] = stencil[((y % c.SUB_BLOCKS_PER_BLOCK) * c.SUB_BLOCKS_PER_BLOCK + (z % c.SUB_BLOCKS_PER_BLOCK)) * c.SUB_BLOCKS_PER_BLOCK + (x % c.SUB_BLOCKS_PER_BLOCK)];
+                    world.blocks.items[chunk.offset + idx] = stencil[((y % c.SUB_BLOCKS_PER_BLOCK) * c.SUB_BLOCKS_PER_BLOCK + (z % c.SUB_BLOCKS_PER_BLOCK)) * c.SUB_BLOCKS_PER_BLOCK + (x % c.SUB_BLOCKS_PER_BLOCK)];
                 }
             }
         }

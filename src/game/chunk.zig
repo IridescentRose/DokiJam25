@@ -5,6 +5,7 @@ pub const AtomKind = enum(u8) {
     Dirt,
     Stone,
     Water,
+    StillWater,
 };
 
 pub const Atom = struct {

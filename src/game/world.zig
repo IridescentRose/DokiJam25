@@ -50,7 +50,7 @@ pub fn init(seed: u32) !void {
 
     // TODO: Random spawn location
     player.transform.pos[0] = 8;
-    player.transform.pos[1] = 14;
+    player.transform.pos[1] = 64;
     player.transform.pos[2] = 8;
 
     try worldgen.init(seed);
@@ -223,7 +223,7 @@ pub fn update() !void {
         const rz = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
         try particles.add_particle(Particle.Particle{
             .kind = .Water,
-            .pos = [_]f32{ player.transform.pos[0] + rx * 0.25, player.transform.pos[1] + 24.0, player.transform.pos[2] + rz * 0.25 },
+            .pos = [_]f32{ player.transform.pos[0] + rx * 0.25, 63.0, player.transform.pos[2] + rz * 0.25 },
             .color = [_]u8{ 0xC0, 0xD0, 0xFF },
             .vel = [_]f32{ 0, -48, 0 },
             .lifetime = 300,
@@ -248,9 +248,43 @@ pub fn update() !void {
                     set_voxel(below_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
                     set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
                     atom.coord = below_coord;
-                    atom.moves -= 1;
                     continue;
                 }
+                if (get_voxel(below_coord) == .StillWater) {
+                    set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                    atom.coord = below_coord;
+                    atom.moves = 0; // We have "combined" with the still water
+                    continue;
+                }
+
+                const check_fars = [_][3]isize{
+                    [_]isize{ atom.coord[0] - 2, atom.coord[1] - 1, atom.coord[2] },
+                    [_]isize{ atom.coord[0] + 2, atom.coord[1] - 1, atom.coord[2] },
+                    [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] - 2 },
+                    [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] + 2 },
+                    [_]isize{ atom.coord[0] - 1, atom.coord[1] - 1, atom.coord[2] },
+                    [_]isize{ atom.coord[0] + 1, atom.coord[1] - 1, atom.coord[2] },
+                    [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] - 1 },
+                    [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] + 1 },
+                    [_]isize{ atom.coord[0] - 3, atom.coord[1] - 1, atom.coord[2] },
+                    [_]isize{ atom.coord[0] + 3, atom.coord[1] - 1, atom.coord[2] },
+                    [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] - 3 },
+                    [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] + 3 },
+                };
+
+                var found = false;
+                for (check_fars) |far_coord| {
+                    if (get_voxel(far_coord) == .Air) {
+                        set_voxel(far_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
+                        set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                        atom.coord = far_coord;
+                        atom.moves -= 1;
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (found) continue;
 
                 // Otherwise we randomly try to spread out
                 const next_coords = [_][3]isize{
@@ -293,7 +327,11 @@ pub fn update() !void {
             var i: usize = active_atoms.items.len - 1;
             while (i > 0) : (i -= 1) {
                 if (active_atoms.items[i].moves == 0) {
-                    _ = active_atoms.swapRemove(i);
+                    const atom = active_atoms.swapRemove(i);
+
+                    if (get_voxel(atom.coord) == .Water) {
+                        set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                    }
                 }
             }
         }

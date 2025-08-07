@@ -33,6 +33,8 @@ pub const AtomCoord = [3]isize;
 
 offset: u32,
 size: u32 = c.CHUNK_SUBVOXEL_SIZE,
+populated: bool = false,
+uploaded: bool = false,
 
 pub fn get_index(coord: [3]usize) usize {
     return (coord[1] * c.CHUNK_SUB_BLOCKS + coord[2]) * c.CHUNK_SUB_BLOCKS + coord[0];

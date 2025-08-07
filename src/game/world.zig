@@ -7,6 +7,7 @@ const util = @import("../core/util.zig");
 const Particle = @import("particle.zig");
 const gl = @import("../gfx/gl.zig");
 const ChunkMesh = @import("chunkmesh.zig");
+const job_queue = @import("job_queue.zig");
 
 pub const ChunkLocation = [2]isize;
 pub const ChunkMap = std.AutoArrayHashMap(ChunkLocation, Chunk);
@@ -16,7 +17,7 @@ const VoxelEdit = struct {
     atom: Chunk.Atom,
 };
 
-var chunkMap: ChunkMap = undefined;
+pub var chunkMap: ChunkMap = undefined;
 var particles: Particle = undefined;
 pub var active_atoms: std.ArrayList(Chunk.AtomData) = undefined;
 var rand = std.Random.DefaultPrng.init(1337);
@@ -25,9 +26,10 @@ var chunk_mesh: ChunkMesh = undefined;
 pub var blocks: []Chunk.Atom = undefined;
 var edit_list: std.ArrayList(VoxelEdit) = undefined;
 var chunk_freelist: std.ArrayList(usize) = undefined;
-var chunk_todo_list: std.ArrayList(ChunkLocation) = undefined;
 
 pub fn init(seed: u32) !void {
+    try job_queue.init();
+
     chunk_mesh = try ChunkMesh.new();
     try chunk_mesh.vertices.appendSlice(util.allocator(), &[_]ChunkMesh.Vertex{
         ChunkMesh.Vertex{
@@ -71,7 +73,6 @@ pub fn init(seed: u32) !void {
 
     edit_list = std.ArrayList(VoxelEdit).init(util.allocator());
 
-    chunk_todo_list = std.ArrayList(ChunkLocation).init(util.allocator());
     chunkMap = ChunkMap.init(util.allocator());
     particles = try Particle.new();
 }
@@ -90,7 +91,8 @@ pub fn deinit() void {
     util.allocator().free(blocks);
     chunk_mesh.deinit();
     chunk_freelist.deinit();
-    chunk_todo_list.deinit();
+
+    job_queue.deinit();
 }
 
 pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
@@ -148,7 +150,7 @@ fn update_player_surrounding_chunks() !void {
             try target_chunks.append(chunk_coord);
             if (!chunkMap.contains(chunk_coord)) {
                 const offset = chunk_freelist.pop() orelse continue;
-                try chunk_todo_list.append(chunk_coord);
+                // try chunk_todo_list.append(chunk_coord);
 
                 @memset(blocks[offset .. offset + c.CHUNK_SUBVOXEL_SIZE], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
 
@@ -159,6 +161,10 @@ fn update_player_surrounding_chunks() !void {
                     chunk_coord,
                     chunk,
                 );
+
+                try job_queue.job_queue.writeItem(.{
+                    .GenerateChunk = .{ .pos = chunk_coord },
+                });
             }
         }
     }
@@ -179,14 +185,6 @@ fn update_player_surrounding_chunks() !void {
         const chunk = chunkMap.get(i) orelse unreachable;
         try chunk_freelist.append(chunk.offset);
         _ = chunkMap.swapRemove(i);
-    }
-
-    if (chunk_todo_list.items.len != 0) {
-        // Pop one chunk to fill
-        const coord = chunk_todo_list.pop() orelse return;
-        const chunk = chunkMap.get(coord) orelse return;
-        try worldgen.fill(chunk, [_]isize{ coord[0], coord[1] });
-        chunk_mesh.update_chunk_sub_data(@ptrCast(@alignCast(blocks)), chunk.offset, c.CHUNK_SUBVOXEL_SIZE);
     }
 }
 
@@ -225,6 +223,14 @@ pub fn update() !void {
     edit_list.clearAndFree();
 
     player.update();
+
+    for (chunkMap.values()) |*chk| {
+        if (chk.populated and !chk.uploaded) {
+            // Upload the chunk data to the GPU
+            chunk_mesh.update_chunk_sub_data(@ptrCast(@alignCast(blocks)), chk.offset, c.CHUNK_SUBVOXEL_SIZE);
+            chk.uploaded = true;
+        }
+    }
 
     // Rain
     for (0..8) |_| {

@@ -100,6 +100,66 @@ fn mouseCb(ctx: *anyopaque, dx: f32, dy: f32) void {
     if (self.camera.pitch < -60.0) self.camera.pitch = -60.0;
 }
 
+fn place_block(ctx: *anyopaque, down: bool) void {
+    if (!down) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+    const coord = [_]f32{ self.transform.pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.transform.pos[1] * c.SUB_BLOCKS_PER_BLOCK, self.transform.pos[2] * c.SUB_BLOCKS_PER_BLOCK };
+
+    const subvoxel_coord = [3]isize{ @intFromFloat(coord[0]), @intFromFloat(coord[1]), @intFromFloat(coord[2]) };
+    const voxel_coord = [3]isize{ @divFloor(subvoxel_coord[0], c.SUB_BLOCKS_PER_BLOCK), @divFloor(subvoxel_coord[1], c.SUB_BLOCKS_PER_BLOCK), @divFloor(subvoxel_coord[2], c.SUB_BLOCKS_PER_BLOCK) };
+
+    // This is the bottom left corner of the voxel we are looking at
+    const rescaled_subvoxel = [3]isize{ voxel_coord[0] * c.SUB_BLOCKS_PER_BLOCK, voxel_coord[1] * c.SUB_BLOCKS_PER_BLOCK, voxel_coord[2] * c.SUB_BLOCKS_PER_BLOCK };
+
+    for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
+        for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
+            for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
+                const ix: isize = @intCast(x);
+                const iy: isize = @intCast(y);
+                const iz: isize = @intCast(z);
+
+                const test_coord = [3]isize{ rescaled_subvoxel[0] + ix, rescaled_subvoxel[1] + iy, rescaled_subvoxel[2] + iz };
+                const voxel = world.get_voxel(test_coord);
+                if (voxel == .Air) {
+                    _ = world.set_voxel(test_coord, .{ .material = .Dirt, .color = [_]u8{ 34, 139, 34 } });
+                }
+            }
+        }
+    }
+}
+
+fn destroy_block(ctx: *anyopaque, down: bool) void {
+    if (!down) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+
+    // TODO: Better way of doing this
+    const coord = [_]f32{ self.transform.pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.transform.pos[1] * c.SUB_BLOCKS_PER_BLOCK - 0.05, self.transform.pos[2] * c.SUB_BLOCKS_PER_BLOCK };
+
+    const subvoxel_coord = [3]isize{ @intFromFloat(coord[0]), @intFromFloat(coord[1]), @intFromFloat(coord[2]) };
+    const voxel_coord = [3]isize{ @divFloor(subvoxel_coord[0], c.SUB_BLOCKS_PER_BLOCK), @divFloor(subvoxel_coord[1], c.SUB_BLOCKS_PER_BLOCK), @divFloor(subvoxel_coord[2], c.SUB_BLOCKS_PER_BLOCK) };
+
+    // This is the bottom left corner of the voxel we are looking at
+    const rescaled_subvoxel = [3]isize{ voxel_coord[0] * c.SUB_BLOCKS_PER_BLOCK, voxel_coord[1] * c.SUB_BLOCKS_PER_BLOCK, voxel_coord[2] * c.SUB_BLOCKS_PER_BLOCK };
+
+    for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
+        for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
+            for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
+                const ix: isize = @intCast(x);
+                const iy: isize = @intCast(y);
+                const iz: isize = @intCast(z);
+
+                const test_coord = [3]isize{ rescaled_subvoxel[0] + ix, rescaled_subvoxel[1] + iy, rescaled_subvoxel[2] + iz };
+                const voxel = world.get_voxel(test_coord);
+                if (voxel != .Air) {
+                    _ = world.set_voxel(test_coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                }
+            }
+        }
+    }
+}
+
 pub fn register_input(self: *Self) !void {
     try input.register_key_callback(.w, .{
         .ctx = self,
@@ -126,6 +186,15 @@ pub fn register_input(self: *Self) !void {
         .ctx = self,
         .cb = mouseCb,
     };
+
+    try input.register_mouse_callback(.left, .{
+        .ctx = self,
+        .cb = destroy_block,
+    });
+    try input.register_mouse_callback(.right, .{
+        .ctx = self,
+        .cb = place_block,
+    });
 
     try window.set_relative(true);
 }
@@ -183,6 +252,7 @@ pub fn update(self: *Self) void {
 pub fn draw(self: *Self) void {
     gfx.shader.use_render_shader();
 
+    self.camera.distance = 5.0 + @as(f32, @floatFromInt(input.scroll_pos)) * 0.5;
     self.camera.update();
     self.transform.pos[1] += player_size[1] + 0.1; // Offset player up a bit so they don't clip into the ground
     gfx.shader.set_model(self.transform.get_matrix());

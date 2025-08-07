@@ -101,6 +101,10 @@ pub fn deinit() void {
 }
 
 pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
+    if (coord[1] < 0 or coord[1] >= c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS) {
+        return .Air;
+    }
+
     const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_SUB_BLOCKS), @divFloor(coord[2], c.CHUNK_SUB_BLOCKS) };
 
     if (chunkMap.get(chunk_coord)) |chunk| {
@@ -115,6 +119,10 @@ pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
 }
 
 pub fn get_full_voxel(coord: [3]isize) Chunk.Atom {
+    if (coord[1] < 0 or coord[1] >= c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS) {
+        return .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } };
+    }
+
     const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_SUB_BLOCKS), @divFloor(coord[2], c.CHUNK_SUB_BLOCKS) };
 
     if (chunkMap.get(chunk_coord)) |chunk| {
@@ -144,6 +152,10 @@ pub fn is_in_world(coord: [3]isize) bool {
 }
 
 pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) bool {
+    if (coord[1] < 0 or coord[1] >= c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS) {
+        return false; // Out of bounds
+    }
+
     const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_SUB_BLOCKS), @divFloor(coord[2], c.CHUNK_SUB_BLOCKS) };
 
     if (chunkMap.get(chunk_coord)) |chunk| {

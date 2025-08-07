@@ -28,6 +28,8 @@ pub const MouseRelativeCallback = struct {
 
 pub var mouse_relative_handle: ?MouseRelativeCallback = null;
 
+pub var scroll_pos: isize = 0;
+
 pub fn init() void {
     assert(!initialized);
 

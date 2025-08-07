@@ -56,6 +56,13 @@ fn handle_updates() void {
                     h.cb(h.ctx, t.x_rel, t.y_rel);
                 }
             },
+            .mouse_wheel => |t| {
+                input.scroll_pos -= @intFromFloat(t.scroll_y);
+
+                const SCROLL_MAX = 10; // Arbitrary limit for scroll position
+                const SCROLL_MIN = -5; // Arbitrary limit for scroll position
+                input.scroll_pos = std.math.clamp(input.scroll_pos, SCROLL_MIN, SCROLL_MAX);
+            },
             else => {
                 // std.debug.print("Received unknown event! {any}\n", .{event});
             },

@@ -49,9 +49,9 @@ pub fn init(seed: u32) !void {
     try player.register_input();
 
     // TODO: Random spawn location
-    player.transform.pos[0] = 8;
+    player.transform.pos[0] = 1024;
     player.transform.pos[1] = 64;
-    player.transform.pos[2] = 8;
+    player.transform.pos[2] = 1024;
 
     try worldgen.init(seed);
 

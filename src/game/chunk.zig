@@ -8,6 +8,7 @@ pub const AtomKind = enum(u8) {
     Grass,
     Sand,
     StillWater,
+    Leaf,
 };
 
 pub const Atom = struct {

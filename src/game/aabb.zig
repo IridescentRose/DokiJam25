@@ -25,6 +25,10 @@ pub fn get_max_pos(self: *Self, new_pos: [3]f32) [3]f32 {
     };
 }
 
+pub fn can_walk_through(coord: [3]isize) bool {
+    return world.get_voxel(coord) == .Air or world.get_voxel(coord) == .Water or world.get_voxel(coord) == .StillWater or world.get_voxel(coord) == .Leaf or world.get_voxel(coord) == .Grass;
+}
+
 // Updates the position and velocity based on collisions with the world
 // new_pos and vel are both in world space (not sub-voxel space)
 // Modifies new_pos and vel in place
@@ -50,7 +54,7 @@ pub fn collide_aabb_with_world(self: *Self, new_pos: *[3]f32, vel: *[3]f32, on_g
                         z,
                     };
 
-                    if (world.get_voxel(coord) != .Air) {
+                    if (!can_walk_through(coord)) {
                         if (vel[1] > 0) {
                             new_pos[1] = @as(f32, @floatFromInt(coord[1])) / c.SUB_BLOCKS_PER_BLOCK;
                             vel[1] = 0;
@@ -94,7 +98,7 @@ pub fn collide_aabb_with_world(self: *Self, new_pos: *[3]f32, vel: *[3]f32, on_g
                         z,
                     };
 
-                    if (world.get_voxel(coord) != .Air) {
+                    if (!can_walk_through(coord)) {
                         if (on_ground.* and !has_stepped and self.can_step) {
                             // try small increments up to MAX_STEP_HEIGHT
                             var stepped = false;
@@ -110,7 +114,7 @@ pub fn collide_aabb_with_world(self: *Self, new_pos: *[3]f32, vel: *[3]f32, on_g
                                 const iy: isize = @intFromFloat(@floor(worldY * c.SUB_BLOCKS_PER_BLOCK));
                                 const iz: isize = @intFromFloat(@floor(worldZ * c.SUB_BLOCKS_PER_BLOCK));
 
-                                if (world.get_voxel(.{ ix, iy, iz }) == .Air) {
+                                if (can_walk_through(.{ ix, iy, iz })) {
                                     // looks clear at this step height
                                     new_pos[1] += s;
                                     // now re-try the X collision at the higher Y:
@@ -167,7 +171,7 @@ pub fn collide_aabb_with_world(self: *Self, new_pos: *[3]f32, vel: *[3]f32, on_g
                         @intFromFloat(testZ),
                     };
 
-                    if (world.get_voxel(coord) != .Air) {
+                    if (!can_walk_through(coord)) {
                         if (on_ground.* and !has_stepped and self.can_step) {
                             // try small increments up to MAX_STEP_HEIGHT
                             var stepped = false;
@@ -183,7 +187,7 @@ pub fn collide_aabb_with_world(self: *Self, new_pos: *[3]f32, vel: *[3]f32, on_g
                                 const iy: isize = @intFromFloat(@floor(worldY * c.SUB_BLOCKS_PER_BLOCK));
                                 const iz: isize = @intFromFloat(@floor(worldZ * c.SUB_BLOCKS_PER_BLOCK));
 
-                                if (world.get_voxel(.{ ix, iy, iz }) == .Air) {
+                                if (can_walk_through(.{ ix, iy, iz })) {
                                     // looks clear at this step height
                                     new_pos[1] += s;
                                     // now re-try the Z collision at the higher Y:

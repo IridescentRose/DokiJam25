@@ -69,8 +69,19 @@ fn generate_sand(rng: *std.Random.DefaultPrng) void {
     for (&sand_stencil) |*atom| {
         const lightness = rng.random().int(u8) % 16;
         atom.* = .{
-            .material = .Sand, // Sand is not used in the worldgen, but can be used for particles
+            .material = .Sand,
             .color = [_]u8{ 0xE0 + lightness, 0xC0 + lightness, 0xA0 + lightness },
+        };
+    }
+}
+
+fn generate_leaf(rng: *std.Random.DefaultPrng) void {
+    for (&leaf_stencil) |*atom| {
+        const lightness = rng.random().int(u8) % 16;
+
+        atom.* = .{
+            .material = .Leaf,
+            .color = [_]u8{ 0x20 + lightness, 0x80 + lightness, 0x20 + lightness % 8 },
         };
     }
 }
@@ -80,6 +91,7 @@ var still_water_stencil: Stencil = undefined;
 var dirt_stencil: Stencil = undefined;
 var grass_stencil: Stencil = undefined;
 var sand_stencil: Stencil = undefined;
+var leaf_stencil: Stencil = undefined;
 
 pub fn init(s: u32) !void {
     var rng = std.Random.DefaultPrng.init(s);
@@ -88,6 +100,7 @@ pub fn init(s: u32) !void {
     generate_dirt(&rng);
     generate_grass(&rng);
     generate_sand(&rng);
+    generate_leaf(&rng);
 }
 
 pub fn deinit() void {}
@@ -188,6 +201,58 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                     const stidx = stencil_index(x, y, z);
 
                     world.blocks[chunk.offset + idx] = still_water_stencil[stidx];
+                }
+            }
+        }
+    }
+
+    // TODO: Patch placements for bushes and tallgrass
+
+    const loc_hash: isize = @truncate(location[0] * 31 + location[1] * 17);
+    var prng = std.Random.DefaultPrng.init(@bitCast(loc_hash));
+    const foliage_density = 0.01; // Chance of patch per (x,z)
+
+    for (0..c.CHUNK_SUB_BLOCKS) |z| {
+        for (0..c.CHUNK_SUB_BLOCKS) |x| {
+            if (prng.random().float(f32) < foliage_density) {
+                const h = heightmap.items[z * c.CHUNK_SUB_BLOCKS + x];
+                const surface_y: usize = @intFromFloat(h);
+
+                const idx = Chunk.get_index([_]usize{ x, surface_y, z });
+                if (world.blocks[chunk.offset + idx].material != .Grass) continue; // Only place foliage on grass
+
+                if (h > WATER_LEVEL) {
+                    const patch_type = prng.random().uintLessThan(u32, 16); // 0: tallgrass, 1: bush
+
+                    const patch_size = 1 + prng.random().uintLessThan(u32, 3); // size 1 to 3
+
+                    for (0..patch_size) |_| {
+                        // Try placing around (x, z) with slight offsets
+
+                        if (patch_type != 0) {
+                            for (0..3) |sy| {
+                                const dx = @min(c.CHUNK_SUB_BLOCKS - 1, (x + prng.random().uintLessThan(u32, 2)));
+                                const dz = @min(c.CHUNK_SUB_BLOCKS - 1, (z + prng.random().uintLessThan(u32, 2)));
+                                const dy = surface_y + 1 + sy; // Place foliage one block above ground
+
+                                const in_idx = Chunk.get_index([_]usize{ dx, dy, dz });
+                                const stidx = stencil_index(dx, dy, dz);
+                                world.blocks[chunk.offset + in_idx] = grass_stencil[stidx];
+                            }
+                        } else {
+                            for (0..15) |_| {
+                                for (0..7) |sy| {
+                                    const dx = @max(@min(c.CHUNK_SUB_BLOCKS - 2, (x + prng.random().uintLessThan(u32, 8))), 2);
+                                    const dz = @max(@min(c.CHUNK_SUB_BLOCKS - 2, (z + prng.random().uintLessThan(u32, 8))), 2);
+                                    const dy = surface_y + 1 + sy; // Place foliage one block above ground
+
+                                    const in_idx = Chunk.get_index([_]usize{ dx, dy, dz });
+                                    const stidx = stencil_index(dx, dy, dz);
+                                    world.blocks[chunk.offset + in_idx] = leaf_stencil[stidx];
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -25,6 +25,7 @@ var chunk_mesh: ChunkMesh = undefined;
 pub var blocks: []Chunk.Atom = undefined;
 var edit_list: std.ArrayList(VoxelEdit) = undefined;
 var chunk_freelist: std.ArrayList(usize) = undefined;
+var chunk_todo_list: std.ArrayList(ChunkLocation) = undefined;
 
 pub fn init(seed: u32) !void {
     chunk_mesh = try ChunkMesh.new();
@@ -70,6 +71,7 @@ pub fn init(seed: u32) !void {
 
     edit_list = std.ArrayList(VoxelEdit).init(util.allocator());
 
+    chunk_todo_list = std.ArrayList(ChunkLocation).init(util.allocator());
     chunkMap = ChunkMap.init(util.allocator());
     particles = try Particle.new();
 }
@@ -88,6 +90,7 @@ pub fn deinit() void {
     util.allocator().free(blocks);
     chunk_mesh.deinit();
     chunk_freelist.deinit();
+    chunk_todo_list.deinit();
 }
 
 pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
@@ -145,19 +148,17 @@ fn update_player_surrounding_chunks() !void {
             try target_chunks.append(chunk_coord);
             if (!chunkMap.contains(chunk_coord)) {
                 const offset = chunk_freelist.pop() orelse continue;
+                try chunk_todo_list.append(chunk_coord);
+
                 @memset(blocks[offset .. offset + c.CHUNK_SUBVOXEL_SIZE], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
 
                 const chunk = Chunk{
                     .offset = @intCast(offset),
                 };
-                try worldgen.fill(chunk, [_]isize{ chunk_coord[0], chunk_coord[1] });
-
                 try chunkMap.put(
                     chunk_coord,
                     chunk,
                 );
-
-                chunk_mesh.update_chunk_sub_data(@ptrCast(@alignCast(blocks)), chunk.offset, c.CHUNK_SUBVOXEL_SIZE);
             }
         }
     }
@@ -178,6 +179,14 @@ fn update_player_surrounding_chunks() !void {
         const chunk = chunkMap.get(i) orelse unreachable;
         try chunk_freelist.append(chunk.offset);
         _ = chunkMap.swapRemove(i);
+    }
+
+    if (chunk_todo_list.items.len != 0) {
+        // Pop one chunk to fill
+        const coord = chunk_todo_list.pop() orelse return;
+        const chunk = chunkMap.get(coord) orelse return;
+        try worldgen.fill(chunk, [_]isize{ coord[0], coord[1] });
+        chunk_mesh.update_chunk_sub_data(@ptrCast(@alignCast(blocks)), chunk.offset, c.CHUNK_SUBVOXEL_SIZE);
     }
 }
 

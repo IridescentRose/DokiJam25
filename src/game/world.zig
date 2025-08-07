@@ -33,6 +33,11 @@ pub var inflight_chunk_list: std.ArrayList(ChunkLocation) = undefined;
 pub fn init(seed: u32) !void {
     try job_queue.init();
 
+    std.fs.cwd().makeDir("world") catch |err| switch (err) {
+        error.PathAlreadyExists => {},
+        else => return err,
+    };
+
     chunk_mesh = try ChunkMesh.new();
     try chunk_mesh.vertices.appendSlice(util.allocator(), &[_]ChunkMesh.Vertex{
         ChunkMesh.Vertex{
@@ -82,6 +87,13 @@ pub fn init(seed: u32) !void {
 }
 
 pub fn deinit() void {
+    job_queue.deinit();
+    var first = chunkMap.iterator();
+    while (first.next()) |it| {
+        it.value_ptr.save(it.key_ptr.*);
+        it.value_ptr.edits.deinit();
+    }
+
     chunkMap.deinit();
     player.deinit();
 
@@ -96,8 +108,6 @@ pub fn deinit() void {
     chunk_mesh.deinit();
     chunk_freelist.deinit();
     inflight_chunk_list.deinit();
-
-    job_queue.deinit();
 }
 
 pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
@@ -158,16 +168,19 @@ pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) bool {
 
     const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_SUB_BLOCKS), @divFloor(coord[2], c.CHUNK_SUB_BLOCKS) };
 
-    if (chunkMap.get(chunk_coord)) |chunk| {
+    if (chunkMap.getPtr(chunk_coord)) |chunk| {
         // Still is being generated, don't mess with results.
         if (!chunk.populated) return false;
 
-        const idx = Chunk.get_index([_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) });
+        const subvoxel_coord = [_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) };
+        const idx = Chunk.get_index(subvoxel_coord);
 
         edit_list.append(VoxelEdit{
             .offset = @intCast(chunk.offset + idx),
             .atom = atom,
-        }) catch return false;
+        }) catch unreachable;
+
+        chunk.edits.put(idx, atom) catch unreachable;
 
         blocks[chunk.offset + idx] = atom;
         return true;
@@ -218,12 +231,12 @@ fn update_player_surrounding_chunks() !void {
 
                 @memset(blocks[offset .. offset + c.CHUNK_SUBVOXEL_SIZE], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
 
-                const chunk = Chunk{
-                    .offset = @intCast(offset),
-                };
                 try chunkMap.putNoClobber(
                     chunk_coord,
-                    chunk,
+                    .{
+                        .offset = @intCast(offset),
+                        .edits = std.AutoArrayHashMap(usize, Chunk.Atom).init(util.allocator()),
+                    },
                 );
 
                 try job_queue.job_queue.writeItem(.{
@@ -246,7 +259,7 @@ fn update_player_surrounding_chunks() !void {
     }
 
     for (extra_chunks.items) |i| {
-        const chunk = chunkMap.get(i) orelse unreachable;
+        var chunk = chunkMap.getPtr(i) orelse unreachable;
 
         inflight_chunk_mutex.lock();
         defer inflight_chunk_mutex.unlock();
@@ -260,8 +273,11 @@ fn update_player_surrounding_chunks() !void {
             }
         } else {
             // Not inflight, safe to free
-            try chunk_freelist.append(chunk.offset);
+            chunk.save(i);
+            chunk.edits.deinit();
+            const offset = chunk.offset;
             _ = chunkMap.swapRemove(i);
+            try chunk_freelist.append(offset);
         }
 
         if (found) continue;

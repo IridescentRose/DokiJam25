@@ -56,7 +56,7 @@ pub fn collide_aabb_with_world(self: *Self, new_pos: *[3]f32, vel: *[3]f32, on_g
 
                     if (!can_walk_through(coord)) {
                         if (vel[1] > 0) {
-                            new_pos[1] = @as(f32, @floatFromInt(coord[1])) / c.SUB_BLOCKS_PER_BLOCK;
+                            new_pos[1] = @as(f32, @floatFromInt(coord[1] - 1)) / c.SUB_BLOCKS_PER_BLOCK;
                             vel[1] = 0;
                         }
                         // If moving down, hit ground

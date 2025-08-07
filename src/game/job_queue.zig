@@ -18,6 +18,9 @@ var initialized: bool = false;
 pub var job_mutex = std.Thread.Mutex{};
 pub var job_queue: std.fifo.LinearFifo(Job, .Dynamic) = undefined;
 
+pub var thread_list: std.ArrayList(std.Thread) = undefined;
+var running = true;
+
 pub fn init() !void {
     assert(!initialized);
 
@@ -25,14 +28,17 @@ pub fn init() !void {
     initialized = true;
     assert(initialized);
 
-    const thread_count = try std.Thread.getCpuCount();
+    thread_list = std.ArrayList(std.Thread).init(util.allocator());
+
+    // At least one thread
+    const thread_count = @max(2, try std.Thread.getCpuCount()) - 1;
     for (0..thread_count) |_| {
-        _ = try std.Thread.spawn(.{}, worker_thread, .{});
+        try thread_list.append(try std.Thread.spawn(.{}, worker_thread, .{}));
     }
 }
 
 fn worker_thread() void {
-    while (true) {
+    while (running) {
         job_mutex.lock();
         defer job_mutex.unlock();
         const job = job_queue.readItem() orelse {
@@ -42,16 +48,20 @@ fn worker_thread() void {
 
         switch (job) {
             .GenerateChunk => |gen| {
-                const chunk = world.chunkMap.get(gen.pos) orelse continue;
+                var chunk = world.chunkMap.get(gen.pos) orelse continue;
                 worldgen.fill(chunk, gen.pos) catch |err| {
                     std.debug.print("Error generating chunk at {any}: {}\n", .{ gen.pos, err });
                     continue;
                 };
+
+                chunk.load(gen.pos);
+
                 world.chunkMap.put(gen.pos, .{
                     .offset = chunk.offset,
                     .size = chunk.size,
                     .populated = true,
                     .uploaded = false,
+                    .edits = chunk.edits,
                 }) catch |err| {
                     std.debug.print("Error updating chunk map for {any}: {}\n", .{ gen.pos, err });
                 };
@@ -74,7 +84,20 @@ fn worker_thread() void {
 pub fn deinit() void {
     assert(initialized);
 
-    job_queue.deinit();
+    running = false;
+
+    // Wait for all threads to finish
+    for (thread_list.items) |thread| {
+        _ = thread.join();
+    }
+
+    {
+        job_mutex.lock();
+        defer job_mutex.unlock();
+        job_queue.deinit();
+    }
+
     initialized = false;
+    thread_list.deinit();
     assert(!initialized);
 }

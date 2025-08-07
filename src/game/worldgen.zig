@@ -23,12 +23,10 @@ const gen = znoise.FnlGenerator{
     .domain_warp_amp = 1.0,
 };
 
-var stencil: []Chunk.Atom = undefined;
+const Stencil = [c.SUBVOXEL_SIZE]Chunk.Atom;
 
-pub fn init(s: u32) !void {
-    var rng = std.Random.DefaultPrng.init(s);
-    stencil = try util.allocator().alloc(Chunk.Atom, c.SUBVOXEL_SIZE);
-    for (stencil) |*atom| {
+fn generate_stone(rng: *std.Random.DefaultPrng) void {
+    for (&stone_stencil) |*atom| {
         const gray = rng.random().int(u8) % 64 + 96;
         atom.* = .{
             .material = .Stone,
@@ -37,9 +35,62 @@ pub fn init(s: u32) !void {
     }
 }
 
-pub fn deinit() void {
-    util.allocator().free(stencil);
+fn generate_still_water(rng: *std.Random.DefaultPrng) void {
+    for (&still_water_stencil) |*atom| {
+        const blue_r = rng.random().int(u8) % 32 + 192;
+        atom.* = .{
+            .material = .StillWater,
+            .color = [_]u8{ 0x46, 0x67 + blue_r % 16, blue_r },
+        };
+    }
 }
+
+fn generate_dirt(rng: *std.Random.DefaultPrng) void {
+    for (&dirt_stencil) |*atom| {
+        const lightness = rng.random().int(u8) % 16;
+        atom.* = .{
+            .material = .Dirt,
+            .color = [_]u8{ 0x31 + lightness, 0x24 + lightness, 0x1C + lightness % 10 },
+        };
+    }
+}
+
+fn generate_grass(rng: *std.Random.DefaultPrng) void {
+    for (&grass_stencil) |*atom| {
+        const lightness = rng.random().int(u8) % 32;
+        atom.* = .{
+            .material = .Grass,
+            .color = [_]u8{ 0x00, 0x36 + lightness, 0x1F + lightness % 8 },
+        };
+    }
+}
+
+fn generate_sand(rng: *std.Random.DefaultPrng) void {
+    for (&sand_stencil) |*atom| {
+        const lightness = rng.random().int(u8) % 16;
+        atom.* = .{
+            .material = .Sand, // Sand is not used in the worldgen, but can be used for particles
+            .color = [_]u8{ 0xE0 + lightness, 0xC0 + lightness, 0xA0 + lightness },
+        };
+    }
+}
+
+var stone_stencil: Stencil = undefined;
+var still_water_stencil: Stencil = undefined;
+var dirt_stencil: Stencil = undefined;
+var grass_stencil: Stencil = undefined;
+var sand_stencil: Stencil = undefined;
+
+pub fn init(s: u32) !void {
+    var rng = std.Random.DefaultPrng.init(s);
+    generate_stone(&rng);
+    generate_still_water(&rng);
+    generate_dirt(&rng);
+    generate_grass(&rng);
+    generate_sand(&rng);
+}
+
+pub fn deinit() void {}
 
 fn fbm(x: f64, z: f64) f64 {
     return gen.noise2(@floatCast(x), @floatCast(z)); // Normalize to [0, 1]
@@ -74,6 +125,11 @@ fn height_at(x: f64, z: f64) f64 {
     return weighted * 6.0 + 168.0; // scale and offset to fit in the world
 }
 
+fn stencil_index(x: usize, y: usize, z: usize) usize {
+    return ((y % c.SUB_BLOCKS_PER_BLOCK) * c.SUB_BLOCKS_PER_BLOCK + (z % c.SUB_BLOCKS_PER_BLOCK)) * c.SUB_BLOCKS_PER_BLOCK + (x % c.SUB_BLOCKS_PER_BLOCK);
+}
+const WATER_LEVEL = 256.0;
+
 pub fn fill(chunk: Chunk, location: [2]isize) !void {
     const before = std.time.nanoTimestamp();
 
@@ -92,19 +148,46 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
         }
     }
 
+    var count: usize = 0;
     for (0..c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS) |y| {
         for (0..c.CHUNK_SUB_BLOCKS) |z| {
             for (0..c.CHUNK_SUB_BLOCKS) |x| {
+                count += 1;
                 const h = heightmap.items[z * c.CHUNK_SUB_BLOCKS + x];
                 // std.debug.print("H {}\n", .{h});
 
                 const yf = @as(f64, @floatFromInt(y));
-                if (yf < h) {
+
+                if (yf < h - 12.0) {
                     const idx = Chunk.get_index([_]usize{ x, y, z });
-                    world.blocks[chunk.offset + idx] = stencil[((y % c.SUB_BLOCKS_PER_BLOCK) * c.SUB_BLOCKS_PER_BLOCK + (z % c.SUB_BLOCKS_PER_BLOCK)) * c.SUB_BLOCKS_PER_BLOCK + (x % c.SUB_BLOCKS_PER_BLOCK)];
-                } else if (yf < 256.0) {
+                    const stidx = stencil_index(x, y, z);
+
+                    world.blocks[chunk.offset + idx] = stone_stencil[stidx];
+                } else if (yf < h - 2.0) {
                     const idx = Chunk.get_index([_]usize{ x, y, z });
-                    world.blocks[chunk.offset + idx] = .{ .material = .StillWater, .color = [_]u8{ 0x46, 0x67, 0xC3 } };
+                    const stidx = stencil_index(x, y, z);
+
+                    if (h < WATER_LEVEL) {
+                        world.blocks[chunk.offset + idx] = sand_stencil[stidx];
+                    } else {
+                        world.blocks[chunk.offset + idx] = dirt_stencil[stidx];
+                    }
+                } else if (yf < h) {
+                    const idx = Chunk.get_index([_]usize{ x, y, z });
+                    const stidx = stencil_index(x, y, z);
+
+                    if (h < WATER_LEVEL + 6.0) {
+                        world.blocks[chunk.offset + idx] = sand_stencil[stidx];
+                    } else if (h < WATER_LEVEL + 7.0) {
+                        world.blocks[chunk.offset + idx] = dirt_stencil[stidx];
+                    } else {
+                        world.blocks[chunk.offset + idx] = grass_stencil[stidx];
+                    }
+                } else if (yf <= WATER_LEVEL) {
+                    const idx = Chunk.get_index([_]usize{ x, y, z });
+                    const stidx = stencil_index(x, y, z);
+
+                    world.blocks[chunk.offset + idx] = still_water_stencil[stidx];
                 }
             }
         }

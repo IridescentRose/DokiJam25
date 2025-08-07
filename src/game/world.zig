@@ -225,13 +225,17 @@ pub fn update() !void {
             .kind = .Water,
             .pos = [_]f32{ player.transform.pos[0] + rx * 0.25, 63.0, player.transform.pos[2] + rz * 0.25 },
             .color = [_]u8{ 0xC0, 0xD0, 0xFF },
-            .vel = [_]f32{ 0, -48, 0 },
+            .vel = [_]f32{ 0, -80, 0 },
             .lifetime = 300,
         });
     }
 
-    if (count % 6 == 0) {
+    count += 1;
+    if (count % 3 == 0) {
+        var a_count: usize = 0;
         for (active_atoms.items) |*atom| {
+            a_count += atom.moves;
+
             if (atom.moves == 0) continue;
 
             if (!is_in_world(atom.coord)) {
@@ -250,6 +254,17 @@ pub fn update() !void {
                     atom.coord = below_coord;
                     continue;
                 }
+
+                if (get_voxel(below_coord) == .Grass or get_voxel(below_coord) == .Dirt or get_voxel(below_coord) == .Sand) {
+                    if (a_count % 100 == 0) {
+                        // TODO: Update saturation
+                        set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                        atom.coord = below_coord;
+                        atom.moves = 0; // We have "saturated" the ground
+                        continue;
+                    }
+                }
+
                 if (get_voxel(below_coord) == .StillWater) {
                     set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
                     atom.coord = below_coord;
@@ -274,7 +289,7 @@ pub fn update() !void {
 
                 var found = false;
                 for (check_fars) |far_coord| {
-                    if (get_voxel(far_coord) == .Air) {
+                    if (get_voxel(far_coord) == .Air or get_voxel(far_coord) == .StillWater) {
                         set_voxel(far_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
                         set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
                         atom.coord = far_coord;

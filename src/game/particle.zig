@@ -33,7 +33,7 @@ pub fn new() !Self {
     try res.mesh.vertices.appendSlice(util.allocator(), &c.top_face);
     try res.mesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });
 
-    res.transform.pos = [_]f32{ 0, 2, 0 };
+    res.transform.pos = [_]f32{ 0, -8, 0 };
 
     return res;
 }
@@ -73,7 +73,7 @@ pub fn update(self: *Self) !void {
 
             var curr_pos = particle.pos;
 
-            const STEPS = 100;
+            const STEPS = 256;
             const step_size = 1.0 / @as(f32, @floatFromInt(STEPS));
             for (0..STEPS) |_| {
                 curr_pos[0] += (final_pos[0] - curr_pos[0]) * step_size;
@@ -91,15 +91,15 @@ pub fn update(self: *Self) !void {
 
                     if (particle.kind == .Water) {
                         count += 1;
-                        if (count % 10 != 0) continue;
+                        if (count % 600 != 0) continue;
 
                         const adjusted_subvoxel_coord = [_]isize{
                             subvoxel_coord[0],
-                            subvoxel_coord[1] + 1, // Rain falls from above
+                            subvoxel_coord[1] + 6, // Rain falls from above
                             subvoxel_coord[2],
                         };
 
-                        world.set_voxel(adjusted_subvoxel_coord, .{ .material = .Water, .color = particle.color });
+                        world.set_voxel(adjusted_subvoxel_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
                         try world.active_atoms.append(.{
                             .coord = adjusted_subvoxel_coord,
                             .moves = 255, // Water particles can move around a bit

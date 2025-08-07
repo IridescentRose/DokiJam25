@@ -5,6 +5,8 @@ pub const AtomKind = enum(u8) {
     Dirt,
     Stone,
     Water,
+    Grass,
+    Sand,
     StillWater,
 };
 

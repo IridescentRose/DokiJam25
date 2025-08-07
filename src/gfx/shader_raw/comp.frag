@@ -73,7 +73,7 @@ void main()
     // vec3 viewDir = normalize(cameraPos - worldPos);
     // vec3 halfDir = normalize(uSunDir + viewDir);
     // float spec = pow(max(dot(normal, halfDir), 0.0), 64.0); // shininess
-    vec3 lit = albedo * (diff * uSunColor * 0.6 + uAmbientColor);// + spec * uSunColor;
+    vec3 lit = albedo * (diff * uSunColor * 0.4 + uAmbientColor);// + spec * uSunColor;
 
     // Distance-based exponential fog
     float fogDistance = length(worldPos - cameraPos);
@@ -88,6 +88,6 @@ void main()
 
     // Post processing
     toneMapped = mix(vec3(dot(toneMapped, vec3(0.2126, 0.7152, 0.0722))), toneMapped, 1.61); // saturation > 1.0
-    toneMapped = applyBrightnessContrast(toneMapped, -0.05, 1.0); // Adjust brightness and contrast
+    toneMapped = applyBrightnessContrast(toneMapped, 0.0, 1.025); // Adjust brightness and contrast
     FragColor = vec4(toneMapped, 1.0);
 }

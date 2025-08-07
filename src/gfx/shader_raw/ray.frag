@@ -87,7 +87,7 @@ uint getVoxel(ivec3 p) {
     return voxels[offset + uint(idx)];
 }
 
-#define DRAW_DISTANCE 320
+#define DRAW_DISTANCE 512
 
 void main()
 {

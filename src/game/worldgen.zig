@@ -79,10 +79,47 @@ fn generate_leaf(rng: *std.Random.DefaultPrng) void {
     for (&leaf_stencil) |*atom| {
         const lightness = rng.random().int(u8) % 16;
 
-        atom.* = .{
-            .material = .Leaf,
-            .color = [_]u8{ 0x20 + lightness, 0x80 + lightness, 0x20 + lightness % 8 },
-        };
+        if (lightness % 4 == 0) {
+            atom.* = .{
+                .material = .Leaf,
+                .color = [_]u8{ 0x20 + lightness, 0x80 + lightness, 0x20 + lightness % 8 },
+            };
+        } else {
+            atom.* = .{
+                .material = .Air,
+                .color = [_]u8{ 0, 0, 0 },
+            };
+        }
+    }
+}
+
+fn generate_log(rng: *std.Random.DefaultPrng) void {
+    for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
+        for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
+            for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
+                const idx = (y * c.SUB_BLOCKS_PER_BLOCK + z) * c.SUB_BLOCKS_PER_BLOCK + x;
+                const center = c.SUB_BLOCKS_PER_BLOCK / 2;
+
+                const radius = c.SUB_BLOCKS_PER_BLOCK / 2 - 1;
+                const dx = @abs(@as(isize, @intCast(x)) - center);
+                const dz = @abs(@as(isize, @intCast(z)) - center);
+
+                if (dx * dx + dz * dz <= radius * radius) {
+                    // Inside the trunk
+                    const lightness = rng.random().int(u8) % 16;
+                    log_stencil[idx] = .{
+                        .material = .Log,
+                        .color = [_]u8{ 0x55 + lightness, 0x33 + lightness, 0x11 },
+                    };
+                } else {
+                    // Outside the trunk
+                    log_stencil[idx] = .{
+                        .material = .Air,
+                        .color = [_]u8{ 0, 0, 0 },
+                    };
+                }
+            }
+        }
     }
 }
 
@@ -92,6 +129,7 @@ var dirt_stencil: Stencil = undefined;
 var grass_stencil: Stencil = undefined;
 var sand_stencil: Stencil = undefined;
 var leaf_stencil: Stencil = undefined;
+var log_stencil: Stencil = undefined;
 
 pub fn init(s: u32) !void {
     var rng = std.Random.DefaultPrng.init(s);
@@ -101,6 +139,7 @@ pub fn init(s: u32) !void {
     generate_grass(&rng);
     generate_sand(&rng);
     generate_leaf(&rng);
+    generate_log(&rng);
 }
 
 pub fn deinit() void {}
@@ -142,6 +181,28 @@ fn stencil_index(x: usize, y: usize, z: usize) usize {
     return ((y % c.SUB_BLOCKS_PER_BLOCK) * c.SUB_BLOCKS_PER_BLOCK + (z % c.SUB_BLOCKS_PER_BLOCK)) * c.SUB_BLOCKS_PER_BLOCK + (x % c.SUB_BLOCKS_PER_BLOCK);
 }
 const WATER_LEVEL = 256.0;
+
+pub fn fillPlace(chunk: Chunk, internal_location: [3]usize, stencil: Stencil) void {
+    for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
+        for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
+            for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
+                const idx = Chunk.get_index([_]usize{
+                    internal_location[0] * c.SUB_BLOCKS_PER_BLOCK + x,
+                    internal_location[1] * c.SUB_BLOCKS_PER_BLOCK + y,
+                    internal_location[2] * c.SUB_BLOCKS_PER_BLOCK + z,
+                });
+                const stidx = stencil_index(
+                    internal_location[0] * c.SUB_BLOCKS_PER_BLOCK + x,
+                    internal_location[1] * c.SUB_BLOCKS_PER_BLOCK + y,
+                    internal_location[2] * c.SUB_BLOCKS_PER_BLOCK + z,
+                );
+
+                if (world.blocks[chunk.offset + idx].material != .Air) continue; // Don't overwrite existing blocks
+                world.blocks[chunk.offset + idx] = stencil[stidx];
+            }
+        }
+    }
+}
 
 pub fn fill(chunk: Chunk, location: [2]isize) !void {
     const before = std.time.nanoTimestamp();
@@ -206,11 +267,12 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
         }
     }
 
-    // TODO: Patch placements for bushes and tallgrass
-
     const loc_hash: isize = @truncate(location[0] * 31 + location[1] * 17);
     var prng = std.Random.DefaultPrng.init(@bitCast(loc_hash));
     const foliage_density = 0.01; // Chance of patch per (x,z)
+
+    // TODO: Fix the bug where foliage and trees generate outside the chunk bounds
+    // (happens when x or z is near the edge of the chunk)
 
     for (0..c.CHUNK_SUB_BLOCKS) |z| {
         for (0..c.CHUNK_SUB_BLOCKS) |x| {
@@ -240,7 +302,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                                 world.blocks[chunk.offset + in_idx] = grass_stencil[stidx];
                             }
                         } else {
-                            for (0..15) |_| {
+                            for (0..36) |_| {
                                 for (0..7) |sy| {
                                     const dx = @max(@min(c.CHUNK_SUB_BLOCKS - 2, (x + prng.random().uintLessThan(u32, 8))), 2);
                                     const dz = @max(@min(c.CHUNK_SUB_BLOCKS - 2, (z + prng.random().uintLessThan(u32, 8))), 2);
@@ -250,6 +312,68 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                                     const stidx = stencil_index(dx, dy, dz);
                                     world.blocks[chunk.offset + in_idx] = leaf_stencil[stidx];
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for (0..c.CHUNK_BLOCKS) |z| {
+        for (0..c.CHUNK_BLOCKS) |x| {
+            // Try placing trees
+            if (prng.random().float(f32) < 0.005) {
+                const h = heightmap.items[(z * c.SUB_BLOCKS_PER_BLOCK) * c.CHUNK_SUB_BLOCKS + (x * c.SUB_BLOCKS_PER_BLOCK)] - 1.0;
+
+                // Check we aren't on water or sand
+                if (h < WATER_LEVEL + 6.0) continue; // Don't place trees on water or sand
+
+                // Place a tree
+                // Random height between 4 and 7
+                const tree_height = 4 + prng.random().uintLessThan(u32, 4) + 1;
+
+                for (0..tree_height) |dy| {
+                    const trunk_x = x;
+                    const trunk_z = z;
+                    const trunk_y = @as(usize, @intFromFloat(h)) / c.SUB_BLOCKS_PER_BLOCK + dy;
+
+                    if (dy < tree_height - 1) {
+                        fillPlace(chunk, [_]usize{ trunk_x, trunk_y, trunk_z }, log_stencil);
+                        if (dy > tree_height / 2 - 1) {
+                            // Place leaves
+                            for (0..5) |lz| {
+                                for (0..5) |lx| {
+                                    // Skip corners to make it more round
+                                    if (lx == 0 and lz == 0) continue;
+                                    if (lx == 0 and lz == 4) continue;
+                                    if (lx == 4 and lz == 0) continue;
+                                    if (lx == 4 and lz == 4) continue;
+
+                                    // If the current leaf block breaks the chunk boundary, skip it
+                                    if (@as(isize, @intCast(trunk_x)) + @as(isize, @intCast(lx)) - 2 >= c.CHUNK_SUB_BLOCKS) continue;
+                                    if (@as(isize, @intCast(trunk_z)) + @as(isize, @intCast(lz)) - 2 >= c.CHUNK_SUB_BLOCKS) continue;
+                                    if (@as(isize, @intCast(trunk_x)) + @as(isize, @intCast(lx)) - 2 < 0) continue;
+                                    if (@as(isize, @intCast(trunk_z)) + @as(isize, @intCast(lz)) - 2 < 0) continue;
+
+                                    fillPlace(chunk, [_]usize{ trunk_x + lx - 2, trunk_y, trunk_z + lz - 2 }, leaf_stencil);
+                                }
+                            }
+                        }
+                    } else {
+                        // Cap the top
+                        for (0..3) |lz| {
+                            for (0..3) |lx| {
+                                if (@as(isize, @intCast(trunk_x)) + @as(isize, @intCast(lx)) - 1 >= c.CHUNK_SUB_BLOCKS) continue;
+                                if (@as(isize, @intCast(trunk_z)) + @as(isize, @intCast(lz)) - 1 >= c.CHUNK_SUB_BLOCKS) continue;
+                                if (@as(isize, @intCast(trunk_x)) + @as(isize, @intCast(lx)) - 1 < 0) continue;
+                                if (@as(isize, @intCast(trunk_z)) + @as(isize, @intCast(lz)) - 1 < 0) continue;
+
+                                const leaf_x = trunk_x + lx - 1;
+                                const leaf_z = trunk_z + lz - 1;
+                                const leaf_y = trunk_y;
+
+                                fillPlace(chunk, [_]usize{ leaf_x, leaf_y, leaf_z }, leaf_stencil);
                             }
                         }
                     }

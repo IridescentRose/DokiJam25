@@ -91,7 +91,7 @@ pub fn update(self: *Self) !void {
 
                     if (particle.kind == .Water) {
                         count += 1;
-                        if (count % 600 != 0) continue;
+                        if (count % 10 != 0) continue;
 
                         const adjusted_subvoxel_coord = [_]isize{
                             subvoxel_coord[0],

@@ -27,6 +27,9 @@ pub var blocks: []Chunk.Atom = undefined;
 var edit_list: std.ArrayList(VoxelEdit) = undefined;
 var chunk_freelist: std.ArrayList(usize) = undefined;
 
+pub var inflight_chunk_mutex: std.Thread.Mutex = std.Thread.Mutex{};
+pub var inflight_chunk_list: std.ArrayList(ChunkLocation) = undefined;
+
 pub fn init(seed: u32) !void {
     try job_queue.init();
 
@@ -72,6 +75,7 @@ pub fn init(seed: u32) !void {
     }
 
     edit_list = std.ArrayList(VoxelEdit).init(util.allocator());
+    inflight_chunk_list = std.ArrayList(ChunkLocation).init(util.allocator());
 
     chunkMap = ChunkMap.init(util.allocator());
     particles = try Particle.new();
@@ -91,6 +95,7 @@ pub fn deinit() void {
     util.allocator().free(blocks);
     chunk_mesh.deinit();
     chunk_freelist.deinit();
+    inflight_chunk_list.deinit();
 
     job_queue.deinit();
 }
@@ -150,14 +155,30 @@ fn update_player_surrounding_chunks() !void {
             try target_chunks.append(chunk_coord);
             if (!chunkMap.contains(chunk_coord)) {
                 const offset = chunk_freelist.pop() orelse continue;
-                // try chunk_todo_list.append(chunk_coord);
+
+                inflight_chunk_mutex.lock();
+                defer inflight_chunk_mutex.unlock();
+
+                var found = false;
+                for (inflight_chunk_list.items) |i| {
+                    if (i[0] == chunk_coord[0] and i[1] == chunk_coord[1]) {
+                        // Already inflight
+                        found = true;
+                        break;
+                    }
+                } else {
+                    // Not inflight, add to list
+                    try inflight_chunk_list.append(chunk_coord);
+                }
+
+                if (found) continue;
 
                 @memset(blocks[offset .. offset + c.CHUNK_SUBVOXEL_SIZE], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
 
                 const chunk = Chunk{
                     .offset = @intCast(offset),
                 };
-                try chunkMap.put(
+                try chunkMap.putNoClobber(
                     chunk_coord,
                     chunk,
                 );
@@ -183,8 +204,24 @@ fn update_player_surrounding_chunks() !void {
 
     for (extra_chunks.items) |i| {
         const chunk = chunkMap.get(i) orelse unreachable;
-        try chunk_freelist.append(chunk.offset);
-        _ = chunkMap.swapRemove(i);
+
+        inflight_chunk_mutex.lock();
+        defer inflight_chunk_mutex.unlock();
+
+        var found = false;
+        for (inflight_chunk_list.items) |ic| {
+            if (ic[0] == i[0] and ic[1] == i[1]) {
+                // Already inflight
+                found = true;
+                break;
+            }
+        } else {
+            // Not inflight, safe to free
+            try chunk_freelist.append(chunk.offset);
+            _ = chunkMap.swapRemove(i);
+        }
+
+        if (found) continue;
     }
 }
 

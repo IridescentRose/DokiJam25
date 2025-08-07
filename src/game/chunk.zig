@@ -1,3 +1,4 @@
+const std = @import("std");
 const c = @import("consts.zig");
 
 pub const AtomKind = enum(u8) {

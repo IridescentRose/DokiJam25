@@ -55,6 +55,17 @@ fn worker_thread() void {
                 }) catch |err| {
                     std.debug.print("Error updating chunk map for {any}: {}\n", .{ gen.pos, err });
                 };
+
+                world.inflight_chunk_mutex.lock();
+                defer world.inflight_chunk_mutex.unlock();
+
+                for (world.inflight_chunk_list.items, 0..) |i, c| {
+                    if (i[0] == gen.pos[0] and i[1] == gen.pos[1]) {
+                        // Remove from inflight list
+                        _ = world.inflight_chunk_list.swapRemove(c);
+                        break;
+                    }
+                }
             },
         }
     }
@@ -63,6 +74,7 @@ fn worker_thread() void {
 pub fn deinit() void {
     assert(initialized);
 
+    job_queue.deinit();
     initialized = false;
     assert(!initialized);
 }

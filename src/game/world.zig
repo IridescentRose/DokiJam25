@@ -104,10 +104,27 @@ pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {
     const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_SUB_BLOCKS), @divFloor(coord[2], c.CHUNK_SUB_BLOCKS) };
 
     if (chunkMap.get(chunk_coord)) |chunk| {
+        // Still is being generated, don't give half results.
+        if (!chunk.populated) return .Air;
+
         const idx = Chunk.get_index([_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) });
         return blocks[chunk.offset + idx].material;
     } else {
         return .Air;
+    }
+}
+
+pub fn get_full_voxel(coord: [3]isize) Chunk.Atom {
+    const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_SUB_BLOCKS), @divFloor(coord[2], c.CHUNK_SUB_BLOCKS) };
+
+    if (chunkMap.get(chunk_coord)) |chunk| {
+        // Still is being generated, don't give half results.
+        if (!chunk.populated) return .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } };
+
+        const idx = Chunk.get_index([_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) });
+        return blocks[chunk.offset + idx];
+    } else {
+        return .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } };
     }
 }
 
@@ -117,19 +134,33 @@ pub fn is_in_world(coord: [3]isize) bool {
     }
 
     const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_SUB_BLOCKS), @divFloor(coord[2], c.CHUNK_SUB_BLOCKS) };
-    return chunkMap.contains(chunk_coord);
+    const chunk = chunkMap.get(chunk_coord) orelse return false;
+
+    if (!chunk.populated) {
+        return false; // Chunk is still being generated
+    }
+
+    return true;
 }
 
-pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) void {
+pub fn set_voxel(coord: [3]isize, atom: Chunk.Atom) bool {
     const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_SUB_BLOCKS), @divFloor(coord[2], c.CHUNK_SUB_BLOCKS) };
 
     if (chunkMap.get(chunk_coord)) |chunk| {
+        // Still is being generated, don't mess with results.
+        if (!chunk.populated) return false;
+
         const idx = Chunk.get_index([_]usize{ @intCast(@mod(coord[0], c.CHUNK_SUB_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS)), @intCast(@mod(coord[2], c.CHUNK_SUB_BLOCKS)) });
-        blocks[chunk.offset + idx] = atom;
+
         edit_list.append(VoxelEdit{
             .offset = @intCast(chunk.offset + idx),
             .atom = atom,
-        }) catch unreachable;
+        }) catch return false;
+
+        blocks[chunk.offset + idx] = atom;
+        return true;
+    } else {
+        return false;
     }
 }
 
@@ -300,27 +331,36 @@ pub fn update() !void {
             if (kind == .Water) {
                 // Water accumulation
                 const below_coord = [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] };
-                if (get_voxel(below_coord) == .Air) {
-                    set_voxel(below_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
-                    set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
-                    atom.coord = below_coord;
+
+                const prev_voxel = get_full_voxel(below_coord);
+                if (prev_voxel.material == .Air) {
+                    if (set_voxel(below_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } })) {
+                        if (!set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
+                            // Failed, so undo the first set
+                            _ = set_voxel(below_coord, prev_voxel);
+                        } else {
+                            atom.coord = below_coord;
+                        }
+                    }
                     continue;
                 }
 
-                if (get_voxel(below_coord) == .Grass or get_voxel(below_coord) == .Dirt or get_voxel(below_coord) == .Sand) {
+                if (prev_voxel.material == .Grass or prev_voxel.material == .Dirt or prev_voxel.material == .Sand) {
                     if (a_count % 100 == 0) {
                         // TODO: Update saturation
-                        set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
-                        atom.coord = below_coord;
-                        atom.moves = 0; // We have "saturated" the ground
-                        continue;
+                        if (set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
+                            atom.coord = below_coord;
+                            atom.moves = 0; // We have "saturated" the ground
+                            continue;
+                        }
                     }
                 }
 
-                if (get_voxel(below_coord) == .StillWater) {
-                    set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
-                    atom.coord = below_coord;
-                    atom.moves = 0; // We have "combined" with the still water
+                if (prev_voxel.material == .StillWater) {
+                    if (set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
+                        atom.coord = below_coord;
+                        atom.moves = 0; // We have "combined" with the still water
+                    }
                     continue;
                 }
 
@@ -341,12 +381,18 @@ pub fn update() !void {
 
                 var found = false;
                 for (check_fars) |far_coord| {
-                    if (get_voxel(far_coord) == .Air or get_voxel(far_coord) == .StillWater) {
-                        set_voxel(far_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
-                        set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
-                        atom.coord = far_coord;
-                        atom.moves -= 1;
-                        found = true;
+                    const far_voxel = get_full_voxel(far_coord);
+                    if (far_voxel.material == .Air or far_voxel.material == .StillWater) {
+                        if (set_voxel(far_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } })) {
+                            if (set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
+                                atom.coord = far_coord;
+                                atom.moves -= 1;
+                                found = true;
+                            } else {
+                                // Failed, so undo the first set
+                                _ = set_voxel(far_coord, far_voxel);
+                            }
+                        }
                         break;
                     }
                 }
@@ -383,10 +429,15 @@ pub fn update() !void {
                 const next_coord_idx = valid_dirs[spread_dir];
                 const next_coord = next_coords[next_coord_idx];
 
-                set_voxel(next_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
-                set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
-                atom.coord = next_coord;
-                atom.moves -= 1;
+                if (set_voxel(next_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } })) {
+                    if (set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
+                        atom.coord = next_coord;
+                        atom.moves -= 1;
+                    } else {
+                        // Failed, so undo the first set
+                        _ = set_voxel(next_coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                    }
+                }
             }
         }
 
@@ -394,10 +445,11 @@ pub fn update() !void {
             var i: usize = active_atoms.items.len - 1;
             while (i > 0) : (i -= 1) {
                 if (active_atoms.items[i].moves == 0) {
-                    const atom = active_atoms.swapRemove(i);
-
-                    if (get_voxel(atom.coord) == .Water) {
-                        set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                    const coord = active_atoms.items[i].coord;
+                    if (get_voxel(coord) == .Water) {
+                        if (set_voxel(coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
+                            _ = active_atoms.swapRemove(i);
+                        }
                     }
                 }
             }

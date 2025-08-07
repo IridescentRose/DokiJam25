@@ -283,7 +283,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                 const idx = Chunk.get_index([_]usize{ x, surface_y, z });
                 if (world.blocks[chunk.offset + idx].material != .Grass) continue; // Only place foliage on grass
 
-                if (h > WATER_LEVEL) {
+                if (h > WATER_LEVEL + 2.0) {
                     const patch_type = prng.random().uintLessThan(u32, 16); // 0: tallgrass, 1: bush
 
                     const patch_size = 1 + prng.random().uintLessThan(u32, 3); // size 1 to 3

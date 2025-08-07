@@ -99,11 +99,12 @@ pub fn update(self: *Self) !void {
                             subvoxel_coord[2],
                         };
 
-                        world.set_voxel(adjusted_subvoxel_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
-                        try world.active_atoms.append(.{
-                            .coord = adjusted_subvoxel_coord,
-                            .moves = 255, // Water particles can move around a bit
-                        });
+                        if (world.set_voxel(adjusted_subvoxel_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } })) {
+                            try world.active_atoms.append(.{
+                                .coord = adjusted_subvoxel_coord,
+                                .moves = 255, // Water particles can move around a bit
+                            });
+                        }
                     }
 
                     break;

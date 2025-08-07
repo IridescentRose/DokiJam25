@@ -55,12 +55,12 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
 
             const world_x = ix + location[0] * blocks_per_chunk;
             const world_z = iz + location[1] * blocks_per_chunk;
-            const h: f32 = ((gen.noise2(@floatFromInt(world_x), @floatFromInt(world_z)) + 1.0) * 0.5) * 128.0;
+            const h: f32 = ((gen.noise2(@floatFromInt(world_x), @floatFromInt(world_z)) + 1.0) * 0.5) * 64.0 * 4.0;
             try heightmap.append(h);
         }
     }
 
-    for (0..c.CHUNK_SUB_BLOCKS) |y| {
+    for (0..c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS) |y| {
         for (0..c.CHUNK_SUB_BLOCKS) |z| {
             for (0..c.CHUNK_SUB_BLOCKS) |x| {
                 const h = heightmap.items[z * c.CHUNK_SUB_BLOCKS + x];

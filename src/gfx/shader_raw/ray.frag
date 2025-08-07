@@ -71,10 +71,11 @@ int binarySearchMetadata(ivec3 target) {
 }
 
 uint getVoxel(ivec3 p) {
-    if (p.y < 0 || p.y >= CHUNK_SUB_BLOCKS)
+    if (p.y < 0 || p.y >= CHUNK_SUB_BLOCKS * 4)
         return 0u;
 
     ivec3 chunkCoord = floorDiv(p, CHUNK_SUB_BLOCKS);
+    chunkCoord.y = 0; // Ignore Y for chunk search, only X and Z matter
     ivec3 localPos   = p - chunkCoord * CHUNK_SUB_BLOCKS;
 
     int idx = (localPos.y * CHUNK_SUB_BLOCKS + localPos.z) * CHUNK_SUB_BLOCKS + localPos.x;

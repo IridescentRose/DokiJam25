@@ -233,6 +233,18 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn update(self: *Self) void {
+    const curr_pos = [_]isize{
+        @intFromFloat(self.transform.pos[0]),
+        @intFromFloat(@max(@min(self.transform.pos[1], 62.0), 0)), // Clamp y to world height
+        @intFromFloat(self.transform.pos[2]),
+    };
+
+    // Update camera
+    self.camera.target = self.transform.pos;
+    self.camera.target[1] += player_size[1] + 0.25;
+
+    if (!world.is_in_world([_]isize{ curr_pos[0] * c.SUB_BLOCKS_PER_BLOCK, curr_pos[1] * c.SUB_BLOCKS_PER_BLOCK, curr_pos[2] * c.SUB_BLOCKS_PER_BLOCK })) return;
+
     const dt: f32 = 1.0 / 60.0;
 
     // 1) Build movement vector from input & camera
@@ -271,11 +283,6 @@ pub fn update(self: *Self) void {
     // zero out horizontal so you don’t keep drifting
     self.velocity[0] = 0;
     self.velocity[2] = 0;
-
-    // 5) Update camera
-    self.camera.target = self.transform.pos;
-    self.camera.target[1] += player_size[1] + 0.25;
-    self.camera.update();
 }
 
 pub fn draw(self: *Self) void {

@@ -70,7 +70,7 @@ fn handle_updates() void {
     }
 }
 
-const stable_fps = false;
+const stable_fps = true;
 
 pub fn event_loop() !void {
     // TODO: Customize?

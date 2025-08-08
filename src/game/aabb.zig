@@ -26,7 +26,7 @@ pub fn get_max_pos(self: *Self, new_pos: [3]f32) [3]f32 {
 }
 
 pub fn can_walk_through(coord: [3]isize) bool {
-    return world.get_voxel(coord) == .Air or world.get_voxel(coord) == .Water or world.get_voxel(coord) == .StillWater or world.get_voxel(coord) == .Leaf or world.get_voxel(coord) == .Grass;
+    return world.get_voxel(coord) == .Air or world.get_voxel(coord) == .Water or world.get_voxel(coord) == .StillWater or world.get_voxel(coord) == .Leaf or world.get_voxel(coord) == .Grass or world.get_voxel(coord) == .Sand or world.get_voxel(coord) == .Fire or world.get_voxel(coord) == .Ash;
 }
 
 // Updates the position and velocity based on collisions with the world

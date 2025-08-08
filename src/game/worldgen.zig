@@ -77,12 +77,12 @@ fn generate_sand(rng: *std.Random.DefaultPrng) void {
 
 fn generate_leaf(rng: *std.Random.DefaultPrng) void {
     for (&leaf_stencil) |*atom| {
-        const lightness = rng.random().int(u8) % 16;
+        const lightness = rng.random().int(u8) % 32;
 
         if (lightness % 4 == 0) {
             atom.* = .{
                 .material = .Leaf,
-                .color = [_]u8{ 0x20 + lightness, 0x80 + lightness, 0x20 + lightness % 8 },
+                .color = [_]u8{ 0x35 + lightness, 0x79 + lightness, 0x20 + lightness % 8 },
             };
         } else {
             atom.* = .{

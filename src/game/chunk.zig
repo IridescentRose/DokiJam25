@@ -3,15 +3,19 @@ const c = @import("consts.zig");
 const world = @import("world.zig");
 
 pub const AtomKind = enum(u8) {
-    Air,
-    Dirt,
-    Stone,
-    Water,
-    Grass,
-    Sand,
-    StillWater,
-    Leaf,
-    Log,
+    Air = 0,
+    Dirt = 1,
+    Stone = 2,
+    Water = 3,
+    Grass = 4,
+    Sand = 5,
+    StillWater = 6,
+    Leaf = 7,
+    Log = 8,
+    Fire = 9,
+    Ember = 10,
+    Ash = 11,
+    Charcoal = 12,
 };
 
 pub const Atom = struct {

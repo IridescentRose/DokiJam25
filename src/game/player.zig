@@ -278,7 +278,7 @@ pub fn update(self: *Self) void {
 
     // 5) Update camera
     self.camera.target = self.transform.pos;
-    self.camera.target[1] += player_size[1];
+    self.camera.target[1] += player_size[1] + 0.25;
     self.camera.update();
 }
 

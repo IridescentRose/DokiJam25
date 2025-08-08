@@ -27,6 +27,7 @@ pub fn init(s: u32) Registry {
     generate_sand(&rng, &reg[@intFromEnum(Chunk.AtomKind.Sand)]);
     generate_leaf(&rng, &reg[@intFromEnum(Chunk.AtomKind.Leaf)]);
     generate_log(&rng, &reg[@intFromEnum(Chunk.AtomKind.Log)]);
+    generate_bedrock(&rng, &reg[@intFromEnum(Chunk.AtomKind.Bedrock)]);
 
     return reg;
 }
@@ -38,6 +39,16 @@ pub fn stencil_index(pos: [3]usize) usize {
 fn generate_stone(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
     for (stencil) |*atom| {
         const gray = rng.random().int(u8) % 64 + 96;
+        atom.* = .{
+            .material = .Stone,
+            .color = [_]u8{ gray, gray, gray },
+        };
+    }
+}
+
+fn generate_bedrock(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
+    for (stencil) |*atom| {
+        const gray = rng.random().int(u8) % 96;
         atom.* = .{
             .material = .Stone,
             .color = [_]u8{ gray, gray, gray },

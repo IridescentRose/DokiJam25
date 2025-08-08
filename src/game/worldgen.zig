@@ -114,7 +114,10 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                 const stidx = blocks.stencil_index(pos);
 
                 var atom_kind: Chunk.AtomKind = .Air;
-                if (yf < h - 12.0) {
+
+                if (y < 16) {
+                    atom_kind = .Bedrock;
+                } else if (yf < h - 12.0) {
                     atom_kind = .Stone;
                 } else if (yf < h - 2.0) {
                     atom_kind = if (h < WATER_LEVEL) .Sand else .Dirt;

@@ -140,6 +140,7 @@ pub fn event_loop() !void {
     while (running) {
         const now = std.time.nanoTimestamp();
 
+        audio.update();
         handle_updates();
 
         if (std.time.nanoTimestamp() > second_timer) {

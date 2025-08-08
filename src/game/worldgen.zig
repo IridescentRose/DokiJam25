@@ -6,7 +6,7 @@ const znoise = @import("znoise");
 const world = @import("world.zig");
 const blocks = @import("blocks.zig");
 
-const gen = znoise.FnlGenerator{
+var gen = znoise.FnlGenerator{
     .seed = 1337,
     .frequency = 0.25,
     .noise_type = .perlin,
@@ -24,12 +24,10 @@ const gen = znoise.FnlGenerator{
     .domain_warp_amp = 1.0,
 };
 
-pub fn init(s: u32) !void {
-    try blocks.init(s);
+pub fn init(s: i32) !void {
+    gen.seed = s;
 }
-pub fn deinit() void {
-    blocks.deinit();
-}
+pub fn deinit() void {}
 
 fn fbm(x: f64, z: f64) f64 {
     return gen.noise2(@floatCast(x), @floatCast(z)); // Normalize to [0, 1]
@@ -86,6 +84,8 @@ pub fn fillPlace(chunk: Chunk, internal_location: [3]usize, stencil: *const bloc
 }
 
 pub fn fill(chunk: Chunk, location: [2]isize) !void {
+    const before = std.time.nanoTimestamp();
+
     const blocks_per_chunk = c.CHUNK_SUB_BLOCKS;
 
     var heightmap = std.ArrayList(f32).init(util.allocator());
@@ -133,7 +133,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                 }
 
                 if (atom_kind != .Air) {
-                    world.blocks[chunk.offset + idx] = blocks.registry.get(atom_kind).?[stidx];
+                    world.blocks[chunk.offset + idx] = blocks.registry[@intFromEnum(atom_kind)][stidx];
                 }
             }
         }
@@ -172,7 +172,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
 
                                 const in_idx = Chunk.get_index(pos);
                                 const stidx = blocks.stencil_index(pos);
-                                world.blocks[chunk.offset + in_idx] = blocks.registry.get(.Grass).?[stidx];
+                                world.blocks[chunk.offset + in_idx] = blocks.registry[@intFromEnum(Chunk.AtomKind.Grass)][stidx];
                             }
                         } else {
                             for (0..36) |_| {
@@ -185,7 +185,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
 
                                     const in_idx = Chunk.get_index(pos);
                                     const stidx = blocks.stencil_index(pos);
-                                    world.blocks[chunk.offset + in_idx] = blocks.registry.get(.Leaf).?[stidx];
+                                    world.blocks[chunk.offset + in_idx] = blocks.registry[@intFromEnum(Chunk.AtomKind.Leaf)][stidx];
                                 }
                             }
                         }
@@ -214,7 +214,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                     const trunk_y = @as(usize, @intFromFloat(h)) / c.SUB_BLOCKS_PER_BLOCK + dy;
 
                     if (dy < tree_height - 1) {
-                        fillPlace(chunk, [_]usize{ trunk_x, trunk_y, trunk_z }, blocks.registry.get(.Log).?);
+                        fillPlace(chunk, [_]usize{ trunk_x, trunk_y, trunk_z }, &blocks.registry[@intFromEnum(Chunk.AtomKind.Log)]);
                         if (dy > tree_height / 2 - 1) {
                             // Place leaves
                             for (0..5) |lz| {
@@ -231,7 +231,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                                     if (@as(isize, @intCast(trunk_x)) + @as(isize, @intCast(lx)) - 2 < 0) continue;
                                     if (@as(isize, @intCast(trunk_z)) + @as(isize, @intCast(lz)) - 2 < 0) continue;
 
-                                    fillPlace(chunk, [_]usize{ trunk_x + lx - 2, trunk_y, trunk_z + lz - 2 }, blocks.registry.get(.Leaf).?);
+                                    fillPlace(chunk, [_]usize{ trunk_x + lx - 2, trunk_y, trunk_z + lz - 2 }, &blocks.registry[@intFromEnum(Chunk.AtomKind.Leaf)]);
                                 }
                             }
                         }
@@ -248,7 +248,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                                 const leaf_z = trunk_z + lz - 1;
                                 const leaf_y = trunk_y;
 
-                                fillPlace(chunk, [_]usize{ leaf_x, leaf_y, leaf_z }, blocks.registry.get(.Leaf).?);
+                                fillPlace(chunk, [_]usize{ leaf_x, leaf_y, leaf_z }, &blocks.registry[@intFromEnum(Chunk.AtomKind.Leaf)]);
                             }
                         }
                     }

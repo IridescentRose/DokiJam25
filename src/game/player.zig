@@ -131,7 +131,7 @@ fn place_block(ctx: *anyopaque, down: bool) void {
                     const hand = self.inventory.get_hand_slot();
 
                     if (hand.count > 0) {
-                        const stencil = blocks.registry.get(hand.material).?;
+                        const stencil = blocks.registry[@intFromEnum(hand.material)];
                         if (world.set_voxel(test_coord, stencil[stidx])) {
                             hand.count -= 1;
                             if (hand.count == 0) hand.material = .Air;

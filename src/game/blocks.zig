@@ -7,59 +7,36 @@ const util = @import("../core/util.zig");
 
 pub const Stencil = [c.SUBVOXEL_SIZE]Chunk.Atom;
 
-var stone_stencil: Stencil = undefined;
-var still_water_stencil: Stencil = undefined;
-var dirt_stencil: Stencil = undefined;
-var grass_stencil: Stencil = undefined;
-var sand_stencil: Stencil = undefined;
-var leaf_stencil: Stencil = undefined;
-var log_stencil: Stencil = undefined;
+pub const Registry = [255]Stencil;
+pub const registry = init(42);
 
-pub const Registry = std.AutoArrayHashMap(Chunk.AtomKind, *Stencil);
-pub var registry: Registry = undefined;
-
-var initialized: bool = false;
-
-pub fn init(s: u32) !void {
-    assert(!initialized);
+pub fn init(s: u32) Registry {
+    @setEvalBranchQuota(1024 * 1024 * 1024); // 1 MB
 
     var rng = std.Random.DefaultPrng.init(s);
-    generate_stone(&rng);
-    generate_still_water(&rng);
-    generate_dirt(&rng);
-    generate_grass(&rng);
-    generate_sand(&rng);
-    generate_leaf(&rng);
-    generate_log(&rng);
+    var reg: Registry = undefined;
+    @memset(&reg, @splat(.{
+        .material = .Air,
+        .color = [_]u8{ 0, 0, 0 },
+    }));
 
-    // TODO: This can definitely be done at comptime
-    registry = Registry.init(util.allocator());
-    try registry.put(.Stone, &stone_stencil);
-    try registry.put(.StillWater, &still_water_stencil);
-    try registry.put(.Dirt, &dirt_stencil);
-    try registry.put(.Grass, &grass_stencil);
-    try registry.put(.Sand, &sand_stencil);
-    try registry.put(.Leaf, &leaf_stencil);
-    try registry.put(.Log, &log_stencil);
+    generate_stone(&rng, &reg[@intFromEnum(Chunk.AtomKind.Stone)]);
+    generate_still_water(&rng, &reg[@intFromEnum(Chunk.AtomKind.StillWater)]);
+    generate_dirt(&rng, &reg[@intFromEnum(Chunk.AtomKind.Dirt)]);
+    generate_grass(&rng, &reg[@intFromEnum(Chunk.AtomKind.Grass)]);
+    generate_sand(&rng, &reg[@intFromEnum(Chunk.AtomKind.Sand)]);
+    generate_leaf(&rng, &reg[@intFromEnum(Chunk.AtomKind.Leaf)]);
+    generate_log(&rng, &reg[@intFromEnum(Chunk.AtomKind.Log)]);
 
-    initialized = true;
-    assert(initialized);
-}
-
-pub fn deinit() void {
-    assert(initialized);
-
-    registry.deinit();
-    initialized = false;
-    assert(!initialized);
+    return reg;
 }
 
 pub fn stencil_index(pos: [3]usize) usize {
     return ((pos[1] % c.SUB_BLOCKS_PER_BLOCK) * c.SUB_BLOCKS_PER_BLOCK + (pos[2] % c.SUB_BLOCKS_PER_BLOCK)) * c.SUB_BLOCKS_PER_BLOCK + (pos[0] % c.SUB_BLOCKS_PER_BLOCK);
 }
 
-fn generate_stone(rng: *std.Random.DefaultPrng) void {
-    for (&stone_stencil) |*atom| {
+fn generate_stone(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
+    for (stencil) |*atom| {
         const gray = rng.random().int(u8) % 64 + 96;
         atom.* = .{
             .material = .Stone,
@@ -68,8 +45,8 @@ fn generate_stone(rng: *std.Random.DefaultPrng) void {
     }
 }
 
-fn generate_still_water(rng: *std.Random.DefaultPrng) void {
-    for (&still_water_stencil) |*atom| {
+fn generate_still_water(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
+    for (stencil) |*atom| {
         const blue_r = rng.random().int(u8) % 32 + 192;
         atom.* = .{
             .material = .StillWater,
@@ -78,8 +55,8 @@ fn generate_still_water(rng: *std.Random.DefaultPrng) void {
     }
 }
 
-fn generate_dirt(rng: *std.Random.DefaultPrng) void {
-    for (&dirt_stencil) |*atom| {
+fn generate_dirt(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
+    for (stencil) |*atom| {
         const lightness = rng.random().int(u8) % 16;
         atom.* = .{
             .material = .Dirt,
@@ -88,8 +65,8 @@ fn generate_dirt(rng: *std.Random.DefaultPrng) void {
     }
 }
 
-fn generate_grass(rng: *std.Random.DefaultPrng) void {
-    for (&grass_stencil) |*atom| {
+fn generate_grass(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
+    for (stencil) |*atom| {
         const lightness = rng.random().int(u8) % 32;
         atom.* = .{
             .material = .Grass,
@@ -98,8 +75,8 @@ fn generate_grass(rng: *std.Random.DefaultPrng) void {
     }
 }
 
-fn generate_sand(rng: *std.Random.DefaultPrng) void {
-    for (&sand_stencil) |*atom| {
+fn generate_sand(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
+    for (stencil) |*atom| {
         const lightness = rng.random().int(u8) % 16;
         atom.* = .{
             .material = .Sand,
@@ -108,8 +85,8 @@ fn generate_sand(rng: *std.Random.DefaultPrng) void {
     }
 }
 
-fn generate_leaf(rng: *std.Random.DefaultPrng) void {
-    for (&leaf_stencil) |*atom| {
+fn generate_leaf(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
+    for (stencil) |*atom| {
         const lightness = rng.random().int(u8) % 32;
 
         if (lightness % 4 == 0) {
@@ -126,7 +103,7 @@ fn generate_leaf(rng: *std.Random.DefaultPrng) void {
     }
 }
 
-fn generate_log(rng: *std.Random.DefaultPrng) void {
+fn generate_log(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
     for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
         for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
             for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
@@ -140,13 +117,13 @@ fn generate_log(rng: *std.Random.DefaultPrng) void {
                 if (dx * dx + dz * dz <= radius * radius) {
                     // Inside the trunk
                     const lightness = rng.random().int(u8) % 16;
-                    log_stencil[idx] = .{
+                    stencil[idx] = .{
                         .material = .Log,
                         .color = [_]u8{ 0x55 + lightness, 0x33 + lightness, 0x11 },
                     };
                 } else {
                     // Outside the trunk
-                    log_stencil[idx] = .{
+                    stencil[idx] = .{
                         .material = .Air,
                         .color = [_]u8{ 0, 0, 0 },
                     };

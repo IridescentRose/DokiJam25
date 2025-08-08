@@ -30,7 +30,7 @@ var chunk_freelist: std.ArrayList(usize) = undefined;
 pub var inflight_chunk_mutex: std.Thread.Mutex = std.Thread.Mutex{};
 pub var inflight_chunk_list: std.ArrayList(ChunkLocation) = undefined;
 
-pub fn init(seed: u32) !void {
+pub fn init(seed: i32) !void {
     try job_queue.init();
 
     std.fs.cwd().makeDir("world") catch |err| switch (err) {

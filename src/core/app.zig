@@ -38,7 +38,7 @@ fn parse_config() !void {
     var curr_line = lines.first();
 
     while (true) {
-        var parts = std.mem.splitSequence(u8, curr_line, "=");
+        var parts = std.mem.splitScalar(u8, curr_line, '=');
         const key = std.mem.trim(u8, parts.first(), " \t");
         if (parts.next()) |value| {
             const intval = try std.fmt.parseInt(u32, value, 10);

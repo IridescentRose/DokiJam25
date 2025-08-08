@@ -1,10 +1,10 @@
 const std = @import("std");
 const app = @import("core/app.zig");
-const InitialState = @import("game/states/InitialState.zig");
+const MenuState = @import("game/states/MenuState.zig");
 
 // Shim
 pub fn main() !void {
-    var state: InitialState = undefined;
+    var state: MenuState = undefined;
 
     try app.init(state.state());
     defer app.deinit();

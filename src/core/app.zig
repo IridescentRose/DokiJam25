@@ -5,6 +5,7 @@ const sm = @import("statemachine.zig");
 const input = @import("input.zig");
 const util = @import("util.zig");
 const gfx = @import("../gfx/gfx.zig");
+const audio = @import("../audio/audio.zig");
 
 pub var running = true;
 
@@ -74,12 +75,15 @@ pub fn init(state: State) !void {
     input.init();
     try gfx.init(config.width, config.height, "DOKIJAM25!");
 
+    try audio.init();
+
     try sm.init(state);
 }
 
 pub fn deinit() void {
     sm.deinit();
 
+    audio.deinit();
     gfx.deinit();
 
     sdl3.quit(init_flags);

@@ -84,8 +84,6 @@ pub fn fillPlace(chunk: Chunk, internal_location: [3]usize, stencil: *const bloc
 }
 
 pub fn fill(chunk: Chunk, location: [2]isize) !void {
-    const before = std.time.nanoTimestamp();
-
     const blocks_per_chunk = c.CHUNK_SUB_BLOCKS;
 
     var heightmap = std.ArrayList(f32).init(util.allocator());

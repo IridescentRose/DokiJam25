@@ -16,6 +16,10 @@
             .url = "git+https://github.com/zig-gamedev/znoise.git#76724581c99be0b2f6aa43eb8b63d6f27bada27e",
             .hash = "znoise-0.3.0-dev-gK1op6KkAQCdq8ZRO_VfIrjCdskBgnoPO4V5W43lvmoT",
         },
+        .zaudio = .{
+            .url = "git+https://github.com/IridescentRose/zaudio?ref=update-master#0c3228606a51bb4057040fd4ce0a693865030e11",
+            .hash = "zaudio-0.11.0-dev-_M-91gVlPwCcV_uYhkfXv2alSGAfdxql7nDXwW8bWLh0",
+        },
     },
     .paths = .{
         "build.zig",

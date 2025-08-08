@@ -17,6 +17,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const zaudio = b.dependency("zaudio", .{
+        .target = target,
+        .optimize = optimize,
+    });
 
     const exe = b.addExecutable(.{
         .name = "DokiJam25",
@@ -36,6 +40,10 @@ pub fn build(b: *std.Build) void {
                 .{
                     .name = "znoise",
                     .module = znoise.module("root"),
+                },
+                .{
+                    .name = "zaudio",
+                    .module = zaudio.module("root"),
                 },
             },
         }),

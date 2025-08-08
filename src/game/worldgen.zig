@@ -4,6 +4,7 @@ const util = @import("../core/util.zig");
 const c = @import("consts.zig");
 const znoise = @import("znoise");
 const world = @import("world.zig");
+const blocks = @import("blocks.zig");
 
 const gen = znoise.FnlGenerator{
     .seed = 1337,
@@ -23,126 +24,12 @@ const gen = znoise.FnlGenerator{
     .domain_warp_amp = 1.0,
 };
 
-const Stencil = [c.SUBVOXEL_SIZE]Chunk.Atom;
-
-fn generate_stone(rng: *std.Random.DefaultPrng) void {
-    for (&stone_stencil) |*atom| {
-        const gray = rng.random().int(u8) % 64 + 96;
-        atom.* = .{
-            .material = .Stone,
-            .color = [_]u8{ gray, gray, gray },
-        };
-    }
-}
-
-fn generate_still_water(rng: *std.Random.DefaultPrng) void {
-    for (&still_water_stencil) |*atom| {
-        const blue_r = rng.random().int(u8) % 32 + 192;
-        atom.* = .{
-            .material = .StillWater,
-            .color = [_]u8{ 0x46, 0x67 + blue_r % 16, blue_r },
-        };
-    }
-}
-
-fn generate_dirt(rng: *std.Random.DefaultPrng) void {
-    for (&dirt_stencil) |*atom| {
-        const lightness = rng.random().int(u8) % 16;
-        atom.* = .{
-            .material = .Dirt,
-            .color = [_]u8{ 0x31 + lightness, 0x24 + lightness, 0x1C + lightness % 10 },
-        };
-    }
-}
-
-fn generate_grass(rng: *std.Random.DefaultPrng) void {
-    for (&grass_stencil) |*atom| {
-        const lightness = rng.random().int(u8) % 32;
-        atom.* = .{
-            .material = .Grass,
-            .color = [_]u8{ 0x00, 0x36 + lightness, 0x1F + lightness % 8 },
-        };
-    }
-}
-
-fn generate_sand(rng: *std.Random.DefaultPrng) void {
-    for (&sand_stencil) |*atom| {
-        const lightness = rng.random().int(u8) % 16;
-        atom.* = .{
-            .material = .Sand,
-            .color = [_]u8{ 0xE0 + lightness, 0xC0 + lightness, 0xA0 + lightness },
-        };
-    }
-}
-
-fn generate_leaf(rng: *std.Random.DefaultPrng) void {
-    for (&leaf_stencil) |*atom| {
-        const lightness = rng.random().int(u8) % 32;
-
-        if (lightness % 4 == 0) {
-            atom.* = .{
-                .material = .Leaf,
-                .color = [_]u8{ 0x35 + lightness, 0x79 + lightness, 0x20 + lightness % 8 },
-            };
-        } else {
-            atom.* = .{
-                .material = .Air,
-                .color = [_]u8{ 0, 0, 0 },
-            };
-        }
-    }
-}
-
-fn generate_log(rng: *std.Random.DefaultPrng) void {
-    for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
-        for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
-            for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
-                const idx = (y * c.SUB_BLOCKS_PER_BLOCK + z) * c.SUB_BLOCKS_PER_BLOCK + x;
-                const center = c.SUB_BLOCKS_PER_BLOCK / 2;
-
-                const radius = c.SUB_BLOCKS_PER_BLOCK / 2 - 1;
-                const dx = @abs(@as(isize, @intCast(x)) - center);
-                const dz = @abs(@as(isize, @intCast(z)) - center);
-
-                if (dx * dx + dz * dz <= radius * radius) {
-                    // Inside the trunk
-                    const lightness = rng.random().int(u8) % 16;
-                    log_stencil[idx] = .{
-                        .material = .Log,
-                        .color = [_]u8{ 0x55 + lightness, 0x33 + lightness, 0x11 },
-                    };
-                } else {
-                    // Outside the trunk
-                    log_stencil[idx] = .{
-                        .material = .Air,
-                        .color = [_]u8{ 0, 0, 0 },
-                    };
-                }
-            }
-        }
-    }
-}
-
-var stone_stencil: Stencil = undefined;
-var still_water_stencil: Stencil = undefined;
-var dirt_stencil: Stencil = undefined;
-var grass_stencil: Stencil = undefined;
-var sand_stencil: Stencil = undefined;
-var leaf_stencil: Stencil = undefined;
-var log_stencil: Stencil = undefined;
-
 pub fn init(s: u32) !void {
-    var rng = std.Random.DefaultPrng.init(s);
-    generate_stone(&rng);
-    generate_still_water(&rng);
-    generate_dirt(&rng);
-    generate_grass(&rng);
-    generate_sand(&rng);
-    generate_leaf(&rng);
-    generate_log(&rng);
+    try blocks.init(s);
 }
-
-pub fn deinit() void {}
+pub fn deinit() void {
+    blocks.deinit();
+}
 
 fn fbm(x: f64, z: f64) f64 {
     return gen.noise2(@floatCast(x), @floatCast(z)); // Normalize to [0, 1]
@@ -177,26 +64,20 @@ fn height_at(x: f64, z: f64) f64 {
     return weighted * 6.0 + 168.0; // scale and offset to fit in the world
 }
 
-fn stencil_index(x: usize, y: usize, z: usize) usize {
-    return ((y % c.SUB_BLOCKS_PER_BLOCK) * c.SUB_BLOCKS_PER_BLOCK + (z % c.SUB_BLOCKS_PER_BLOCK)) * c.SUB_BLOCKS_PER_BLOCK + (x % c.SUB_BLOCKS_PER_BLOCK);
-}
 const WATER_LEVEL = 256.0;
 
-pub fn fillPlace(chunk: Chunk, internal_location: [3]usize, stencil: Stencil) void {
+pub fn fillPlace(chunk: Chunk, internal_location: [3]usize, stencil: *const blocks.Stencil) void {
     for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
         for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
             for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
-                const idx = Chunk.get_index([_]usize{
+                const location = [_]usize{
                     internal_location[0] * c.SUB_BLOCKS_PER_BLOCK + x,
                     internal_location[1] * c.SUB_BLOCKS_PER_BLOCK + y,
                     internal_location[2] * c.SUB_BLOCKS_PER_BLOCK + z,
-                });
-                const stidx = stencil_index(
-                    internal_location[0] * c.SUB_BLOCKS_PER_BLOCK + x,
-                    internal_location[1] * c.SUB_BLOCKS_PER_BLOCK + y,
-                    internal_location[2] * c.SUB_BLOCKS_PER_BLOCK + z,
-                );
+                };
 
+                const idx = Chunk.get_index(location);
+                const stidx = blocks.stencil_index(location);
                 if (world.blocks[chunk.offset + idx].material != .Air) continue; // Don't overwrite existing blocks
                 world.blocks[chunk.offset + idx] = stencil[stidx];
             }
@@ -228,40 +109,33 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
             for (0..c.CHUNK_SUB_BLOCKS) |x| {
                 count += 1;
                 const h = heightmap.items[z * c.CHUNK_SUB_BLOCKS + x];
-                // std.debug.print("H {}\n", .{h});
 
                 const yf = @as(f64, @floatFromInt(y));
 
+                const pos = [_]usize{ x, y, z };
+
+                const idx = Chunk.get_index(pos);
+                const stidx = blocks.stencil_index(pos);
+
+                var atom_kind: Chunk.AtomKind = .Air;
                 if (yf < h - 12.0) {
-                    const idx = Chunk.get_index([_]usize{ x, y, z });
-                    const stidx = stencil_index(x, y, z);
-
-                    world.blocks[chunk.offset + idx] = stone_stencil[stidx];
+                    atom_kind = .Stone;
                 } else if (yf < h - 2.0) {
-                    const idx = Chunk.get_index([_]usize{ x, y, z });
-                    const stidx = stencil_index(x, y, z);
-
-                    if (h < WATER_LEVEL) {
-                        world.blocks[chunk.offset + idx] = sand_stencil[stidx];
-                    } else {
-                        world.blocks[chunk.offset + idx] = dirt_stencil[stidx];
-                    }
+                    atom_kind = if (h < WATER_LEVEL) .Sand else .Dirt;
                 } else if (yf < h) {
-                    const idx = Chunk.get_index([_]usize{ x, y, z });
-                    const stidx = stencil_index(x, y, z);
-
-                    if (h < WATER_LEVEL + 6.0) {
-                        world.blocks[chunk.offset + idx] = sand_stencil[stidx];
-                    } else if (h < WATER_LEVEL + 7.0) {
-                        world.blocks[chunk.offset + idx] = dirt_stencil[stidx];
-                    } else {
-                        world.blocks[chunk.offset + idx] = grass_stencil[stidx];
-                    }
+                    atom_kind =
+                        if (h < WATER_LEVEL + 6.0)
+                            .Sand
+                        else if (h < WATER_LEVEL + 7.0)
+                            .Dirt
+                        else
+                            .Grass;
                 } else if (yf <= WATER_LEVEL) {
-                    const idx = Chunk.get_index([_]usize{ x, y, z });
-                    const stidx = stencil_index(x, y, z);
+                    atom_kind = .StillWater;
+                }
 
-                    world.blocks[chunk.offset + idx] = still_water_stencil[stidx];
+                if (atom_kind != .Air) {
+                    world.blocks[chunk.offset + idx] = blocks.registry.get(atom_kind).?[stidx];
                 }
             }
         }
@@ -296,10 +170,11 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                                 const dx = @min(c.CHUNK_SUB_BLOCKS - 1, (x + prng.random().uintLessThan(u32, 2)));
                                 const dz = @min(c.CHUNK_SUB_BLOCKS - 1, (z + prng.random().uintLessThan(u32, 2)));
                                 const dy = surface_y + 1 + sy; // Place foliage one block above ground
+                                const pos = [_]usize{ dx, dy, dz };
 
-                                const in_idx = Chunk.get_index([_]usize{ dx, dy, dz });
-                                const stidx = stencil_index(dx, dy, dz);
-                                world.blocks[chunk.offset + in_idx] = grass_stencil[stidx];
+                                const in_idx = Chunk.get_index(pos);
+                                const stidx = blocks.stencil_index(pos);
+                                world.blocks[chunk.offset + in_idx] = blocks.registry.get(.Grass).?[stidx];
                             }
                         } else {
                             for (0..36) |_| {
@@ -308,9 +183,11 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                                     const dz = @max(@min(c.CHUNK_SUB_BLOCKS - 2, (z + prng.random().uintLessThan(u32, 8))), 2);
                                     const dy = surface_y + 1 + sy; // Place foliage one block above ground
 
-                                    const in_idx = Chunk.get_index([_]usize{ dx, dy, dz });
-                                    const stidx = stencil_index(dx, dy, dz);
-                                    world.blocks[chunk.offset + in_idx] = leaf_stencil[stidx];
+                                    const pos = [_]usize{ dx, dy, dz };
+
+                                    const in_idx = Chunk.get_index(pos);
+                                    const stidx = blocks.stencil_index(pos);
+                                    world.blocks[chunk.offset + in_idx] = blocks.registry.get(.Leaf).?[stidx];
                                 }
                             }
                         }
@@ -339,7 +216,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                     const trunk_y = @as(usize, @intFromFloat(h)) / c.SUB_BLOCKS_PER_BLOCK + dy;
 
                     if (dy < tree_height - 1) {
-                        fillPlace(chunk, [_]usize{ trunk_x, trunk_y, trunk_z }, log_stencil);
+                        fillPlace(chunk, [_]usize{ trunk_x, trunk_y, trunk_z }, blocks.registry.get(.Log).?);
                         if (dy > tree_height / 2 - 1) {
                             // Place leaves
                             for (0..5) |lz| {
@@ -356,7 +233,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                                     if (@as(isize, @intCast(trunk_x)) + @as(isize, @intCast(lx)) - 2 < 0) continue;
                                     if (@as(isize, @intCast(trunk_z)) + @as(isize, @intCast(lz)) - 2 < 0) continue;
 
-                                    fillPlace(chunk, [_]usize{ trunk_x + lx - 2, trunk_y, trunk_z + lz - 2 }, leaf_stencil);
+                                    fillPlace(chunk, [_]usize{ trunk_x + lx - 2, trunk_y, trunk_z + lz - 2 }, blocks.registry.get(.Leaf).?);
                                 }
                             }
                         }
@@ -373,7 +250,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
                                 const leaf_z = trunk_z + lz - 1;
                                 const leaf_y = trunk_y;
 
-                                fillPlace(chunk, [_]usize{ leaf_x, leaf_y, leaf_z }, leaf_stencil);
+                                fillPlace(chunk, [_]usize{ leaf_x, leaf_y, leaf_z }, blocks.registry.get(.Leaf).?);
                             }
                         }
                     }

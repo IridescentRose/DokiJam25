@@ -11,6 +11,7 @@ const world = @import("world.zig");
 const c = @import("consts.zig");
 const Self = @This();
 const AABB = @import("aabb.zig");
+const blocks = @import("blocks.zig");
 
 // Half
 const player_size = [_]f32{ 0.5, 1.85, 0.5 };
@@ -122,12 +123,12 @@ fn place_block(ctx: *anyopaque, down: bool) void {
                 const test_coord = [3]isize{ rescaled_subvoxel[0] + ix, rescaled_subvoxel[1] + iy, rescaled_subvoxel[2] + iz };
                 const voxel = world.get_voxel(test_coord);
                 if (voxel == .Air) {
-                    _ = world.set_voxel(test_coord, .{ .material = .Fire, .color = [_]u8{ 0xFF, 0x81, 0x42 } });
+                    const atom_type = .Stone;
+                    const stencil = blocks.registry.get(atom_type).?;
 
-                    world.active_atoms.append(.{
-                        .coord = test_coord,
-                        .moves = 255, // Fire particles can move around a bit
-                    }) catch unreachable;
+                    const stidx = blocks.stencil_index([3]usize{ x, y, z });
+
+                    _ = world.set_voxel(test_coord, stencil[stidx]);
                 }
             }
         }

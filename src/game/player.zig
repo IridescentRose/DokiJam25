@@ -12,6 +12,7 @@ const c = @import("consts.zig");
 const Self = @This();
 const AABB = @import("aabb.zig");
 const blocks = @import("blocks.zig");
+const Inventory = @import("inventory.zig");
 
 // Half
 const player_size = [_]f32{ 0.5, 1.85, 0.5 };
@@ -30,6 +31,7 @@ tex: gfx.texture.Texture,
 velocity: [3]f32,
 on_ground: bool,
 moving: [4]bool,
+inventory: Inventory,
 
 pub fn init() !Self {
     var res: Self = undefined;
@@ -58,6 +60,8 @@ pub fn init() !Self {
         .aabb_size = player_size,
         .can_step = true,
     };
+
+    res.inventory = Inventory.new();
 
     try res.voxel.build();
 
@@ -123,16 +127,23 @@ fn place_block(ctx: *anyopaque, down: bool) void {
                 const test_coord = [3]isize{ rescaled_subvoxel[0] + ix, rescaled_subvoxel[1] + iy, rescaled_subvoxel[2] + iz };
                 const voxel = world.get_voxel(test_coord);
                 if (voxel == .Air) {
-                    const atom_type = .Stone;
-                    const stencil = blocks.registry.get(atom_type).?;
-
                     const stidx = blocks.stencil_index([3]usize{ x, y, z });
+                    const hand = self.inventory.get_hand_slot();
 
-                    _ = world.set_voxel(test_coord, stencil[stidx]);
+                    if (hand.count > 0) {
+                        const stencil = blocks.registry.get(hand.material).?;
+                        if (world.set_voxel(test_coord, stencil[stidx])) {
+                            hand.count -= 1;
+                            if (hand.count == 0) hand.material = .Air;
+                        }
+                    } else {
+                        break;
+                    }
                 }
             }
         }
     }
+    std.debug.print("Items left in hand: {}\n", .{self.inventory.get_hand_slot().count});
 }
 
 fn destroy_block(ctx: *anyopaque, down: bool) void {
@@ -159,10 +170,26 @@ fn destroy_block(ctx: *anyopaque, down: bool) void {
                 const test_coord = [3]isize{ rescaled_subvoxel[0] + ix, rescaled_subvoxel[1] + iy, rescaled_subvoxel[2] + iz };
                 const voxel = world.get_voxel(test_coord);
                 if (voxel != .Air) {
-                    _ = world.set_voxel(test_coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                    // TODO: Add to inventory
+
+                    const atom_type = voxel;
+                    const amt = self.inventory.add_item_inventory(.{ .material = atom_type, .count = 1 });
+
+                    if (amt == 0) {
+                        std.debug.print("Inventory full, could not add item: {s}\n", .{@tagName(atom_type)});
+                        std.debug.print("Tried to add item at coord: {d}, {d}, {d}\n", .{ test_coord[0], test_coord[1], test_coord[2] });
+                        return;
+                    }
+                    if (!world.set_voxel(test_coord, .{
+                        .material = .Air,
+                        .color = [_]u8{ 0, 0, 0 },
+                    })) {
+                        std.debug.print("Failed to remove voxel at coord: {d}, {d}, {d}\n", .{ test_coord[0], test_coord[1], test_coord[2] });
+                    }
                 }
             }
         }
+        std.debug.print("Items left in hand: {}\n", .{self.inventory.get_hand_slot().count});
     }
 }
 

@@ -1,0 +1,4 @@
+width=1280
+height=720
+vsync=1
+fps=144

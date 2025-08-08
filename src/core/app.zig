@@ -13,12 +13,66 @@ const init_flags = sdl3.InitFlags{
     .audio = true,
 };
 
-pub fn init(width: u32, height: u32, title: [:0]const u8, state: State) !void {
+const Config = struct {
+    width: u32,
+    height: u32,
+    vsync: bool,
+    fps: u32,
+};
+
+var config = Config{
+    .width = 1280,
+    .height = 720,
+    .vsync = true,
+    .fps = 60,
+};
+
+fn parse_config() !void {
+    var file = try std.fs.cwd().openFile("config.txt", .{});
+    defer file.close();
+
+    const buf = try file.readToEndAlloc(util.allocator(), 1024);
+    defer util.allocator().free(buf);
+
+    var lines = std.mem.splitSequence(u8, buf, "\r\n");
+    var curr_line = lines.first();
+
+    while (true) {
+        var parts = std.mem.splitSequence(u8, curr_line, "=");
+        const key = std.mem.trim(u8, parts.first(), " \t");
+        if (parts.next()) |value| {
+            const intval = try std.fmt.parseInt(u32, value, 10);
+            if (std.mem.eql(u8, key, "vsync")) {
+                config.vsync = intval != 0;
+            } else if (std.mem.eql(u8, key, "fps")) {
+                config.fps = intval;
+            } else if (std.mem.eql(u8, key, "width")) {
+                config.width = intval;
+            } else if (std.mem.eql(u8, key, "height")) {
+                config.height = intval;
+            }
+        }
+
+        // Move to the next line
+        if (lines.next()) |next_line| {
+            curr_line = next_line;
+        } else {
+            break; // No more lines to process
+        }
+    }
+}
+
+pub fn init(state: State) !void {
     util.init();
-    input.init();
+
+    parse_config() catch |err| {
+        std.debug.print("Failed to parse config: {}\n", .{err});
+        return err;
+    };
 
     try sdl3.init(init_flags);
-    try gfx.init(width, height, title);
+    input.init();
+    try gfx.init(config.width, config.height, "DOKIJAM25!");
 
     try sm.init(state);
 }
@@ -70,11 +124,8 @@ fn handle_updates() void {
     }
 }
 
-const stable_fps = true;
-
 pub fn event_loop() !void {
-    // TODO: Customize?
-    const frame_rate = 60;
+    const frame_rate = config.fps;
     const frame_time_ns = std.time.ns_per_s / frame_rate;
 
     var next_frame_start = std.time.nanoTimestamp() + frame_time_ns;
@@ -94,14 +145,15 @@ pub fn event_loop() !void {
         }
         fps += 1;
 
-        if (now < next_frame_start and stable_fps) {
+        if (now < next_frame_start and config.vsync) {
             // Poll for events
             var new_time = std.time.nanoTimestamp();
             while (new_time < next_frame_start) {
                 new_time = std.time.nanoTimestamp();
                 handle_updates();
 
-                // TODO: Sleep?
+                // This doesn't guarantee a stable frame rate, but it helps prevent busy-waiting
+                std.Thread.sleep(std.time.ns_per_ms);
             }
         }
 

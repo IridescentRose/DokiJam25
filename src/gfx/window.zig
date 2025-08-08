@@ -29,8 +29,6 @@ pub fn deinit() void {
 
 pub fn draw() !void {
     assert(initialized);
-    // OPENGL
-    // TODO: Do we want this here?
     _ = sdl3.c.SDL_GL_SwapWindow(window.value);
 }
 

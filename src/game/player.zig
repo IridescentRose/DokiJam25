@@ -143,7 +143,6 @@ fn place_block(ctx: *anyopaque, down: bool) void {
             }
         }
     }
-    std.debug.print("Items left in hand: {}\n", .{self.inventory.get_hand_slot().count});
 }
 
 fn destroy_block(ctx: *anyopaque, down: bool) void {
@@ -170,8 +169,6 @@ fn destroy_block(ctx: *anyopaque, down: bool) void {
                 const test_coord = [3]isize{ rescaled_subvoxel[0] + ix, rescaled_subvoxel[1] + iy, rescaled_subvoxel[2] + iz };
                 const voxel = world.get_voxel(test_coord);
                 if (voxel != .Air) {
-                    // TODO: Add to inventory
-
                     const atom_type = voxel;
                     const amt = self.inventory.add_item_inventory(.{ .material = atom_type, .count = 1 });
 
@@ -189,7 +186,6 @@ fn destroy_block(ctx: *anyopaque, down: bool) void {
                 }
             }
         }
-        std.debug.print("Items left in hand: {}\n", .{self.inventory.get_hand_slot().count});
     }
 }
 

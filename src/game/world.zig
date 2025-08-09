@@ -596,7 +596,7 @@ pub fn draw() void {
         .tex_id = ui_tex,
         .color = [_]u8{ 0xFF, 0xFF, 0xFF, 0xFF },
     }) catch unreachable;
-    ui.add_text("ABC", [_]f32{ 128, 128 }, [_]u8{ 0xFF, 0xFF, 0xFF, 0xFF }, 1) catch unreachable;
+    ui.add_text("ABC", [_]f32{ 128, 128 }, [_]u8{ 0xFF, 0xFF, 0xFF, 0xFF }, 1, 1) catch unreachable;
 
     chunk_mesh.draw();
 

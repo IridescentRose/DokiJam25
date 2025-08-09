@@ -120,7 +120,7 @@ pub fn clear_sprites() void {
     ui_instance_mesh.instances.clearAndFree(util.allocator());
 }
 
-pub fn add_text(text: []const u8, position: [2]f32, color: [4]u8, layer: f32) !void {
+pub fn add_text(text: []const u8, position: [2]f32, color: [4]u8, layer: f32, scale: f32) !void {
     assert(initialized);
 
     for (text, 0..) |c, i| {
@@ -134,9 +134,11 @@ pub fn add_text(text: []const u8, position: [2]f32, color: [4]u8, layer: f32) !v
         const char_x: f32 = @as(f32, @floatFromInt(char_index % 16)) * 1.0 / 16.0;
         const char_y: f32 = (@as(f32, @floatFromInt(char_index / 16)) + 1.0) * 1.0 / 10.0;
 
+        const len = @as(f32, @floatFromInt((text.len) * 18)) * scale - 1 * 24 * scale;
+
         try add_sprite(.{
-            .offset = [_]f32{ position[0] + @as(f32, @floatFromInt(i * 18)), position[1], layer + 0.01 * @as(f32, @floatFromInt(i)) },
-            .scale = [_]f32{ 24, 36 },
+            .offset = [_]f32{ position[0] + @as(f32, @floatFromInt(i * 18)) * scale - len / 2.0, position[1], layer + 0.01 * @as(f32, @floatFromInt(i)) },
+            .scale = [_]f32{ 24 * scale, 36 * scale },
             .color = color,
             .tex_id = font_texture,
             .uv_offset = [_]f32{ char_x, 1.0 - (char_y) }, // 0.0625 is the height of a character in the texture

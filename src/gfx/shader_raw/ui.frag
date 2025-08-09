@@ -7,7 +7,7 @@ in vec2 frag_uv;
 in vec4 frag_col;
 flat in uint frag_tex;
 
-layout(std430, binding = 3) buffer UIHandles {  // Changed to buffer, std430, binding=2
+layout(std430, binding = 3) buffer UIHandles {  // Changed to buffer, std430, binding=3
     sampler2D texture_handles[];
 };
 

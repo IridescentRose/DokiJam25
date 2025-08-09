@@ -36,7 +36,7 @@ inventory: Inventory,
 pub fn init() !Self {
     var res: Self = undefined;
 
-    res.tex = try gfx.texture.load_image_from_file("doki.png");
+    res.tex = try gfx.texture.load_image_from_file("dragoon.png");
     res.voxel = Voxel.init(res.tex);
     res.transform = Transform.new();
 

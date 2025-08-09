@@ -73,7 +73,6 @@ pub fn init(seed: u64) !void {
         const sub_z = x * c.SUB_BLOCKS_PER_BLOCK;
 
         const h = worldgen.height_at(@as(f64, @floatFromInt(sub_x)), @as(f64, @floatFromInt(sub_z)));
-        std.debug.print("Spawn point at ({}, {}) with height {}\n", .{ x, h, z });
 
         if (h <= 256) continue;
 
@@ -277,7 +276,7 @@ fn update_player_surrounding_chunks() !void {
     }
 
     for (extra_chunks.items) |i| {
-        var chunk = chunkMap.getPtr(i) orelse unreachable;
+        var chunk = chunkMap.getPtr(i) orelse continue; // TODO: WHY CAN THIS HAPPEN? WTF
 
         inflight_chunk_mutex.lock();
         defer inflight_chunk_mutex.unlock();

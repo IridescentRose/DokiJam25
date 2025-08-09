@@ -92,10 +92,7 @@ pub fn load_ui_texture(path: []const u8) !u32 {
     var index: u32 = 0;
     const handle: u64 = gl.GL_ARB_bindless_texture.getTextureHandleARB(tex.gl_id);
 
-    std.debug.print("Texture {s}: handle=0x{x}\n", .{ path, handle });
-
     gl.GL_ARB_bindless_texture.makeTextureHandleResidentARB(handle);
-    checkGLError();
     index = next_tex_index;
     texture_handles[index - 1] = handle;
     next_tex_index += 1;
@@ -104,7 +101,6 @@ pub fn load_ui_texture(path: []const u8) !u32 {
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, ui_handles_ssbo);
     gl.bufferSubData(gl.SHADER_STORAGE_BUFFER, @intCast(@sizeOf(u64) * (index - 1)), @sizeOf(u64), &handle);
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, 0);
-    checkGLError();
 
     return index;
 }
@@ -158,12 +154,4 @@ pub fn draw() void {
     gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 3, ui_handles_ssbo);
 
     ui_instance_mesh.draw();
-}
-
-fn checkGLError() void {
-    var err = gl.getError();
-    while (err != gl.NO_ERROR) {
-        std.debug.print("GL Error: 0x{x}\n", .{err});
-        err = gl.getError();
-    }
 }

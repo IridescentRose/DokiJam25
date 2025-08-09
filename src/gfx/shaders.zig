@@ -20,6 +20,9 @@ const ray_frag_source = @embedFile("shader_raw/ray.frag");
 const post_vert_source = @embedFile("shader_raw/post.vert");
 const post_frag_source = @embedFile("shader_raw/post.frag");
 
+const ui_vert_source = @embedFile("shader_raw/ui.vert");
+const ui_frag_source = @embedFile("shader_raw/ui.frag");
+
 const edit_comp_source = @embedFile("shader_raw/apply_voxel_edit.comp");
 
 var uber: c_uint = 0;
@@ -28,6 +31,7 @@ var part: c_uint = 0;
 var ray: c_uint = 0;
 var edit: c_uint = 0;
 var post: c_uint = 0;
+var ui: c_uint = 0;
 
 var vpLoc: c_int = 0;
 var modelLoc: c_int = 0;
@@ -57,6 +61,8 @@ var compFogDensityLoc: c_int = 0;
 var compCameraPosLoc: c_int = 0;
 
 var postResolutionLoc: c_int = 0;
+
+var uiProjLoc: c_int = 0;
 
 fn compile_shader(source: [*c]const [*c]const gl.GLchar, stype: c_uint) c_uint {
     const shad = gl.createShader(stype);
@@ -155,6 +161,11 @@ pub fn init() !void {
     partModelLoc = gl.getUniformLocation(part, "model");
     partYawLoc = gl.getUniformLocation(part, "yaw");
     partPitchLoc = gl.getUniformLocation(part, "pitch");
+
+    const ui_v = compile_shader(@ptrCast(&ui_vert_source), gl.VERTEX_SHADER);
+    const ui_f = compile_shader(@ptrCast(&ui_frag_source), gl.FRAGMENT_SHADER);
+    ui = create_program(ui_v, ui_f);
+    uiProjLoc = gl.getUniformLocation(ui, "proj");
 
     use_render_shader();
 }
@@ -302,4 +313,13 @@ pub fn set_post_resolution() void {
 
 pub fn use_post_shader() void {
     gl.useProgram(post);
+}
+
+pub fn use_ui_shader() void {
+    gl.useProgram(ui);
+}
+
+pub fn set_ui_proj(matrix: zm.Mat) void {
+    use_ui_shader();
+    gl.uniformMatrix4fv(uiProjLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
 }

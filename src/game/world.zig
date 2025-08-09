@@ -6,6 +6,8 @@ const worldgen = @import("worldgen.zig");
 const util = @import("../core/util.zig");
 const Particle = @import("particle.zig");
 const gl = @import("../gfx/gl.zig");
+const ui = @import("../gfx/ui.zig");
+
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
 
@@ -29,7 +31,7 @@ var chunk_freelist: std.ArrayList(usize) = undefined;
 
 pub var inflight_chunk_mutex: std.Thread.Mutex = std.Thread.Mutex{};
 pub var inflight_chunk_list: std.ArrayList(ChunkLocation) = undefined;
-
+var ui_tex: u32 = 0;
 pub fn init(seed: i32) !void {
     try job_queue.init();
 
@@ -58,6 +60,8 @@ pub fn init(seed: i32) !void {
 
     player = try Player.init();
     try player.register_input();
+
+    ui_tex = try ui.load_ui_texture("heart.png");
 
     // TODO: Random spawn location
     player.transform.pos[0] = 1024;
@@ -571,6 +575,15 @@ pub fn update() !void {
 }
 
 pub fn draw() void {
+    ui.clear_sprites();
+    ui.add_sprite(.{
+        .offset = [_]f32{ 32, 32, 1 },
+        .scale = [_]f32{ 64, 64 },
+        .tex_id = ui_tex,
+        .color = [_]u8{ 0xFF, 0xFF, 0xFF, 0xFF },
+    }) catch unreachable;
+    ui.add_text("ABC", [_]f32{ 128, 128 }, [_]u8{ 0xFF, 0xFF, 0xFF, 0xFF }, 1) catch unreachable;
+
     chunk_mesh.draw();
 
     player.draw();

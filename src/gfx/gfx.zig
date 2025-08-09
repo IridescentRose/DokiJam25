@@ -2,6 +2,7 @@ const std = @import("std");
 const sdl3 = @import("sdl3");
 const util = @import("../core/util.zig");
 const gl = @import("gl.zig");
+const ui = @import("ui.zig");
 pub const zm = @import("zmath");
 pub const Mesh = @import("mesh.zig");
 pub const TexMesh = @import("texmesh.zig");
@@ -36,6 +37,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
     context = window.context();
 
     try gl.load(context, get_context);
+    try gl.GL_ARB_bindless_texture.load(context, get_context);
 
     try shader.init();
 
@@ -78,6 +80,8 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
 
     try mesh.indices.appendSlice(util.allocator(), &[_]Mesh.Index{ 0, 1, 2, 2, 3, 0 });
     mesh.update();
+
+    try ui.init();
 }
 
 pub fn deinit() void {
@@ -85,8 +89,8 @@ pub fn deinit() void {
     fbo.deinit();
     shader.deinit();
 
+    ui.deinit();
     _ = sdl3.c.SDL_GL_DestroyContext(context);
-
     window.deinit();
 }
 
@@ -111,9 +115,6 @@ pub fn finalize() !void {
         mesh.draw();
     }
 
-    // Also now draw the UI on top of everything
-    // TODO: UI
-
     // Finalize with post processing
     gl.bindFramebuffer(gl.FRAMEBUFFER, 0);
     gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
@@ -125,6 +126,10 @@ pub fn finalize() !void {
 
     shader.set_post_resolution();
     mesh.draw();
+
+    // Also now draw the UI on top of everything
+    try ui.update();
+    ui.draw();
 
     try window.draw();
 }

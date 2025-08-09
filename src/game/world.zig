@@ -32,7 +32,7 @@ var chunk_freelist: std.ArrayList(usize) = undefined;
 pub var inflight_chunk_mutex: std.Thread.Mutex = std.Thread.Mutex{};
 pub var inflight_chunk_list: std.ArrayList(ChunkLocation) = undefined;
 var ui_tex: u32 = 0;
-pub fn init(seed: i32) !void {
+pub fn init(seed: u64) !void {
     try job_queue.init();
 
     std.fs.cwd().makeDir("world") catch |err| switch (err) {
@@ -63,12 +63,26 @@ pub fn init(seed: i32) !void {
 
     ui_tex = try ui.load_ui_texture("heart.png");
 
-    // TODO: Random spawn location
-    player.transform.pos[0] = 1024;
-    player.transform.pos[1] = 64;
-    player.transform.pos[2] = 1024;
-
+    // Find a random spawn point
     try worldgen.init(seed);
+    var rng = std.Random.DefaultPrng.init(seed);
+    while (true) {
+        const x = @mod(rng.random().int(i32), 4096);
+        const sub_x = x * c.SUB_BLOCKS_PER_BLOCK;
+        const z = @mod(rng.random().int(i32), 4096);
+        const sub_z = x * c.SUB_BLOCKS_PER_BLOCK;
+
+        const h = worldgen.height_at(@as(f64, @floatFromInt(sub_x)), @as(f64, @floatFromInt(sub_z)));
+        std.debug.print("Spawn point at ({}, {}) with height {}\n", .{ x, h, z });
+
+        if (h <= 256) continue;
+
+        player.transform.pos[0] = @floatFromInt(x);
+        player.transform.pos[1] = @floatCast((h + 32) / c.SUB_BLOCKS_PER_BLOCK);
+        player.transform.pos[2] = @floatFromInt(z);
+
+        break;
+    }
 
     active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
 

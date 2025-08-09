@@ -24,8 +24,8 @@ var gen = znoise.FnlGenerator{
     .domain_warp_amp = 1.0,
 };
 
-pub fn init(s: i32) !void {
-    gen.seed = s;
+pub fn init(s: u64) !void {
+    gen.seed = @truncate(@as(i64, @bitCast(s)));
 }
 pub fn deinit() void {}
 
@@ -39,7 +39,7 @@ fn clamp(value: f64, min: f64, max: f64) f64 {
     return value;
 }
 
-fn height_at(x: f64, z: f64) f64 {
+pub fn height_at(x: f64, z: f64) f64 {
     const scaleBase = 0.001;
     const scaleDetail = 0.01;
     const scale = 0.001;

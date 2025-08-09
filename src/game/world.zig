@@ -7,6 +7,7 @@ const util = @import("../core/util.zig");
 const Particle = @import("particle.zig");
 const gl = @import("../gfx/gl.zig");
 const ui = @import("../gfx/ui.zig");
+const ecs = @import("entity/ecs.zig");
 
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
@@ -34,6 +35,8 @@ pub var inflight_chunk_list: std.ArrayList(ChunkLocation) = undefined;
 var ui_tex: u32 = 0;
 pub fn init(seed: u64) !void {
     try job_queue.init();
+
+    try ecs.init();
 
     std.fs.cwd().makeDir("world") catch |err| switch (err) {
         error.PathAlreadyExists => {},
@@ -76,9 +79,9 @@ pub fn init(seed: u64) !void {
 
         if (h <= 256) continue;
 
-        player.transform.pos[0] = @floatFromInt(x);
-        player.transform.pos[1] = @floatCast((h + 32) / c.SUB_BLOCKS_PER_BLOCK);
-        player.transform.pos[2] = @floatFromInt(z);
+        player.entity.get_ptr(.transform).pos[0] = @floatFromInt(x);
+        player.entity.get_ptr(.transform).pos[1] = @floatCast((h + 32) / c.SUB_BLOCKS_PER_BLOCK);
+        player.entity.get_ptr(.transform).pos[2] = @floatFromInt(z);
 
         break;
     }
@@ -120,6 +123,8 @@ pub fn deinit() void {
     edit_list.deinit();
 
     worldgen.deinit();
+
+    ecs.deinit();
 
     util.allocator().free(blocks);
     chunk_mesh.deinit();
@@ -211,9 +216,9 @@ fn update_player_surrounding_chunks() !void {
     const CHUNK_RADIUS = c.CHUNK_RADIUS;
 
     const curr_player_chunk = [_]isize{
-        @divFloor(@as(isize, @intFromFloat(player.transform.pos[0])), c.CHUNK_BLOCKS),
-        @divFloor(@as(isize, @intFromFloat(player.transform.pos[1])), c.CHUNK_BLOCKS),
-        @divFloor(@as(isize, @intFromFloat(player.transform.pos[2])), c.CHUNK_BLOCKS),
+        @divFloor(@as(isize, @intFromFloat(player.entity.get(.transform).pos[0])), c.CHUNK_BLOCKS),
+        @divFloor(@as(isize, @intFromFloat(player.entity.get(.transform).pos[1])), c.CHUNK_BLOCKS),
+        @divFloor(@as(isize, @intFromFloat(player.entity.get(.transform).pos[2])), c.CHUNK_BLOCKS),
     };
 
     var target_chunks = std.ArrayList(ChunkLocation).init(util.allocator());
@@ -351,7 +356,7 @@ pub fn update() !void {
         const rz = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
         try particles.add_particle(Particle.Particle{
             .kind = .Water,
-            .pos = [_]f32{ player.transform.pos[0] + rx * 0.25, 63.0, player.transform.pos[2] + rz * 0.25 },
+            .pos = [_]f32{ player.entity.get(.transform).pos[0] + rx * 0.25, 63.0, player.entity.get(.transform).pos[2] + rz * 0.25 },
             .color = [_]u8{ 0xC0, 0xD0, 0xFF },
             .vel = [_]f32{ 0, -80, 0 },
             .lifetime = 300,

@@ -17,7 +17,7 @@ pub fn new() Self {
     };
 }
 
-pub fn get_matrix(self: *Self) zm.Mat {
+pub fn get_matrix(self: *const Self) zm.Mat {
     const pre_translation = zm.translation(-self.size[0] / 2.0, -self.size[1] / 2.0, -self.size[2] / 2.0);
     const scaling = zm.scaling(self.scale[0], self.scale[1], self.scale[2]);
 

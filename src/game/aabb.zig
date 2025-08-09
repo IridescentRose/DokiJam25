@@ -9,7 +9,7 @@ can_step: bool,
 
 const Self = @This();
 
-pub fn get_min_pos(self: *Self, new_pos: [3]f32) [3]f32 {
+pub fn get_min_pos(self: *const Self, new_pos: [3]f32) [3]f32 {
     return [_]f32{
         @floor((new_pos[0] - self.aabb_size[0]) * c.SUB_BLOCKS_PER_BLOCK),
         @floor((new_pos[1]) * c.SUB_BLOCKS_PER_BLOCK),
@@ -17,7 +17,7 @@ pub fn get_min_pos(self: *Self, new_pos: [3]f32) [3]f32 {
     };
 }
 
-pub fn get_max_pos(self: *Self, new_pos: [3]f32) [3]f32 {
+pub fn get_max_pos(self: *const Self, new_pos: [3]f32) [3]f32 {
     return [_]f32{
         @ceil((new_pos[0] + self.aabb_size[0]) * c.SUB_BLOCKS_PER_BLOCK),
         @ceil((new_pos[1] + self.aabb_size[1] * 2) * c.SUB_BLOCKS_PER_BLOCK),
@@ -33,7 +33,7 @@ pub fn can_walk_through(coord: [3]isize) bool {
 // Updates the position and velocity based on collisions with the world
 // new_pos and vel are both in world space (not sub-voxel space)
 // Modifies new_pos and vel in place
-pub fn collide_aabb_with_world(self: *Self, new_pos: *[3]f32, vel: *[3]f32, on_ground: *bool) void {
+pub fn collide_aabb_with_world(self: *const Self, new_pos: *[3]f32, vel: *[3]f32, on_ground: *bool) void {
     {
         const min_pos = get_min_pos(self, new_pos.*);
         const max_pos = get_max_pos(self, new_pos.*);

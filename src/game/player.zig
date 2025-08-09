@@ -14,6 +14,8 @@ const AABB = @import("aabb.zig");
 const blocks = @import("blocks.zig");
 const Inventory = @import("inventory.zig");
 
+const ecs = @import("entity/ecs.zig");
+
 // Half
 const player_size = [_]f32{ 0.5, 1.85, 0.5 };
 
@@ -23,47 +25,47 @@ const BLOCK_SCALE = 1.0 / @as(f32, c.SUB_BLOCKS_PER_BLOCK);
 const EPSILON = 1e-3;
 const JUMP_VELOCITY = 16.0;
 
-aabb: AABB,
-voxel: Voxel,
-transform: Transform,
-camera: Camera,
 tex: gfx.texture.Texture,
-velocity: [3]f32,
-on_ground: bool,
+camera: Camera,
 moving: [4]bool,
+
+// TODO: make a component so that dragoons can have different inventories
 inventory: Inventory,
+entity: ecs.Entity,
 
 pub fn init() !Self {
     var res: Self = undefined;
 
     res.tex = try gfx.texture.load_image_from_file("dragoon.png");
-    res.voxel = Voxel.init(res.tex);
-    res.transform = Transform.new();
+    res.entity = try ecs.create_entity();
 
-    res.camera.distance = 5.0;
-    res.camera.fov = 90.0;
-    res.camera.pitch = 0;
-    res.camera.yaw = 0;
-    res.velocity = @splat(0);
-    res.transform.scale = @splat(1.0 / 10.0);
+    var transform = Transform.new();
+    transform.size = [_]f32{ 20.0, 37, 20.0 };
+    transform.scale = @splat(1.0 / 10.0);
 
-    res.transform.size[0] = 20.0;
-    res.transform.size[1] = 37;
-    res.transform.size[2] = 20.0;
-    res.on_ground = false;
-
-    res.camera.target = res.transform.pos;
-    res.camera.yaw = -90;
-    res.moving = @splat(false);
-
-    res.aabb = AABB{
+    var voxel = Voxel.init(res.tex);
+    try voxel.build();
+    try res.entity.add_component(.model, voxel);
+    try res.entity.add_component(.transform, transform);
+    try res.entity.add_component(.velocity, @splat(0));
+    try res.entity.add_component(.on_ground, false);
+    try res.entity.add_component(.health, 20);
+    try res.entity.add_component(.hunger, 20);
+    try res.entity.add_component(.aabb, AABB{
         .aabb_size = player_size,
         .can_step = true,
+    });
+
+    res.camera = .{
+        .distance = 5.0,
+        .fov = 90.0,
+        .yaw = -90,
+        .pitch = 0,
+        .target = transform.pos,
     };
 
+    res.moving = @splat(false);
     res.inventory = Inventory.new();
-
-    try res.voxel.build();
 
     return res;
 }
@@ -87,9 +89,9 @@ fn moveRight(ctx: *anyopaque, down: bool) void {
 
 fn jump(ctx: *anyopaque, down: bool) void {
     const self = util.ctx_to_self(Self, ctx);
-    if (down and self.on_ground) {
-        self.velocity[1] = JUMP_VELOCITY;
-        self.on_ground = false;
+    if (down and self.entity.get(.on_ground)) {
+        self.entity.get_ptr(.velocity)[1] = JUMP_VELOCITY;
+        self.entity.get_ptr(.on_ground).* = false;
     }
 }
 
@@ -109,7 +111,7 @@ fn place_block(ctx: *anyopaque, down: bool) void {
     if (!down) return;
 
     const self = util.ctx_to_self(Self, ctx);
-    const coord = [_]f32{ self.transform.pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.transform.pos[1] * c.SUB_BLOCKS_PER_BLOCK, self.transform.pos[2] * c.SUB_BLOCKS_PER_BLOCK };
+    const coord = [_]f32{ self.entity.get(.transform).pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[1] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[2] * c.SUB_BLOCKS_PER_BLOCK };
 
     const subvoxel_coord = [3]isize{ @intFromFloat(coord[0]), @intFromFloat(coord[1]), @intFromFloat(coord[2]) };
     const voxel_coord = [3]isize{ @divFloor(subvoxel_coord[0], c.SUB_BLOCKS_PER_BLOCK), @divFloor(subvoxel_coord[1], c.SUB_BLOCKS_PER_BLOCK), @divFloor(subvoxel_coord[2], c.SUB_BLOCKS_PER_BLOCK) };
@@ -151,7 +153,7 @@ fn destroy_block(ctx: *anyopaque, down: bool) void {
     const self = util.ctx_to_self(Self, ctx);
 
     // TODO: Better way of doing this
-    const coord = [_]f32{ self.transform.pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.transform.pos[1] * c.SUB_BLOCKS_PER_BLOCK - 0.05, self.transform.pos[2] * c.SUB_BLOCKS_PER_BLOCK };
+    const coord = [_]f32{ self.entity.get(.transform).pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[1] * c.SUB_BLOCKS_PER_BLOCK - 0.05, self.entity.get(.transform).pos[2] * c.SUB_BLOCKS_PER_BLOCK };
 
     const subvoxel_coord = [3]isize{ @intFromFloat(coord[0]), @intFromFloat(coord[1]), @intFromFloat(coord[2]) };
     const voxel_coord = [3]isize{ @divFloor(subvoxel_coord[0], c.SUB_BLOCKS_PER_BLOCK), @divFloor(subvoxel_coord[1], c.SUB_BLOCKS_PER_BLOCK), @divFloor(subvoxel_coord[2], c.SUB_BLOCKS_PER_BLOCK) };
@@ -229,18 +231,18 @@ pub fn register_input(self: *Self) !void {
 }
 
 pub fn deinit(self: *Self) void {
-    self.voxel.deinit();
+    self.entity.get_ptr(.model).deinit();
 }
 
 pub fn update(self: *Self) void {
     const curr_pos = [_]isize{
-        @intFromFloat(self.transform.pos[0]),
-        @intFromFloat(@max(@min(self.transform.pos[1], 62.0), 0)), // Clamp y to world height
-        @intFromFloat(self.transform.pos[2]),
+        @intFromFloat(self.entity.get(.transform).pos[0]),
+        @intFromFloat(@max(@min(self.entity.get(.transform).pos[1], 62.0), 0)), // Clamp y to world height
+        @intFromFloat(self.entity.get(.transform).pos[2]),
     };
 
     // Update camera
-    self.camera.target = self.transform.pos;
+    self.camera.target = self.entity.get(.transform).pos;
     self.camera.target[1] += player_size[1] + 0.25;
 
     if (!world.is_in_world([_]isize{ curr_pos[0] * c.SUB_BLOCKS_PER_BLOCK, curr_pos[1] * c.SUB_BLOCKS_PER_BLOCK, curr_pos[2] * c.SUB_BLOCKS_PER_BLOCK })) return;
@@ -258,11 +260,11 @@ pub fn update(self: *Self) void {
     if (self.moving[3]) movement += right;
     if (zm.length3(movement)[0] > 0.1) {
         movement = zm.normalize3(movement) * @as(@Vector(4, f32), @splat(5.0)); // 5 units/sec move speed
-        self.transform.rot[1] = std.math.radiansToDegrees(std.math.atan2(movement[0], movement[2])) + 180.0;
+        self.entity.get_ptr(.transform).rot[1] = std.math.radiansToDegrees(std.math.atan2(movement[0], movement[2])) + 180.0;
     }
 
     // 2) Prepare new velocity
-    var vel = self.velocity;
+    var vel = self.entity.get_ptr(.velocity);
     vel[0] = movement[0];
     vel[2] = movement[2];
     vel[1] += GRAVITY * dt;
@@ -270,19 +272,17 @@ pub fn update(self: *Self) void {
 
     // 3) Perform physics
     var new_pos = [_]f32{
-        self.transform.pos[0] + vel[0] * dt,
-        self.transform.pos[1] + vel[1] * dt,
-        self.transform.pos[2] + vel[2] * dt,
+        self.entity.get(.transform).pos[0] + vel[0] * dt,
+        self.entity.get(.transform).pos[1] + vel[1] * dt,
+        self.entity.get(.transform).pos[2] + vel[2] * dt,
     };
 
-    self.aabb.collide_aabb_with_world(&new_pos, &vel, &self.on_ground);
-    self.transform.pos = new_pos;
+    self.entity.get(.aabb).collide_aabb_with_world(&new_pos, vel, self.entity.get_ptr(.on_ground));
+    self.entity.get_ptr(.transform).pos = new_pos;
 
-    // 4) Commit
-    self.velocity = vel;
-    // zero out horizontal so you don’t keep drifting
-    self.velocity[0] = 0;
-    self.velocity[2] = 0;
+    // Remove any velocity in the x and z directions to prevent sliding
+    vel[0] = 0;
+    vel[2] = 0;
 }
 
 pub fn draw(self: *Self) void {
@@ -290,8 +290,8 @@ pub fn draw(self: *Self) void {
 
     self.camera.distance = 5.0 + @as(f32, @floatFromInt(input.scroll_pos)) * 0.5;
     self.camera.update();
-    self.transform.pos[1] += player_size[1] + 0.1; // Offset player up a bit so they don't clip into the ground
-    gfx.shader.set_model(self.transform.get_matrix());
-    self.transform.pos[1] -= player_size[1] + 0.1; // Reset position
-    self.voxel.draw();
+    self.entity.get_ptr(.transform).pos[1] += player_size[1] + 0.1; // Offset player up a bit so they don't clip into the ground
+    gfx.shader.set_model(self.entity.get(.transform).get_matrix());
+    self.entity.get_ptr(.transform).pos[1] -= player_size[1] + 0.1; // Reset position
+    self.entity.get_ptr(.model).draw();
 }

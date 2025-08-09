@@ -27,7 +27,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
 
     // Force OpenGL 4.3
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_MINOR_VERSION, 5);
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_PROFILE_MASK, sdl3.c.SDL_GL_CONTEXT_PROFILE_CORE);
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
 
@@ -90,18 +90,29 @@ pub fn deinit() void {
     window.deinit();
 }
 
+var deferred: bool = false;
+pub fn set_deferred(enable: bool) void {
+    deferred = enable;
+}
+
 pub fn finalize() !void {
     intermediateFBO.bind();
     gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    shader.use_comp_shader();
-    shader.set_comp_resolution();
 
-    shader.set_comp_albedo(fbo.tex_color_buffer);
-    shader.set_comp_normal(fbo.tex_normal_buffer);
-    shader.set_comp_depth(fbo.tex_depth_buffer);
+    if (deferred) {
+        shader.use_comp_shader();
+        shader.set_comp_resolution();
 
-    mesh.draw();
+        shader.set_comp_albedo(fbo.tex_color_buffer);
+        shader.set_comp_normal(fbo.tex_normal_buffer);
+        shader.set_comp_depth(fbo.tex_depth_buffer);
+
+        mesh.draw();
+    }
+
+    // Also now draw the UI on top of everything
+    // TODO: UI
 
     // Finalize with post processing
     gl.bindFramebuffer(gl.FRAMEBUFFER, 0);

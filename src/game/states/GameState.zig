@@ -8,11 +8,13 @@ const Self = @This();
 
 fn init(ctx: *anyopaque) anyerror!void {
     _ = ctx;
+    gfx.set_deferred(true);
     try world.init(42);
 }
 
 fn deinit(ctx: *anyopaque) void {
     _ = ctx;
+    gfx.set_deferred(false);
     world.deinit();
 }
 

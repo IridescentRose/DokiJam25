@@ -70,21 +70,40 @@ int binarySearchMetadata(ivec3 target) {
     return -1; // not found
 }
 
-uint getVoxel(ivec3 p) {
+// --------- Per-fragment metadata cache (refreshed only on chunk changes) ----------
+struct MetaCache {
+    ivec3 ccFull;   // current FULL chunk coord (includes Y)
+    int   metaIdx;  // index into metadata[]
+    int   offset;   // base voxel offset for this chunk
+    bool  valid;
+};
+
+void refreshMeta(inout MetaCache mc, ivec3 ccFull) {
+    if (mc.valid && all(equal(mc.ccFull, ccFull))) return;
+    mc.ccFull  = ccFull;
+    mc.metaIdx = binarySearchMetadata(ivec3(ccFull.x, 0, ccFull.z));
+    if (mc.metaIdx < 0) {
+        mc.valid = false;
+        mc.offset = -1;
+        return;
+    }
+    mc.valid  = true;
+    mc.offset = metadata[mc.metaIdx].offset;
+}
+
+uint getVoxelCached(ivec3 p, inout MetaCache mc) {
     if (p.y < 0 || p.y >= CHUNK_SUB_BLOCKS * 4)
         return 0u;
 
-    ivec3 chunkCoord = floorDiv(p, CHUNK_SUB_BLOCKS);
-    chunkCoord.y = 0; // Ignore Y for chunk search, only X and Z matter
-    ivec3 localPos   = p - chunkCoord * CHUNK_SUB_BLOCKS;
 
+    ivec3 ccFull = floorDiv(p, CHUNK_SUB_BLOCKS);
+    refreshMeta(mc, ccFull);
+    if (!mc.valid) return 0u;
+    // NOTE: metadata is indexed by XZ only; local XZ are relative to ccFull.xz
+    ivec3 chunkCoordXZOnly = ivec3(ccFull.x, 0, ccFull.z);
+    ivec3 localPos = p - chunkCoordXZOnly * CHUNK_SUB_BLOCKS;
     int idx = (localPos.y * CHUNK_SUB_BLOCKS + localPos.z) * CHUNK_SUB_BLOCKS + localPos.x;
-
-    int metaIndex = binarySearchMetadata(chunkCoord);
-    if (metaIndex < 0) return 0u;
-
-    uint offset = uint(metadata[metaIndex].offset);
-    return voxels[offset + uint(idx)];
+    return voxels[uint(mc.offset + idx)];
 }
 
 #define DRAW_DISTANCE 512
@@ -107,42 +126,72 @@ void main()
 	vec3 sideDist = (sign(rayDirection * GRID_SCALE) * (vec3(mapPos) - rayOrigin * GRID_SCALE) + (sign(rayDirection * GRID_SCALE) * 0.5) + 0.5) * deltaDist; 
 	bvec3 mask;
 
+    float tEnter = 0.0;
+    bvec3 hitMask = bvec3(false);
+    bool  gotHit = false;
 
-    // DDA Loops
-    uint voxel = getVoxel(mapPos);
+    int i = 0;
+    MetaCache mc;
+    mc.valid = false;
+
+    // Cache current full chunk and highest_y (world)
+    ivec3 ccFull = floorDiv(mapPos, CHUNK_SUB_BLOCKS);
+    refreshMeta(mc, ccFull);
+
+    uint voxel = getVoxelCached(mapPos, mc);
     if ((voxel & 0xFFu) == 0u) {
-        for (int i = 0; i < DRAW_DISTANCE; i++) {
+        for (i; i < DRAW_DISTANCE; i++) {
             // 1) figure out which axis we cross next
             mask = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
+            float tCandidate = min(min(sideDist.x, sideDist.y), sideDist.z);
             vec3 maskF = vec3(mask);
             ivec3 maskI = ivec3(mask);
             sideDist += maskF * deltaDist;
             mapPos   += maskI * rayStep;
 
+            // If we crossed into a new chunk, refresh cache
+            ivec3 newCC = floorDiv(mapPos, CHUNK_SUB_BLOCKS);
+            if (any(notEqual(newCC, ccFull))) {
+                ccFull = newCC;
+                refreshMeta(mc, ccFull);
+            }
 
             // 2) now sample that new cell
-            voxel     = getVoxel(mapPos);
+            voxel     = getVoxelCached(mapPos, mc);
             uint material  = voxel & 0xFFu;
             if (material != 0u) {
+                tEnter  = tCandidate;
+                hitMask = mask;
+                gotHit  = true;
                 break;
             }
         }
 
-        if(voxel == 0u) {
+        if(!gotHit) {
             // Half detail
-            for (int i = 0; i < DRAW_DISTANCE / 2; i++) {
+            for (i = 0; i < DRAW_DISTANCE / 2; i++) {
                 // 1) figure out which axis we cross next
                 mask = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
+                float tCandidate = min(min(sideDist.x, sideDist.y), sideDist.z);
                 vec3 maskF = vec3(mask);
                 ivec3 maskI = ivec3(mask);
                 sideDist += maskF * deltaDist;
                 mapPos   += maskI * rayStep * 2;
 
+                // Refresh cache on chunk-cross and perform at-most-once-per-chunk skip
+                ivec3 newCC2 = floorDiv(mapPos, CHUNK_SUB_BLOCKS);
+                if (any(notEqual(newCC2, ccFull))) {
+                    ccFull = newCC2;
+                    refreshMeta(mc, ccFull);
+                }
 
                 // 2) now sample that new cell
-                voxel     = getVoxel(mapPos);
+                voxel     = getVoxelCached(mapPos, mc);
                 uint material  = voxel & 0xFFu;
                 if (material != 0u) {
+                    tEnter  = tCandidate;
+                    hitMask = mask;
+                    gotHit  = true;
                     break;
                 }
             }
@@ -150,10 +199,9 @@ void main()
 
     }
 
-
-    if ((voxel & 0xFFu) != 0u) {
+    if (gotHit) {
         // Compute grid-space hit distance
-        float tGrid = min(min(sideDist.x, sideDist.y), sideDist.z);
+        float tGrid = tEnter;
         // Convert to world-space distance
         float tWorld = tGrid / GRID_SCALE / GRID_SCALE / GRID_SCALE;
         // Compute world-space hit position
@@ -170,7 +218,7 @@ void main()
 
     // Compute normal from last step
     vec3 normal = vec3(0.0);
-    if ((voxel & 0xFFu) != 0u) {
+    if (gotHit) {
         // Determine which axis was stepped last
         if (mask.x) normal = vec3(-sign(rayDirection.x), 0.0, 0.0);
         else if (mask.y) normal = vec3(0.0, -sign(rayDirection.y), 0.0);
@@ -182,7 +230,7 @@ void main()
 
 
     // Color shading with voxel AO
-    if ((voxel & 0xFFu) != 0u) {
+    if (gotHit) {
         vec3 baseColor = vec3(
             float((voxel >> 8) & 0xFFu),
             float((voxel >> 16) & 0xFFu),
@@ -198,8 +246,8 @@ void main()
         );
 
         for (int i = 0; i < 3; ++i) {
-            if ((getVoxel(mapPos + offsets[i]) & 0xFFu) != 0u) occlusion++;
-            if ((getVoxel(mapPos - offsets[i]) & 0xFFu) != 0u) occlusion++;
+            if ((getVoxelCached(mapPos + offsets[i], mc) & 0xFFu) != 0u) occlusion++;
+            if ((getVoxelCached(mapPos - offsets[i], mc) & 0xFFu) != 0u) occlusion++;
         }
 
         float ao = 1.0 - float(occlusion) / 3.0;

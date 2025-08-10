@@ -10,4 +10,3 @@ pub const VelocityComponent = @Vector(3, f32);
 
 pub const OnGroundComponent = bool;
 pub const HealthComponent = u8;
-pub const HungerComponent = u8;

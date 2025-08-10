@@ -23,7 +23,6 @@ pub const Entity = struct {
             .velocity => return &velocities.items[entity.id],
             .on_ground => return &onGrounds.items[entity.id],
             .health => return &healths.items[entity.id],
-            .hunger => return &hungers.items[entity.id],
         }
     }
 
@@ -52,9 +51,6 @@ pub const Entity = struct {
         } else if (T == components.HealthComponent) {
             healths.items[id] = component;
             masks.items[id].health = true;
-        } else if (T == components.HungerComponent) {
-            hungers.items[id] = component;
-            masks.items[id].hunger = true;
         } else {
             return error.InvalidComponentType;
         }
@@ -70,7 +66,6 @@ pub const ComponentType = enum(u8) {
     velocity = 3,
     on_ground = 4,
     health = 5,
-    hunger = 6,
 };
 
 const ComponentTypes = [_]type{
@@ -80,7 +75,6 @@ const ComponentTypes = [_]type{
     components.VelocityComponent,
     components.OnGroundComponent,
     components.HealthComponent,
-    components.HungerComponent,
 };
 
 var transforms: std.ArrayListUnmanaged(components.TransformComponent) = undefined;
@@ -89,7 +83,6 @@ var aabbs: std.ArrayListUnmanaged(components.AABBComponent) = undefined;
 var velocities: std.ArrayListUnmanaged(components.VelocityComponent) = undefined;
 var onGrounds: std.ArrayListUnmanaged(components.OnGroundComponent) = undefined;
 var healths: std.ArrayListUnmanaged(components.HealthComponent) = undefined;
-var hungers: std.ArrayListUnmanaged(components.HungerComponent) = undefined;
 
 const Mask = packed struct(u32) {
     transform: bool = false,
@@ -98,8 +91,7 @@ const Mask = packed struct(u32) {
     velocity: bool = false,
     on_ground: bool = false,
     health: bool = false,
-    hunger: bool = false,
-    reserved: u25 = 0,
+    reserved: u26 = 0,
 
     pub fn toBits(self: Mask) u32 {
         return @as(u32, @bitCast(self));
@@ -117,7 +109,6 @@ pub fn init() !void {
     velocities = try std.ArrayListUnmanaged(components.VelocityComponent).initCapacity(util.allocator(), 32);
     onGrounds = try std.ArrayListUnmanaged(components.OnGroundComponent).initCapacity(util.allocator(), 32);
     healths = try std.ArrayListUnmanaged(components.HealthComponent).initCapacity(util.allocator(), 32);
-    hungers = try std.ArrayListUnmanaged(components.HungerComponent).initCapacity(util.allocator(), 32);
     masks = try std.ArrayListUnmanaged(Mask).initCapacity(util.allocator(), 32);
 
     initialized = true;
@@ -133,7 +124,6 @@ pub fn deinit() void {
     velocities.deinit(util.allocator());
     onGrounds.deinit(util.allocator());
     healths.deinit(util.allocator());
-    hungers.deinit(util.allocator());
     masks.deinit(util.allocator());
 
     initialized = false;
@@ -150,7 +140,6 @@ pub fn create_entity() !Entity {
     try velocities.append(util.allocator(), @splat(0));
     try onGrounds.append(util.allocator(), false);
     try healths.append(util.allocator(), 0);
-    try hungers.append(util.allocator(), 0);
 
     // No components are set by default, so we use a mask of 0.
     try masks.append(util.allocator(), .{});

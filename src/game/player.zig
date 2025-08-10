@@ -51,7 +51,6 @@ pub fn init() !Self {
     try res.entity.add_component(.velocity, @splat(0));
     try res.entity.add_component(.on_ground, false);
     try res.entity.add_component(.health, 20);
-    try res.entity.add_component(.hunger, 20);
     try res.entity.add_component(.aabb, AABB{
         .aabb_size = player_size,
         .can_step = true,

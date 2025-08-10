@@ -37,7 +37,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
     context = window.context();
 
     try gl.load(context, get_context);
-    try gl.GL_ARB_bindless_texture.load(context, get_context);
+    // try gl.GL_ARB_bindless_texture.load(context, get_context);
 
     try shader.init();
 

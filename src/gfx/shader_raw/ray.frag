@@ -22,7 +22,7 @@ layout(binding = 1, std430) buffer ChunkBuffer {
 };
 
 #define MAX_CHUNKS 121 // 11x11 grid of chunks (5 radius)
-layout(binding = 2, std430) buffer ChunkMetaBuffer {
+layout(binding = 2, std430) readonly buffer ChunkMetaBuffer {
    ChunkMeta metadata[MAX_CHUNKS]; // c.MAX_CHUNKS
 };
 
@@ -91,20 +91,6 @@ void refreshMeta(inout MetaCache mc, ivec3 ccFull) {
     mc.offset = metadata[mc.metaIdx].offset;
 }
 
-uint getVoxelCached(ivec3 p, inout MetaCache mc) {
-    if (p.y < 0 || p.y >= CHUNK_SUB_BLOCKS * 4)
-        return 0u;
-
-
-    ivec3 ccFull = floorDiv(p, CHUNK_SUB_BLOCKS);
-    refreshMeta(mc, ccFull);
-    if (!mc.valid) return 0u;
-    // NOTE: metadata is indexed by XZ only; local XZ are relative to ccFull.xz
-    ivec3 chunkCoordXZOnly = ivec3(ccFull.x, 0, ccFull.z);
-    ivec3 localPos = p - chunkCoordXZOnly * CHUNK_SUB_BLOCKS;
-    int idx = (localPos.y * CHUNK_SUB_BLOCKS + localPos.z) * CHUNK_SUB_BLOCKS + localPos.x;
-    return voxels[uint(mc.offset + idx)];
-}
 
 #define DRAW_DISTANCE 512
 
@@ -138,7 +124,9 @@ void main()
     ivec3 ccFull = floorDiv(mapPos, CHUNK_SUB_BLOCKS);
     refreshMeta(mc, ccFull);
 
-    uint voxel = getVoxelCached(mapPos, mc);
+    bool oob = false;
+
+    uint voxel = 0;
     if ((voxel & 0xFFu) == 0u) {
         for (i; i < DRAW_DISTANCE; i++) {
             // 1) figure out which axis we cross next
@@ -156,8 +144,26 @@ void main()
                 refreshMeta(mc, ccFull);
             }
 
-            // 2) now sample that new cell
-            voxel     = getVoxelCached(mapPos, mc);
+            // 2) now sample that new cell            
+            if (mapPos.y < 0 || mapPos.y >= CHUNK_SUB_BLOCKS * 4) {
+                voxel = 0u;
+
+                oob = true;
+
+                if(mapPos.y >= CHUNK_SUB_BLOCKS * 4 && mapPos.y < CHUNK_SUB_BLOCKS * 4 + 16) 
+                    continue; // Skip sampling if we're in the sky layer
+
+                // Otherwise we hit the void
+                break;
+            }
+
+            if (!mc.valid) voxel = 0u;
+            // NOTE: metadata is indexed by XZ only; local XZ are relative to ccFull.xz
+            ivec3 chunkCoordXZOnly = ivec3(ccFull.x, 0, ccFull.z);
+            ivec3 localPos = mapPos - chunkCoordXZOnly * CHUNK_SUB_BLOCKS;
+            int idx = (localPos.y * CHUNK_SUB_BLOCKS + localPos.z) * CHUNK_SUB_BLOCKS + localPos.x;
+            voxel =  voxels[uint(mc.offset + idx)];
+
             uint material  = voxel & 0xFFu;
             if (material != 0u) {
                 tEnter  = tCandidate;
@@ -167,7 +173,7 @@ void main()
             }
         }
 
-        if(!gotHit) {
+        if(!gotHit && !oob) {
             // Half detail
             for (i = 0; i < DRAW_DISTANCE / 2; i++) {
                 // 1) figure out which axis we cross next
@@ -185,8 +191,19 @@ void main()
                     refreshMeta(mc, ccFull);
                 }
 
-                // 2) now sample that new cell
-                voxel     = getVoxelCached(mapPos, mc);
+                // 2) now sample that new cell            
+                if (mapPos.y < 0 || mapPos.y >= CHUNK_SUB_BLOCKS * 4) {
+                    voxel = 0u;
+                    break;
+                }
+
+                if (!mc.valid) voxel = 0u;
+                // NOTE: metadata is indexed by XZ only; local XZ are relative to ccFull.xz
+                ivec3 chunkCoordXZOnly = ivec3(ccFull.x, 0, ccFull.z);
+                ivec3 localPos = mapPos - chunkCoordXZOnly * CHUNK_SUB_BLOCKS;
+                int idx = (localPos.y * CHUNK_SUB_BLOCKS + localPos.z) * CHUNK_SUB_BLOCKS + localPos.x;
+                voxel =  voxels[uint(mc.offset + idx)];
+                
                 uint material  = voxel & 0xFFu;
                 if (material != 0u) {
                     tEnter  = tCandidate;
@@ -236,24 +253,6 @@ void main()
             float((voxel >> 16) & 0xFFu),
             float((voxel >> 24) & 0xFFu)
         ) / 255.0;
-
-        // Sample adjacent 6 directions
-        int occlusion = 0;
-        const ivec3 offsets[3] = ivec3[3](
-            ivec3(1, 0, 0),
-            ivec3(0, 1, 0),
-            ivec3(0, 0, 1)
-        );
-
-        for (int i = 0; i < 3; ++i) {
-            if ((getVoxelCached(mapPos + offsets[i], mc) & 0xFFu) != 0u) occlusion++;
-            if ((getVoxelCached(mapPos - offsets[i], mc) & 0xFFu) != 0u) occlusion++;
-        }
-
-        float ao = 1.0 - float(occlusion) / 3.0;
-        ao = mix(0.7, 1.0, ao);
-        baseColor *= mix(vec3(1.0), vec3(ao), smoothstep(0.0, 0.7, length(baseColor)));
-
 
         FragColor = vec4(baseColor, 1.0);
     } else {

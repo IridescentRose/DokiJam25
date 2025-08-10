@@ -61,16 +61,16 @@ pub fn init(seed: u64) !void {
     chunk_mesh = try ChunkMesh.new();
     try chunk_mesh.vertices.appendSlice(util.allocator(), &[_]ChunkMesh.Vertex{
         ChunkMesh.Vertex{
-            .vert = [_]f32{ -1, 1, 0 },
+            .vert = [_]f32{ -1, 1, 1 },
         },
         ChunkMesh.Vertex{
-            .vert = [_]f32{ -1, -1, 0 },
+            .vert = [_]f32{ -1, -1, 1 },
         },
         ChunkMesh.Vertex{
-            .vert = [_]f32{ 1, -1, 0 },
+            .vert = [_]f32{ 1, -1, 1 },
         },
         ChunkMesh.Vertex{
-            .vert = [_]f32{ 1, 1, 0 },
+            .vert = [_]f32{ 1, 1, 1 },
         },
     });
     try chunk_mesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });

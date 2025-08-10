@@ -9,7 +9,7 @@ pub const Slot = struct {
 
 const MAX_ITEMS_PER_SLOT = 64000; // Rounds nicely to 1000 voxels of 64 items each
 const MAX_SLOTS = 16;
-const HOTBAR_SIZE = 8;
+pub const HOTBAR_SIZE = 8;
 
 hotbarIdx: u8 = 0,
 slots: [MAX_SLOTS]Slot = @splat(.{ .material = .Air, .count = 0 }),

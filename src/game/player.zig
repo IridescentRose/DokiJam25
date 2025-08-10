@@ -30,6 +30,8 @@ tex: gfx.texture.Texture,
 camera: Camera,
 moving: [4]bool,
 heart_tex: u32,
+hotbar_slot_tex: u32,
+hotbar_select_tex: u32,
 dmg_tex: u32,
 last_damage: i128,
 
@@ -69,6 +71,8 @@ pub fn init() !Self {
 
     res.heart_tex = try ui.load_ui_texture("heart.png");
     res.dmg_tex = try ui.load_ui_texture("dmg.png");
+    res.hotbar_slot_tex = try ui.load_ui_texture("slot.png");
+    res.hotbar_select_tex = try ui.load_ui_texture("selector.png");
     res.last_damage = 0;
     res.moving = @splat(false);
     res.inventory = Inventory.new();
@@ -119,6 +123,24 @@ fn jump(ctx: *anyopaque, down: bool) void {
     if (down and self.entity.get(.on_ground)) {
         self.entity.get_ptr(.velocity)[1] = JUMP_VELOCITY;
         self.entity.get_ptr(.on_ground).* = false;
+    }
+}
+
+fn increment_hotbar(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    if (down) {
+        const self = util.ctx_to_self(Self, ctx);
+        self.inventory.increment_hotbar();
+    }
+}
+
+fn decrement_hotbar(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    if (down) {
+        const self = util.ctx_to_self(Self, ctx);
+        self.inventory.decrement_hotbar();
     }
 }
 
@@ -290,6 +312,14 @@ pub fn register_input(self: *Self) !void {
         .ctx = self,
         .cb = hitYourself,
     });
+    try input.register_key_callback(.e, .{
+        .ctx = self,
+        .cb = increment_hotbar,
+    });
+    try input.register_key_callback(.q, .{
+        .ctx = self,
+        .cb = decrement_hotbar,
+    });
 
     input.mouse_relative_handle = .{
         .ctx = self,
@@ -413,6 +443,28 @@ pub fn draw(self: *Self) void {
             .tex_id = self.heart_tex,
             .uv_offset = offset,
             .uv_scale = [_]f32{ 0.5, 0.5 },
+        }) catch unreachable;
+
+        for (0..Inventory.HOTBAR_SIZE) |j| {
+            const hotbar_slot_pos = [_]f32{ 38, ui.UI_RESOLUTION[1] - 144 - @as(f32, @floatFromInt(j)) * 60.0, 2.0 + 0.01 * @as(f32, @floatFromInt(j)) };
+            ui.add_sprite(.{
+                .color = [_]u8{ 255, 255, 255, 255 },
+                .offset = hotbar_slot_pos,
+                .scale = [_]f32{ 60.0, 60.0 },
+                .tex_id = self.hotbar_slot_tex,
+                .uv_offset = [_]f32{ 0.0, 0.0 },
+                .uv_scale = [_]f32{ 1.0, 1.0 },
+            }) catch unreachable;
+        }
+
+        const hotbar_select_pos = [_]f32{ 38, ui.UI_RESOLUTION[1] - 144 - @as(f32, @floatFromInt(self.inventory.hotbarIdx)) * 60.0, 1.5 };
+        ui.add_sprite(.{
+            .color = [_]u8{ 255, 255, 255, 255 },
+            .offset = hotbar_select_pos,
+            .scale = [_]f32{ 72.0, 72.0 },
+            .tex_id = self.hotbar_select_tex,
+            .uv_offset = [_]f32{ 0.0, 0.0 },
+            .uv_scale = [_]f32{ 1.0, 1.0 },
         }) catch unreachable;
 
         // DMG FLASH

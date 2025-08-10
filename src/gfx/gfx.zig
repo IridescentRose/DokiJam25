@@ -135,7 +135,6 @@ pub fn finalize() !void {
     try ui.update();
     ui.draw();
     gl.enable(gl.DEPTH_TEST);
-    gl.disable(gl.BLEND);
 
     try window.draw();
 }

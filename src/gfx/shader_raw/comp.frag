@@ -9,6 +9,9 @@ uniform vec2 uResolution;
 
 uniform mat4 uInvProj;     // inverse projection
 uniform mat4 uInvView;     // inverse view
+uniform mat4 uView;
+uniform mat4 uProj;
+
 uniform vec3 cameraPos;    // camera position (world)
 
 uniform float uTime;       // 0..1 day cycle
@@ -25,6 +28,12 @@ vec3 reconstructWorldPos(vec2 uv, float depth) {
     viewSpace /= viewSpace.w;
     vec4 worldPos = uInvView * viewSpace;
     return worldPos.xyz;
+}
+
+vec2 worldToScreen(vec3 p) {
+    vec4 clip = uProj * uView * vec4(p, 1.0);
+    vec2 ndc  = clip.xy / max(clip.w, 1e-6);
+    return ndc * 0.5 + 0.5;
 }
 
 vec3 acesTonemap(vec3 x) {
@@ -230,6 +239,39 @@ float fogFactorExp(float d, float baseDensity, float y0, float y1, float baseHei
 // --- dither ---
 float ign(vec2 p) { return fract(52.9829189*fract(dot(p, vec2(0.06711056, 0.00583715)))); }
 
+// -- godrays --
+// Radial samples toward the sun position; depth masks occluders
+vec3 godRays(vec2 uv, vec2 sunSS, float sunVis, vec3 sunCol) {
+    const int   SAMPLES = 28;          // a hair fewer
+    const float DENSITY = 0.85;        // shorter march per sample
+    const float DECAY   = 0.94;        // more falloff
+    const float WEIGHT  = 0.18;        // weaker per-tap
+    const float EXPOSE  = 1.0;         // no extra boost
+
+    // Move a bit each frame to reduce banding
+    float jitter = fract(sin(float(uFrame)*12.9898)*43758.5453);
+    vec2 dir = (sunSS - uv);
+    vec2 stepUV = dir * (DENSITY / float(SAMPLES));
+    vec2 coord  = uv + stepUV * jitter;
+    float illum = 1.0;
+    float sum   = 0.0;
+    for (int i = 0; i < SAMPLES; ++i) {
+        coord += stepUV;
+        vec2 tc = clamp(coord, vec2(0.0), vec2(1.0));
+        float z = texture(gDepth, tc).r;
+        float sky = smoothstep(0.995, 1.0, z);   // 0=geometry, 1=sky
+        sum += sky * illum;
+        illum *= DECAY;
+    }
+
+    float pixZ    = texture(gDepth, uv).r;
+    float pixSky  = smoothstep(0.995, 1.0, pixZ);
+    float surfMix = mix(0.06, 1.0, pixSky);
+    float rays = sum * WEIGHT * EXPOSE * sunVis * surfMix;
+
+    return sunCol * rays;
+}
+
 // --- main ---
 void main() {
     vec2 uv = gl_FragCoord.xy / uResolution;
@@ -285,6 +327,28 @@ void main() {
         ambient += nightFloor * nightAmt;
 
         lit_color = albedo * (direct + ambient);
+
+        // --- screen-space god rays ---
+        // Sun world point far away along direction (Directional light proxy)
+        vec3 sunWorld = cameraPos + sunDir * 5000.0;
+        vec2 sunSSRaw = worldToScreen(sunWorld);
+        // allow sampling slightly offscreen, but fade with distance outside
+        vec2 sunSS = clamp(sunSSRaw, vec2(-0.25), vec2(1.25));
+        vec2 outside = max(vec2(0.0) - sunSSRaw, sunSSRaw - vec2(1.0));
+        float offDist = length(max(outside, vec2(0.0)));
+        float screenFade = smoothstep(0.35, 0.0, offDist); // 1 inside, 0 by ~35% offscreen
+
+        // Sun visibility reused from your sky (approx)
+        float sunVisForRays = smoothstep(0.00, 0.04, sunDir.y) * step(0.0, sunDir.y);
+
+        // Day fade and horizon fade keep it subtle
+        float horizonFade = smoothstep(0.0, 0.15, abs(sunSS.y - 0.5) + 0.1);
+
+
+        float vis = sunVisForRays * dayAmt * screenFade * horizonFade;
+        vis = smoothstep(0.0, 1.0, vis);
+        vec3 rays = godRays(uv, sunSS, vis, sunCol);
+        lit_color += rays;
 
         // fog
         vec3 viewDir = normalize(worldPos - cameraPos);

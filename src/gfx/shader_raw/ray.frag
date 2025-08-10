@@ -91,47 +91,33 @@ uint getVoxel(ivec3 p) {
 
 void main()
 {
-   // Normalized pixel coordinates [-1 to 1]
-   vec2 uv = (gl_FragCoord.xy / uResolution) * 2.0 - 1.0;
+    // Normalized pixel coordinates [-1 to 1]
+    vec2 uv = (gl_FragCoord.xy / uResolution) * 2.0 - 1.0;
 
-   // Camera ray generation
-   vec4 nearPt = uInvProjView * vec4(uv, -1.0, 1.0); // Near plane point
-   vec4 farPt = uInvProjView * vec4(uv, +1.0, 1.0); // Far plane point
-   vec3 rayOrigin = nearPt.xyz / nearPt.w; // Ray origin in world space
-   vec3 rayDirection = normalize(farPt.xyz / farPt.w - rayOrigin); // Ray direction in world space
+    // Camera ray generation
+    vec4 nearPt = uInvProjView * vec4(uv, -1.0, 1.0); // Near plane point
+    vec4 farPt = uInvProjView * vec4(uv, +1.0, 1.0); // Far plane point
+    vec3 rayOrigin = nearPt.xyz / nearPt.w; // Ray origin in world space
+    vec3 rayDirection = normalize(farPt.xyz / farPt.w - rayOrigin); // Ray direction in world space
 
-   // Initialized DDA
-   ivec3 mapPos = ivec3(floor(rayOrigin * GRID_SCALE)); // Current voxel position
+    // Initialized DDA
+    ivec3 mapPos = ivec3(floor(rayOrigin * GRID_SCALE)); // Current voxel position
 	vec3 deltaDist = abs(vec3(length(rayDirection * GRID_SCALE)) / rayDirection * GRID_SCALE);
-   ivec3 rayStep = ivec3(sign(rayDirection * GRID_SCALE));
+    ivec3 rayStep = ivec3(sign(rayDirection * GRID_SCALE));
 	vec3 sideDist = (sign(rayDirection * GRID_SCALE) * (vec3(mapPos) - rayOrigin * GRID_SCALE) + (sign(rayDirection * GRID_SCALE) * 0.5) + 0.5) * deltaDist; 
 	bvec3 mask;
 
 
     // DDA Loops
-   uint voxel = 0;
-   for (int i = 0; i < DRAW_DISTANCE; i++) {
-      // 1) figure out which axis we cross next
-      mask      = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
-      sideDist += vec3(mask) * deltaDist;
-      mapPos   += ivec3(mask) * rayStep;
-
-
-      // 2) now sample that new cell
-      voxel     = getVoxel(mapPos);
-      uint material  = voxel & 0xFFu;
-      if (material != 0u) {
-         break;
-      }
-   }
-
-   if(voxel == 0u) {
-      // Half detail
-         for (int i = 0; i < DRAW_DISTANCE / 2; i++) {
+    uint voxel = getVoxel(mapPos);
+    if ((voxel & 0xFFu) == 0u) {
+        for (int i = 0; i < DRAW_DISTANCE; i++) {
             // 1) figure out which axis we cross next
-            mask      = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
-            sideDist += vec3(mask) * deltaDist;
-            mapPos   += ivec3(mask) * rayStep * 2;
+            mask = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
+            vec3 maskF = vec3(mask);
+            ivec3 maskI = ivec3(mask);
+            sideDist += maskF * deltaDist;
+            mapPos   += maskI * rayStep;
 
 
             // 2) now sample that new cell
@@ -140,8 +126,30 @@ void main()
             if (material != 0u) {
                 break;
             }
-       }
-   }
+        }
+
+        if(voxel == 0u) {
+            // Half detail
+            for (int i = 0; i < DRAW_DISTANCE / 2; i++) {
+                // 1) figure out which axis we cross next
+                mask = lessThanEqual(sideDist, min(sideDist.yzx, sideDist.zxy));
+                vec3 maskF = vec3(mask);
+                ivec3 maskI = ivec3(mask);
+                sideDist += maskF * deltaDist;
+                mapPos   += maskI * rayStep * 2;
+
+
+                // 2) now sample that new cell
+                voxel     = getVoxel(mapPos);
+                uint material  = voxel & 0xFFu;
+                if (material != 0u) {
+                    break;
+                }
+            }
+        }
+
+    }
+
 
     if ((voxel & 0xFFu) != 0u) {
         // Compute grid-space hit distance
@@ -183,18 +191,18 @@ void main()
 
         // Sample adjacent 6 directions
         int occlusion = 0;
-        const ivec3 offsets[6] = ivec3[6](
-            ivec3(1, 0, 0), ivec3(-1, 0, 0),
-            ivec3(0, 1, 0), ivec3(0, -1, 0),
-            ivec3(0, 0, 1), ivec3(0, 0, -1)
+        const ivec3 offsets[3] = ivec3[3](
+            ivec3(1, 0, 0),
+            ivec3(0, 1, 0),
+            ivec3(0, 0, 1)
         );
 
-        for (int i = 0; i < 6; ++i) {
-            if ((getVoxel(mapPos - (ivec3(mask) * rayStep) + offsets[i]) & 0xFFu) != 0u)
-                occlusion++;
+        for (int i = 0; i < 3; ++i) {
+            if ((getVoxel(mapPos + offsets[i]) & 0xFFu) != 0u) occlusion++;
+            if ((getVoxel(mapPos - offsets[i]) & 0xFFu) != 0u) occlusion++;
         }
 
-        float ao = 1.0 - float(occlusion) / 6.0;
+        float ao = 1.0 - float(occlusion) / 3.0;
         ao = mix(0.7, 1.0, ao);
         baseColor *= mix(vec3(1.0), vec3(ao), smoothstep(0.0, 0.7, length(baseColor)));
 

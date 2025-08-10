@@ -48,6 +48,9 @@ var rayInvVpLoc: c_int = 0;
 var compResolutionLoc: c_int = 0;
 var compInvProjLoc: c_int = 0;
 var compInvViewLoc: c_int = 0;
+var compViewLoc: c_int = 0;
+var compProjLoc: c_int = 0;
+
 var compTimeLoc: c_int = 0;
 var compFrameLoc: c_int = 0; // for dither
 
@@ -124,6 +127,8 @@ pub fn init() !void {
     compFogColorLoc = gl.getUniformLocation(comp, "uFogColor");
     compFogDensityLoc = gl.getUniformLocation(comp, "uFogDensity");
     compCameraPosLoc = gl.getUniformLocation(comp, "cameraPos");
+    compViewLoc = gl.getUniformLocation(comp, "uView");
+    compProjLoc = gl.getUniformLocation(comp, "uProj");
 
     const part_v = compile_shader(@ptrCast(&part_vert_source), gl.VERTEX_SHADER);
     const part_f = compile_shader(@ptrCast(&part_frag_source), gl.FRAGMENT_SHADER);
@@ -297,6 +302,16 @@ pub fn set_comp_fog_density(density: f32) void {
 pub fn set_comp_camera_pos(pos: zm.Vec) void {
     use_comp_shader();
     gl.uniform3f(compCameraPosLoc, pos[0], pos[1], pos[2]);
+}
+
+pub fn set_comp_view(matrix: zm.Mat) void {
+    use_comp_shader();
+    gl.uniformMatrix4fv(compViewLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_comp_proj(matrix: zm.Mat) void {
+    use_comp_shader();
+    gl.uniformMatrix4fv(compProjLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
 }
 
 pub fn set_post_resolution() void {

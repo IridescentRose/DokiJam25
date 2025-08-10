@@ -150,7 +150,7 @@ void main()
 
                 oob = true;
 
-                if(mapPos.y >= CHUNK_SUB_BLOCKS * 4 && mapPos.y < CHUNK_SUB_BLOCKS * 4 + 16) 
+                if(mapPos.y >= CHUNK_SUB_BLOCKS * 4 && mapPos.y < CHUNK_SUB_BLOCKS * 4 + 256) 
                     continue; // Skip sampling if we're in the sky layer
 
                 // Otherwise we hit the void
@@ -194,6 +194,13 @@ void main()
                 // 2) now sample that new cell            
                 if (mapPos.y < 0 || mapPos.y >= CHUNK_SUB_BLOCKS * 4) {
                     voxel = 0u;
+
+                    oob = true;
+
+                    if(mapPos.y >= CHUNK_SUB_BLOCKS * 4 && mapPos.y < CHUNK_SUB_BLOCKS * 4 + 256) 
+                        continue; // Skip sampling if we're in the sky layer
+
+                    // Otherwise we hit the void
                     break;
                 }
 

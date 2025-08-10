@@ -29,6 +29,9 @@ const JUMP_VELOCITY = 16.0;
 tex: gfx.texture.Texture,
 camera: Camera,
 moving: [4]bool,
+heart_tex: u32,
+dmg_tex: u32,
+last_damage: i128,
 
 // TODO: make a component so that dragoons can have different inventories
 inventory: Inventory,
@@ -50,7 +53,7 @@ pub fn init() !Self {
     try res.entity.add_component(.transform, transform);
     try res.entity.add_component(.velocity, @splat(0));
     try res.entity.add_component(.on_ground, false);
-    try res.entity.add_component(.health, 20);
+    try res.entity.add_component(.health, 17);
     try res.entity.add_component(.aabb, AABB{
         .aabb_size = player_size,
         .can_step = true,
@@ -64,6 +67,9 @@ pub fn init() !Self {
         .target = transform.pos,
     };
 
+    res.heart_tex = try ui.load_ui_texture("heart.png");
+    res.dmg_tex = try ui.load_ui_texture("dmg.png");
+    res.last_damage = 0;
     res.moving = @splat(false);
     res.inventory = Inventory.new();
 
@@ -71,6 +77,15 @@ pub fn init() !Self {
 }
 
 const debugging_pause = false;
+
+fn hitYourself(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    if (!down) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+    self.do_damage(1);
+}
 
 fn moveForward(ctx: *anyopaque, down: bool) void {
     if (world.paused and !debugging_pause) return;
@@ -164,7 +179,7 @@ fn place_block(ctx: *anyopaque, down: bool) void {
 }
 
 fn destroy_block(ctx: *anyopaque, down: bool) void {
-    if (world.paused and !debugging_pause) {
+    if (world.paused and !debugging_pause and down) {
         const mouse_pos = input.get_mouse_position();
 
         // Resume
@@ -271,6 +286,10 @@ pub fn register_input(self: *Self) !void {
         .ctx = self,
         .cb = pause,
     });
+    try input.register_key_callback(.func1, .{
+        .ctx = self,
+        .cb = hitYourself,
+    });
 
     input.mouse_relative_handle = .{
         .ctx = self,
@@ -347,6 +366,16 @@ pub fn update(self: *Self) void {
     vel[2] = 0;
 }
 
+pub fn do_damage(self: *Self, amount: u8) void {
+    const health = self.entity.get_ptr(.health);
+    self.last_damage = std.time.nanoTimestamp();
+    if (health.* > 0) {
+        health.* -|= amount;
+    }
+
+    // TODO: Death
+}
+
 pub fn draw(self: *Self) void {
     gfx.shader.use_render_shader();
 
@@ -356,4 +385,50 @@ pub fn draw(self: *Self) void {
     gfx.shader.set_model(self.entity.get(.transform).get_matrix());
     self.entity.get_ptr(.transform).pos[1] -= player_size[1] + 0.1; // Reset position
     self.entity.get_ptr(.model).draw();
+
+    for (0..10) |i| {
+        const i_f = @as(f32, @floatFromInt(i));
+        const position = [_]f32{ 30.0 + i_f * 42.0, ui.UI_RESOLUTION[1] - 30.0, 2.0 + 0.01 * i_f };
+
+        const half_heart_offset = [_]f32{ 0.0, 0.0 };
+        const full_heart_offset = [_]f32{ 0.0, 0.5 };
+        const base_heart_offset = [_]f32{ 0.5, 0.5 };
+
+        var offset = half_heart_offset;
+        // Draw hearts
+        if (self.entity.get(.health) > i * 2) {
+            if (self.entity.get(.health) > i * 2 + 1) {
+                offset = full_heart_offset;
+            } else {
+                offset = half_heart_offset;
+            }
+        } else {
+            offset = base_heart_offset;
+        }
+
+        ui.add_sprite(.{
+            .color = [_]u8{ 255, 255, 255, 255 },
+            .offset = position,
+            .scale = [_]f32{ 48.0, 48.0 },
+            .tex_id = self.heart_tex,
+            .uv_offset = offset,
+            .uv_scale = [_]f32{ 0.5, 0.5 },
+        }) catch unreachable;
+
+        // DMG FLASH
+        const time_since_last_damage = @divTrunc(std.time.nanoTimestamp() - self.last_damage, std.time.ns_per_ms);
+
+        if (time_since_last_damage <= 255) {
+            const alpha: u8 = @intCast(time_since_last_damage);
+
+            ui.add_sprite(.{
+                .color = [_]u8{ 255, 255, 255, 255 - alpha },
+                .offset = [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2, 3.0 },
+                .scale = ui.UI_RESOLUTION,
+                .tex_id = self.dmg_tex,
+                .uv_offset = [_]f32{ 0.0, 0.0 },
+                .uv_scale = [_]f32{ 1.0, 1.0 },
+            }) catch unreachable;
+        }
+    }
 }

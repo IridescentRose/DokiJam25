@@ -128,8 +128,14 @@ pub fn finalize() !void {
     mesh.draw();
 
     // Also now draw the UI on top of everything
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.disable(gl.DEPTH_TEST);
     try ui.update();
     ui.draw();
+    gl.enable(gl.DEPTH_TEST);
+    gl.disable(gl.BLEND);
 
     try window.draw();
 }

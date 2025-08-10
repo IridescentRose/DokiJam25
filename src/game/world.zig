@@ -102,6 +102,8 @@ pub fn init(seed: u64) !void {
         player.entity.get_ptr(.transform).pos[1] = @floatCast((h + 32) / c.SUB_BLOCKS_PER_BLOCK);
         player.entity.get_ptr(.transform).pos[2] = @floatFromInt(z);
 
+        player.spawn_pos = player.entity.get(.transform).pos;
+
         break;
     }
 

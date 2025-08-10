@@ -33,7 +33,11 @@ heart_tex: u32,
 hotbar_slot_tex: u32,
 hotbar_select_tex: u32,
 dmg_tex: u32,
+button_tex: u32,
+button_hover_tex: u32,
 last_damage: i128,
+dead: bool,
+spawn_pos: [3]f32 = [_]f32{ 0, 0, 0 }, // Where the player spawns
 
 // TODO: make a component so that dragoons can have different inventories
 inventory: Inventory,
@@ -73,9 +77,12 @@ pub fn init() !Self {
     res.dmg_tex = try ui.load_ui_texture("dmg.png");
     res.hotbar_slot_tex = try ui.load_ui_texture("slot.png");
     res.hotbar_select_tex = try ui.load_ui_texture("selector.png");
+    res.button_tex = try ui.load_ui_texture("button.png");
+    res.button_hover_tex = try ui.load_ui_texture("button_hover.png");
     res.last_damage = 0;
     res.moving = @splat(false);
     res.inventory = Inventory.new();
+    res.dead = false;
 
     return res;
 }
@@ -89,6 +96,12 @@ fn hitYourself(ctx: *anyopaque, down: bool) void {
 
     const self = util.ctx_to_self(Self, ctx);
     self.do_damage(1);
+
+    if (self.entity.get(.health) == 0) {
+        self.dead = true;
+        window.set_relative(false) catch unreachable;
+        std.debug.print("You died!\n", .{});
+    }
 }
 
 fn moveForward(ctx: *anyopaque, down: bool) void {
@@ -225,9 +238,23 @@ fn destroy_block(ctx: *anyopaque, down: bool) void {
         return;
     }
 
-    if (!down) return;
-
     const self = util.ctx_to_self(Self, ctx);
+
+    if (down and self.dead) {
+        const mouse_pos = input.get_mouse_position();
+        if (mouse_pos[0] >= ui.UI_RESOLUTION[0] / 2 - 96 * 7 / 2 and
+            mouse_pos[0] <= ui.UI_RESOLUTION[0] / 2 + 96 * 7 / 2 and
+            mouse_pos[1] >= ui.UI_RESOLUTION[1] / 2 - 168 - 12 * 7 / 2 and
+            mouse_pos[1] <= ui.UI_RESOLUTION[1] / 2 - 168 + 12 * 7 / 2)
+        {
+            self.dead = false;
+            self.entity.get_ptr(.health).* = 20;
+            self.entity.get_ptr(.transform).pos = self.spawn_pos;
+            window.set_relative(true) catch unreachable;
+        }
+    }
+
+    if (!down) return;
 
     // TODO: Better way of doing this
     const coord = [_]f32{ self.entity.get(.transform).pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[1] * c.SUB_BLOCKS_PER_BLOCK - 0.05, self.entity.get(.transform).pos[2] * c.SUB_BLOCKS_PER_BLOCK };
@@ -269,8 +296,8 @@ fn destroy_block(ctx: *anyopaque, down: bool) void {
 }
 
 fn pause(ctx: *anyopaque, down: bool) void {
-    _ = ctx;
-    if (down) {
+    const self = util.ctx_to_self(Self, ctx);
+    if (down and !self.dead) {
         world.paused = !world.paused;
         if (world.paused) {
             std.debug.print("Game paused\n", .{});
@@ -357,6 +384,7 @@ pub fn update(self: *Self) void {
     if (!world.is_in_world([_]isize{ curr_pos[0] * c.SUB_BLOCKS_PER_BLOCK, curr_pos[1] * c.SUB_BLOCKS_PER_BLOCK, curr_pos[2] * c.SUB_BLOCKS_PER_BLOCK })) return;
 
     if (world.paused and !debugging_pause) return;
+    if (self.dead) return;
 
     const dt: f32 = 1.0 / 60.0;
 
@@ -444,43 +472,76 @@ pub fn draw(self: *Self) void {
             .uv_offset = offset,
             .uv_scale = [_]f32{ 0.5, 0.5 },
         }) catch unreachable;
+    }
 
-        for (0..Inventory.HOTBAR_SIZE) |j| {
-            const hotbar_slot_pos = [_]f32{ 38, ui.UI_RESOLUTION[1] - 144 - @as(f32, @floatFromInt(j)) * 60.0, 2.0 + 0.01 * @as(f32, @floatFromInt(j)) };
-            ui.add_sprite(.{
-                .color = [_]u8{ 255, 255, 255, 255 },
-                .offset = hotbar_slot_pos,
-                .scale = [_]f32{ 60.0, 60.0 },
-                .tex_id = self.hotbar_slot_tex,
-                .uv_offset = [_]f32{ 0.0, 0.0 },
-                .uv_scale = [_]f32{ 1.0, 1.0 },
-            }) catch unreachable;
-        }
-
-        const hotbar_select_pos = [_]f32{ 38, ui.UI_RESOLUTION[1] - 144 - @as(f32, @floatFromInt(self.inventory.hotbarIdx)) * 60.0, 1.5 };
+    for (0..Inventory.HOTBAR_SIZE) |j| {
+        const hotbar_slot_pos = [_]f32{ 38, ui.UI_RESOLUTION[1] - 144 - @as(f32, @floatFromInt(j)) * 60.0, 2.0 + 0.01 * @as(f32, @floatFromInt(j)) };
         ui.add_sprite(.{
             .color = [_]u8{ 255, 255, 255, 255 },
-            .offset = hotbar_select_pos,
-            .scale = [_]f32{ 72.0, 72.0 },
-            .tex_id = self.hotbar_select_tex,
+            .offset = hotbar_slot_pos,
+            .scale = [_]f32{ 60.0, 60.0 },
+            .tex_id = self.hotbar_slot_tex,
             .uv_offset = [_]f32{ 0.0, 0.0 },
             .uv_scale = [_]f32{ 1.0, 1.0 },
         }) catch unreachable;
+    }
 
-        // DMG FLASH
-        const time_since_last_damage = @divTrunc(std.time.nanoTimestamp() - self.last_damage, std.time.ns_per_ms);
+    const hotbar_select_pos = [_]f32{ 38, ui.UI_RESOLUTION[1] - 144 - @as(f32, @floatFromInt(self.inventory.hotbarIdx)) * 60.0, 1.5 };
+    ui.add_sprite(.{
+        .color = [_]u8{ 255, 255, 255, 255 },
+        .offset = hotbar_select_pos,
+        .scale = [_]f32{ 72.0, 72.0 },
+        .tex_id = self.hotbar_select_tex,
+        .uv_offset = [_]f32{ 0.0, 0.0 },
+        .uv_scale = [_]f32{ 1.0, 1.0 },
+    }) catch unreachable;
 
-        if (time_since_last_damage <= 255) {
-            const alpha: u8 = @intCast(time_since_last_damage);
+    // DMG FLASH
+    const time_since_last_damage = @divTrunc(std.time.nanoTimestamp() - self.last_damage, std.time.ns_per_ms);
 
-            ui.add_sprite(.{
-                .color = [_]u8{ 255, 255, 255, 255 - alpha },
-                .offset = [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2, 3.0 },
-                .scale = ui.UI_RESOLUTION,
-                .tex_id = self.dmg_tex,
-                .uv_offset = [_]f32{ 0.0, 0.0 },
-                .uv_scale = [_]f32{ 1.0, 1.0 },
-            }) catch unreachable;
+    if (time_since_last_damage <= 255) {
+        const alpha: u8 = @intCast(time_since_last_damage);
+
+        ui.add_sprite(.{
+            .color = [_]u8{ 255, 255, 255, 255 - alpha },
+            .offset = [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2, 3.0 },
+            .scale = ui.UI_RESOLUTION,
+            .tex_id = self.dmg_tex,
+            .uv_offset = [_]f32{ 0.0, 0.0 },
+            .uv_scale = [_]f32{ 1.0, 1.0 },
+        }) catch unreachable;
+    }
+
+    if (self.dead) {
+        ui.add_sprite(.{
+            .color = [_]u8{ 255, 255, 255, 255 },
+            .offset = [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2, 3.0 },
+            .scale = ui.UI_RESOLUTION,
+            .tex_id = self.dmg_tex,
+            .uv_offset = [_]f32{ 0.0, 0.0 },
+            .uv_scale = [_]f32{ 1.0, 1.0 },
+        }) catch unreachable;
+        ui.add_text("You died!", [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2 }, [_]u8{ 255, 0, 0, 255 }, 3.0, 3.0, .Center) catch unreachable;
+
+        const mouse_pos = input.get_mouse_position();
+
+        var button_texture = self.button_tex;
+
+        if (mouse_pos[0] >= ui.UI_RESOLUTION[0] / 2 - 96 * 7 / 2 and
+            mouse_pos[0] <= ui.UI_RESOLUTION[0] / 2 + 96 * 7 / 2 and
+            mouse_pos[1] >= ui.UI_RESOLUTION[1] / 2 - 168 - 12 * 7 / 2 and
+            mouse_pos[1] <= ui.UI_RESOLUTION[1] / 2 - 168 + 12 * 7 / 2)
+        {
+            button_texture = self.button_hover_tex;
         }
+
+        ui.add_sprite(.{
+            .color = [_]u8{ 255, 255, 255, 255 },
+            .offset = [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2 - 168, 3.0 },
+            .scale = [_]f32{ 96 * 7, 12 * 7 },
+            .tex_id = button_texture,
+        }) catch unreachable;
+
+        ui.add_text("Respawn", [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2 - 6 - 168 }, [_]u8{ 255, 255, 255, 255 }, 4.0, 2.0, .Center) catch unreachable;
     }
 }

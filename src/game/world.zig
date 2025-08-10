@@ -39,6 +39,13 @@ var save_tex: u32 = 0;
 var resume_highlight_tex: u32 = 0;
 var save_highlight_tex: u32 = 0;
 
+// Time
+// 6am
+pub var tick: u64 = 6000;
+const TICK_PER_HOUR = 1000;
+const TICK_PER_MINUTE = TICK_PER_HOUR / 60;
+const TICK_HOURS = 24;
+
 pub var inflight_chunk_mutex: std.Thread.Mutex = std.Thread.Mutex{};
 pub var inflight_chunk_list: std.ArrayList(ChunkLocation) = undefined;
 pub fn init(seed: u64) !void {
@@ -325,7 +332,6 @@ fn lessThan(_: usize, a: ChunkMesh.IndirectionEntry, b: ChunkMesh.IndirectionEnt
     return a.x < b.x;
 }
 
-var count: usize = 0;
 pub fn update() !void {
     try update_player_surrounding_chunks();
 
@@ -377,6 +383,7 @@ pub fn update() !void {
     }
 
     if (paused) return;
+    tick += 1;
 
     // Rain
     for (0..8) |_| {
@@ -394,8 +401,7 @@ pub fn update() !void {
     var new_active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
     defer new_active_atoms.deinit();
 
-    count += 1;
-    if (count % 6 == 0) {
+    if (tick % 6 == 0) {
         var a_count: usize = 0;
         for (active_atoms.items) |*atom| {
             a_count += atom.moves;
@@ -627,6 +633,13 @@ pub fn draw() void {
 
     player.draw();
     // particles.draw();
+
+    var buf: [64]u8 = @splat(0);
+    const hours: usize = @intCast(tick / TICK_PER_HOUR);
+    const minutes: usize = @intCast((tick % TICK_PER_HOUR) / TICK_PER_MINUTE);
+
+    const time = std.fmt.bufPrint(&buf, "Time: {}:{s}{}", .{ hours % TICK_HOURS, if (minutes % 60 < 10) "0" else "", minutes % 60 }) catch unreachable;
+    ui.add_text(time, [_]f32{ ui.UI_RESOLUTION[0] - 30.0, ui.UI_RESOLUTION[1] - 30.0 }, [_]u8{ 255, 255, 255, 255 }, 4, 1, .Right) catch unreachable;
 
     if (paused) {
         ui.add_sprite(.{

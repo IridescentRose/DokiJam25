@@ -24,7 +24,6 @@ fn update(ctx: *anyopaque) anyerror!void {
 }
 
 var frame: u32 = 0;
-var t: f32 = 0.25;
 fn draw(ctx: *anyopaque) anyerror!void {
     _ = ctx;
     gfx.clear_color(0, 0, 0, 1);
@@ -32,7 +31,7 @@ fn draw(ctx: *anyopaque) anyerror!void {
 
     world.draw();
 
-    t += 0.00001;
+    const t = @as(f32, @floatFromInt(world.tick % 24000)) / 24000.0;
     frame += 1;
 
     gfx.shader.use_comp_shader();

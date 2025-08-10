@@ -307,7 +307,7 @@ void main() {
         vec3 sunCol = mix(sunLow, sunHigh, warmFactor);
         vec3 sunColForFog = sunCol;
 
-        float I_sun  = sunVis * 0.5;
+        float I_sun  = sunVis * 0.45;
         float I_moon = night * smoothstep(0.0, 0.12, moonDir.y) * 0.07;
         vec3  moonCol = vec3(0.85, 0.88, 1.0);
 

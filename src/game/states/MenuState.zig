@@ -24,13 +24,13 @@ fn click(ctx: *anyopaque, down: bool) void {
 
         const mouse_position = input.get_mouse_position();
 
-        const button_width: f32 = 96 * 6;
-        const button_height: f32 = 12 * 6;
+        const button_width: f32 = 96 * 7;
+        const button_height: f32 = 12 * 7;
 
         if (mouse_position[0] > (width / 2 - button_width / 2) and
             mouse_position[0] < (width / 2 + button_width / 2) and
-            mouse_position[1] > (height / 2 - button_height / 2) and
-            mouse_position[1] < (height / 2 + button_height / 2))
+            mouse_position[1] > (height / 2 - button_height / 2 - 100) and
+            mouse_position[1] < (height / 2 + button_height / 2 - 100))
         {
             sm.transition(game_state.state()) catch unreachable;
         }
@@ -78,8 +78,8 @@ fn update(ctx: *anyopaque) anyerror!void {
         .tex_id = logo_texture,
     });
 
-    const button_width: f32 = 96 * 6;
-    const button_height: f32 = 12 * 6;
+    const button_width: f32 = 96 * 7;
+    const button_height: f32 = 12 * 7;
 
     const mouse_position = input.get_mouse_position();
 
@@ -88,8 +88,8 @@ fn update(ctx: *anyopaque) anyerror!void {
 
     if (mouse_position[0] > (width / 2 - button_width / 2) and
         mouse_position[0] < (width / 2 + button_width / 2) and
-        mouse_position[1] > (height / 2 - button_height / 2) and
-        mouse_position[1] < (height / 2 + button_height / 2))
+        mouse_position[1] > (height / 2 - button_height / 2 - 100) and
+        mouse_position[1] < (height / 2 + button_height / 2 - 100))
     {
         tex_id = button_hover_texture;
         text_color = [_]u8{ 255, 255, 80, 255 }; // Yellow color for hover effect
@@ -97,12 +97,15 @@ fn update(ctx: *anyopaque) anyerror!void {
 
     try ui.add_sprite(.{
         .color = [_]u8{ 168, 168, 168, 255 },
-        .offset = [_]f32{ width / 2, height / 2, 3 },
+        .offset = [_]f32{ width / 2, height / 2 - 100, 3 },
         .scale = [_]f32{ button_width, button_height },
         .tex_id = tex_id,
     });
 
-    try ui.add_text("Start Game", [_]f32{ width / 2, height / 2 - 6 }, text_color, 4, 2);
+    try ui.add_text("Start Game", [_]f32{ width / 2, height / 2 - 6 - 100 }, text_color, 4, 2, .Center);
+    try ui.add_text("Ver 1", [_]f32{ width - 12, 16 }, [_]u8{ 255, 255, 255, 255 }, 4, 1, .Right);
+    try ui.add_text("Built With Love", [_]f32{ 12, 16 + 36 }, [_]u8{ 255, 255, 255, 255 }, 4, 1, .Left);
+    try ui.add_text("And One Last Cup Of Coffee", [_]f32{ 12, 16 }, [_]u8{ 255, 255, 255, 255 }, 4, 1, .Left);
 }
 
 fn draw(ctx: *anyopaque) anyerror!void {

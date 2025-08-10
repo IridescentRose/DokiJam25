@@ -34,6 +34,7 @@ pub fn new() !Self {
     try res.mesh.indices.appendSlice(util.allocator(), &[_]u32{ 0, 1, 2, 2, 3, 0 });
 
     res.transform.pos = [_]f32{ 0, -8, 0 };
+    res.mesh.update();
 
     return res;
 }

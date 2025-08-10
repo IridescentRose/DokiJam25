@@ -8,6 +8,7 @@ const Particle = @import("particle.zig");
 const gl = @import("../gfx/gl.zig");
 const ui = @import("../gfx/ui.zig");
 const ecs = @import("entity/ecs.zig");
+const input = @import("../core/input.zig");
 
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
@@ -30,9 +31,16 @@ pub var blocks: []Chunk.Atom = undefined;
 var edit_list: std.ArrayList(VoxelEdit) = undefined;
 var chunk_freelist: std.ArrayList(usize) = undefined;
 
+// Pause menu
+pub var paused: bool = true;
+var overlay_tex: u32 = 0;
+var resume_tex: u32 = 0;
+var save_tex: u32 = 0;
+var resume_highlight_tex: u32 = 0;
+var save_highlight_tex: u32 = 0;
+
 pub var inflight_chunk_mutex: std.Thread.Mutex = std.Thread.Mutex{};
 pub var inflight_chunk_list: std.ArrayList(ChunkLocation) = undefined;
-var ui_tex: u32 = 0;
 pub fn init(seed: u64) !void {
     try job_queue.init();
 
@@ -64,7 +72,11 @@ pub fn init(seed: u64) !void {
     player = try Player.init();
     try player.register_input();
 
-    ui_tex = try ui.load_ui_texture("heart.png");
+    overlay_tex = try ui.load_ui_texture("overlay.png");
+    resume_tex = try ui.load_ui_texture("resume_button.png");
+    save_tex = try ui.load_ui_texture("save_button.png");
+    resume_highlight_tex = try ui.load_ui_texture("resume_button_hover.png");
+    save_highlight_tex = try ui.load_ui_texture("save_button_hover.png");
 
     // Find a random spawn point
     try worldgen.init(seed);
@@ -324,6 +336,20 @@ pub fn update() !void {
 
     for (chunkMap.keys(), 0..) |coord, i| {
         if (i < chunk_mesh.chunks.len) {
+            inflight_chunk_mutex.lock();
+            defer inflight_chunk_mutex.unlock();
+
+            var found = false;
+            for (inflight_chunk_list.items) |ic| {
+                if (ic[0] == coord[0] and ic[1] == coord[1]) {
+                    // Already inflight
+                    found = true;
+                    break;
+                }
+            }
+
+            if (found) continue;
+
             chunk_mesh.chunks[i] = ChunkMesh.IndirectionEntry{
                 .x = @intCast(coord[0]),
                 .y = 0,
@@ -350,6 +376,8 @@ pub fn update() !void {
         }
     }
 
+    if (paused) return;
+
     // Rain
     for (0..8) |_| {
         const rx = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
@@ -363,10 +391,10 @@ pub fn update() !void {
         });
     }
 
-    count += 1;
-
     var new_active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
     defer new_active_atoms.deinit();
+
+    count += 1;
     if (count % 6 == 0) {
         var a_count: usize = 0;
         for (active_atoms.items) |*atom| {
@@ -594,16 +622,55 @@ pub fn update() !void {
 
 pub fn draw() void {
     ui.clear_sprites();
-    ui.add_sprite(.{
-        .offset = [_]f32{ 32, 32, 1 },
-        .scale = [_]f32{ 64, 64 },
-        .tex_id = ui_tex,
-        .color = [_]u8{ 0xFF, 0xFF, 0xFF, 0xFF },
-    }) catch unreachable;
-    ui.add_text("ABC", [_]f32{ 128, 128 }, [_]u8{ 0xFF, 0xFF, 0xFF, 0xFF }, 1, 1) catch unreachable;
 
     chunk_mesh.draw();
 
     player.draw();
     particles.draw();
+
+    if (paused) {
+        ui.add_sprite(.{
+            .offset = [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2, 1 },
+            .scale = [_]f32{ ui.UI_RESOLUTION[0], ui.UI_RESOLUTION[1] },
+            .color = [_]u8{ 255, 255, 255, 255 },
+            .tex_id = overlay_tex,
+        }) catch unreachable;
+
+        const mouse_pos = input.get_mouse_position();
+
+        var resume_texture = resume_tex;
+        if (mouse_pos[0] >= ui.UI_RESOLUTION[0] / 2 - 96 * 7 / 2 and
+            mouse_pos[0] <= ui.UI_RESOLUTION[0] / 2 + 96 * 7 / 2 and
+            mouse_pos[1] >= ui.UI_RESOLUTION[1] / 2 + 32 - 12 * 7 / 2 and
+            mouse_pos[1] <= ui.UI_RESOLUTION[1] / 2 + 32 + 12 * 7 / 2)
+        {
+            resume_texture = resume_highlight_tex;
+        }
+
+        ui.add_sprite(.{
+            .offset = [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2 + 32, 2 },
+            .scale = [_]f32{ 96 * 7, 12 * 7 },
+            .color = [_]u8{ 255, 255, 255, 255 },
+            .tex_id = resume_texture,
+        }) catch unreachable;
+
+        var save_texture = save_tex;
+        if (mouse_pos[0] >= ui.UI_RESOLUTION[0] / 2 - 96 * 7 / 2 and
+            mouse_pos[0] <= ui.UI_RESOLUTION[0] / 2 + 96 * 7 / 2 and
+            mouse_pos[1] >= ui.UI_RESOLUTION[1] / 2 - 128 - 12 * 7 / 2 and
+            mouse_pos[1] <= ui.UI_RESOLUTION[1] / 2 - 128 + 12 * 7 / 2)
+        {
+            save_texture = save_highlight_tex;
+        }
+
+        ui.add_sprite(.{
+            .offset = [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2 - 128, 2 },
+            .scale = [_]f32{ 96 * 7, 12 * 7 },
+            .color = [_]u8{ 255, 255, 255, 255 },
+            .tex_id = save_texture,
+        }) catch unreachable;
+
+        ui.add_text("Resume Game", [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2 + 32 - 6 }, [_]u8{ 255, 255, 255, 255 }, 3, 1.5, .Center) catch unreachable;
+        ui.add_text("Save And End", [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2 - 128 - 6 }, [_]u8{ 255, 255, 255, 255 }, 3, 1.5, .Center) catch unreachable;
+    }
 }

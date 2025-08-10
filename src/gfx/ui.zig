@@ -26,6 +26,8 @@ var next_tex_index: u32 = 1; // 1-based; 0 = no texture
 var ui_handles_ssbo: c_uint = 0;
 var font_texture: u32 = 0;
 
+pub const UI_RESOLUTION = [_]f32{ 1280, 720 };
+
 pub fn init() !void {
     assert(!initialized);
     initialized = true;
@@ -116,7 +118,13 @@ pub fn clear_sprites() void {
     ui_instance_mesh.instances.clearAndFree(util.allocator());
 }
 
-pub fn add_text(text: []const u8, position: [2]f32, color: [4]u8, layer: f32, scale: f32) !void {
+pub const TextAlign = enum {
+    Left,
+    Center,
+    Right,
+};
+
+pub fn add_text(text: []const u8, position: [2]f32, color: [4]u8, layer: f32, scale: f32, align_dir: TextAlign) !void {
     assert(initialized);
 
     for (text, 0..) |c, i| {
@@ -131,9 +139,14 @@ pub fn add_text(text: []const u8, position: [2]f32, color: [4]u8, layer: f32, sc
         const char_y: f32 = (@as(f32, @floatFromInt(char_index / 16)) + 1.0) * 1.0 / 10.0;
 
         const len = @as(f32, @floatFromInt((text.len) * 18)) * scale - 1 * 24 * scale;
+        const align_off = switch (align_dir) {
+            .Left => 0.0,
+            .Center => len / 2.0,
+            .Right => len,
+        };
 
         try add_sprite(.{
-            .offset = [_]f32{ position[0] + @as(f32, @floatFromInt(i * 18)) * scale - len / 2.0, position[1], layer + 0.01 * @as(f32, @floatFromInt(i)) },
+            .offset = [_]f32{ position[0] + @as(f32, @floatFromInt(i * 18)) * scale - align_off, position[1], layer + 0.01 * @as(f32, @floatFromInt(i)) },
             .scale = [_]f32{ 24 * scale, 36 * scale },
             .color = color,
             .tex_id = font_texture,

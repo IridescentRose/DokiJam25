@@ -56,4 +56,8 @@ pub fn set_relative(mode: bool) !void {
     assert(initialized);
 
     try sdl3.mouse.setWindowRelativeMode(window, mode);
+
+    if (mode == false) {
+        sdl3.mouse.warpInWindow(window, @floatFromInt(try get_width() / 2), @floatFromInt(try get_height() / 2));
+    }
 }

@@ -1,6 +1,8 @@
 const std = @import("std");
 const assert = std.debug.assert;
 const util = @import("util.zig");
+const window = @import("../gfx/window.zig");
+const ui = @import("../gfx/ui.zig");
 const sdl3 = @import("sdl3");
 
 var initialized = false;
@@ -41,7 +43,10 @@ pub fn init() void {
 }
 
 pub fn get_mouse_position() MousePosition {
-    return MousePosition{ sdl3.mouse.getState().x, sdl3.mouse.getState().y };
+    const win_w: f32 = @floatFromInt(window.get_width() catch 0);
+    const win_h: f32 = @floatFromInt(window.get_height() catch 0);
+
+    return MousePosition{ sdl3.mouse.getState().x / win_w * ui.UI_RESOLUTION[0], (win_h - sdl3.mouse.getState().y) / win_h * ui.UI_RESOLUTION[1] };
 }
 
 pub fn register_key_callback(key: sdl3.Scancode, cb: InputCallback) !void {

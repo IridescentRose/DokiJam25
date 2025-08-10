@@ -13,7 +13,8 @@ const Self = @This();
 const AABB = @import("aabb.zig");
 const blocks = @import("blocks.zig");
 const Inventory = @import("inventory.zig");
-
+const app = @import("../core/app.zig");
+const ui = @import("../gfx/ui.zig");
 const ecs = @import("entity/ecs.zig");
 
 // Half
@@ -36,7 +37,7 @@ entity: ecs.Entity,
 pub fn init() !Self {
     var res: Self = undefined;
 
-    res.tex = try gfx.texture.load_image_from_file("dragoon.png");
+    res.tex = try gfx.texture.load_image_from_file("doki.png");
     res.entity = try ecs.create_entity();
 
     var transform = Transform.new();
@@ -70,24 +71,36 @@ pub fn init() !Self {
     return res;
 }
 
+const debugging_pause = false;
+
 fn moveForward(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
     var self = util.ctx_to_self(Self, ctx);
     self.moving[0] = down;
 }
 fn moveBackward(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
     var self = util.ctx_to_self(Self, ctx);
     self.moving[1] = down;
 }
 fn moveLeft(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
     var self = util.ctx_to_self(Self, ctx);
     self.moving[2] = down;
 }
 fn moveRight(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
     var self = util.ctx_to_self(Self, ctx);
     self.moving[3] = down;
 }
 
 fn jump(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
     const self = util.ctx_to_self(Self, ctx);
     if (down and self.entity.get(.on_ground)) {
         self.entity.get_ptr(.velocity)[1] = JUMP_VELOCITY;
@@ -98,6 +111,8 @@ fn jump(ctx: *anyopaque, down: bool) void {
 const sensitivity = 0.1;
 
 fn mouseCb(ctx: *anyopaque, dx: f32, dy: f32) void {
+    if (world.paused and !debugging_pause) return;
+
     var self = util.ctx_to_self(Self, ctx);
 
     self.camera.yaw += dx * sensitivity;
@@ -108,6 +123,8 @@ fn mouseCb(ctx: *anyopaque, dx: f32, dy: f32) void {
 }
 
 fn place_block(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
     if (!down) return;
 
     const self = util.ctx_to_self(Self, ctx);
@@ -148,6 +165,30 @@ fn place_block(ctx: *anyopaque, down: bool) void {
 }
 
 fn destroy_block(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) {
+        const mouse_pos = input.get_mouse_position();
+
+        // Resume
+        if (mouse_pos[0] >= ui.UI_RESOLUTION[0] / 2 - 96 * 7 / 2 and
+            mouse_pos[0] <= ui.UI_RESOLUTION[0] / 2 + 96 * 7 / 2 and
+            mouse_pos[1] >= ui.UI_RESOLUTION[1] / 2 + 32 - 12 * 7 / 2 and
+            mouse_pos[1] <= ui.UI_RESOLUTION[1] / 2 + 32 + 12 * 7 / 2)
+        {
+            world.paused = !world.paused;
+            window.set_relative(true) catch unreachable;
+        }
+
+        // Quit (which triggers save)
+        if (mouse_pos[0] >= ui.UI_RESOLUTION[0] / 2 - 96 * 7 / 2 and
+            mouse_pos[0] <= ui.UI_RESOLUTION[0] / 2 + 96 * 7 / 2 and
+            mouse_pos[1] >= ui.UI_RESOLUTION[1] / 2 - 128 - 12 * 7 / 2 and
+            mouse_pos[1] <= ui.UI_RESOLUTION[1] / 2 - 128 + 12 * 7 / 2)
+        {
+            app.running = false;
+        }
+        return;
+    }
+
     if (!down) return;
 
     const self = util.ctx_to_self(Self, ctx);
@@ -191,6 +232,21 @@ fn destroy_block(ctx: *anyopaque, down: bool) void {
     }
 }
 
+fn pause(ctx: *anyopaque, down: bool) void {
+    _ = ctx;
+    if (down) {
+        world.paused = !world.paused;
+        if (world.paused) {
+            std.debug.print("Game paused\n", .{});
+            window.set_relative(false) catch unreachable;
+        } else {
+            std.debug.print("Game unpaused\n", .{});
+            // TODO: Based on overlay state
+            window.set_relative(true) catch unreachable;
+        }
+    }
+}
+
 pub fn register_input(self: *Self) !void {
     try input.register_key_callback(.w, .{
         .ctx = self,
@@ -212,6 +268,10 @@ pub fn register_input(self: *Self) !void {
         .ctx = self,
         .cb = jump,
     });
+    try input.register_key_callback(.escape, .{
+        .ctx = self,
+        .cb = pause,
+    });
 
     input.mouse_relative_handle = .{
         .ctx = self,
@@ -227,7 +287,8 @@ pub fn register_input(self: *Self) !void {
         .cb = place_block,
     });
 
-    try window.set_relative(true);
+    if (!world.paused)
+        try window.set_relative(true);
 }
 
 pub fn deinit(self: *Self) void {
@@ -246,6 +307,8 @@ pub fn update(self: *Self) void {
     self.camera.target[1] += player_size[1] + 0.25;
 
     if (!world.is_in_world([_]isize{ curr_pos[0] * c.SUB_BLOCKS_PER_BLOCK, curr_pos[1] * c.SUB_BLOCKS_PER_BLOCK, curr_pos[2] * c.SUB_BLOCKS_PER_BLOCK })) return;
+
+    if (world.paused and !debugging_pause) return;
 
     const dt: f32 = 1.0 / 60.0;
 

@@ -48,9 +48,8 @@ var rayInvVpLoc: c_int = 0;
 var compResolutionLoc: c_int = 0;
 var compInvProjLoc: c_int = 0;
 var compInvViewLoc: c_int = 0;
-var compSunDirLoc: c_int = 0;
-var compSunColorLoc: c_int = 0;
-var compAmbientColorLoc: c_int = 0;
+var compTimeLoc: c_int = 0;
+var compFrameLoc: c_int = 0; // for dither
 
 var compGAlbedoLoc: c_int = 0;
 var compGNormalLoc: c_int = 0;
@@ -117,9 +116,8 @@ pub fn init() !void {
     compResolutionLoc = gl.getUniformLocation(comp, "uResolution");
     compInvProjLoc = gl.getUniformLocation(comp, "uInvProj");
     compInvViewLoc = gl.getUniformLocation(comp, "uInvView");
-    compSunDirLoc = gl.getUniformLocation(comp, "uSunDir");
-    compSunColorLoc = gl.getUniformLocation(comp, "uSunColor");
-    compAmbientColorLoc = gl.getUniformLocation(comp, "uAmbientColor");
+    compTimeLoc = gl.getUniformLocation(comp, "uTime");
+    compFrameLoc = gl.getUniformLocation(comp, "uFrame"); // for dither
     compGAlbedoLoc = gl.getUniformLocation(comp, "gAlbedo");
     compGNormalLoc = gl.getUniformLocation(comp, "gNormal");
     compGDepthLoc = gl.getUniformLocation(comp, "gDepth");
@@ -255,19 +253,14 @@ pub fn set_comp_inv_view(matrix: zm.Mat) void {
     gl.uniformMatrix4fv(compInvViewLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
 }
 
-pub fn set_comp_sun_dir(dir: zm.Vec) void {
+pub fn set_comp_time(time: f32) void {
     use_comp_shader();
-    gl.uniform3f(compSunDirLoc, dir[0], dir[1], dir[2]);
+    gl.uniform1f(compTimeLoc, time);
 }
 
-pub fn set_comp_sun_color(color: zm.Vec) void {
+pub fn set_comp_frame(frame: i32) void {
     use_comp_shader();
-    gl.uniform3f(compSunColorLoc, color[0], color[1], color[2]);
-}
-
-pub fn set_comp_ambient_color(color: zm.Vec) void {
-    use_comp_shader();
-    gl.uniform3f(compAmbientColorLoc, color[0], color[1], color[2]);
+    gl.uniform1i(compFrameLoc, frame);
 }
 
 pub fn set_comp_albedo(tex: c_uint) void {

@@ -133,7 +133,7 @@ pub fn finalize() !void {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.disable(gl.DEPTH_TEST);
     try ui.update();
-    ui.draw();
+    // ui.draw();
     gl.enable(gl.DEPTH_TEST);
 
     try window.draw();

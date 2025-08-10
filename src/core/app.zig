@@ -178,7 +178,10 @@ pub fn event_loop() !void {
 
         if (curr_time > next_frame_start + drift_limit_ns) {
             next_frame_start = curr_time;
-            std.debug.print("Fell 2 frames behind!\n", .{});
+
+            if (config.vsync) {
+                std.debug.print("Fell 2 frames behind!\n", .{});
+            }
         }
     }
 }

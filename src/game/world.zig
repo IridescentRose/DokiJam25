@@ -617,7 +617,7 @@ pub fn update() !void {
         try active_atoms.appendSlice(new_active_atoms.items);
     }
 
-    try particles.update();
+    // try particles.update();
 }
 
 pub fn draw() void {
@@ -626,7 +626,7 @@ pub fn draw() void {
     chunk_mesh.draw();
 
     player.draw();
-    particles.draw();
+    // particles.draw();
 
     if (paused) {
         ui.add_sprite(.{

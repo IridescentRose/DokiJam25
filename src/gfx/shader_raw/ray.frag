@@ -87,7 +87,7 @@ uint getVoxel(ivec3 p) {
     return voxels[offset + uint(idx)];
 }
 
-#define DRAW_DISTANCE 384
+#define DRAW_DISTANCE 512
 
 void main()
 {
@@ -143,16 +143,22 @@ void main()
        }
    }
 
-   // Compute grid-space hit distance
-   float tGrid = min(min(sideDist.x, sideDist.y), sideDist.z);
-   // Convert to world-space distance
-   float tWorld = tGrid / GRID_SCALE / GRID_SCALE / GRID_SCALE;
-   // Compute world-space hit position
-   vec3 hitWorld = rayOrigin + rayDirection * tWorld;
-   // Project and map to [0,1]
-   vec4 clip = uProjView * vec4(hitWorld, 1.0);
-   float ndcDepth = clip.z / clip.w * 0.5 + 0.5;
-   gl_FragDepth = ndcDepth;
+    if ((voxel & 0xFFu) != 0u) {
+        // Compute grid-space hit distance
+        float tGrid = min(min(sideDist.x, sideDist.y), sideDist.z);
+        // Convert to world-space distance
+        float tWorld = tGrid / GRID_SCALE / GRID_SCALE / GRID_SCALE;
+        // Compute world-space hit position
+        vec3 hitWorld = rayOrigin + rayDirection * tWorld;
+        // Project and map to [0,1]
+        vec4 clip = uProjView * vec4(hitWorld, 1.0);
+        float ndcDepth = clip.z / clip.w * 0.5 + 0.5;
+
+
+        gl_FragDepth = ndcDepth;
+    } else {
+        gl_FragDepth = 1.0; // Set depth to far plane if no hit
+    }
 
     // Compute normal from last step
     vec3 normal = vec3(0.0);

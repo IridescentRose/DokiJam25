@@ -23,20 +23,24 @@ fn update(ctx: *anyopaque) anyerror!void {
     try world.update();
 }
 
+var frame: u32 = 0;
+var t: f32 = 0.0;
 fn draw(ctx: *anyopaque) anyerror!void {
     _ = ctx;
-    gfx.clear_color(130.0 / 255.0, 202.0 / 255.0, 255.0 / 255.0, 1);
+    gfx.clear_color(0, 0, 0, 1);
     gfx.clear();
 
     world.draw();
+
+    t += 0.0001;
+    frame += 1;
 
     gfx.shader.use_comp_shader();
     gfx.shader.set_comp_resolution();
     gfx.shader.set_comp_inv_proj(zm.inverse(world.player.camera.get_projection_matrix()));
     gfx.shader.set_comp_inv_view(zm.inverse(world.player.camera.get_view_matrix()));
-    gfx.shader.set_comp_sun_dir(zm.Vec{ 0.72, 1, 0, 1 });
-    gfx.shader.set_comp_sun_color(zm.Vec{ 0.72, 0.58, 0.48, 1 });
-    gfx.shader.set_comp_ambient_color(zm.Vec{ 0.063 * 3, 0.067 * 3, 0.073 * 3, 1 });
+    gfx.shader.set_comp_time(t);
+    gfx.shader.set_comp_frame(@intCast(frame));
     gfx.shader.set_comp_fog_color(zm.Vec{ 0.5, 0.6, 0.7, 1 });
     gfx.shader.set_comp_fog_density(0.1);
 

@@ -5,7 +5,7 @@ const GameState = @import("game/states/GameState.zig");
 
 // Shim
 pub fn main() !void {
-    var state: MenuState = undefined;
+    var state: GameState = undefined;
 
     try app.init(state.state());
     defer app.deinit();

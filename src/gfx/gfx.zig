@@ -10,9 +10,12 @@ pub const texture = @import("textures.zig");
 pub const window = @import("window.zig");
 pub const shader = @import("shaders.zig");
 pub const FBO = @import("framebuffer.zig");
+pub const ShadowBuffer = @import("shadowbuffer.zig");
 
 var context: sdl3.c.SDL_GLContext = undefined;
 var fbo: FBO = undefined;
+var shadow_buffer_real: ShadowBuffer = undefined;
+var shadow_buffer_final: ShadowBuffer = undefined;
 var intermediateFBO: FBO = undefined;
 var mesh: TexMesh = undefined;
 
@@ -57,6 +60,8 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
 
     fbo = try FBO.init();
     intermediateFBO = try FBO.init();
+    shadow_buffer_final = try ShadowBuffer.init();
+    shadow_buffer_real = try ShadowBuffer.init();
 
     mesh = try TexMesh.new();
     try mesh.vertices.appendSlice(util.allocator(), &[_]TexMesh.Vertex{
@@ -84,6 +89,11 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
     try ui.init();
 }
 
+var light_dir = zm.Vec{ 0.0, -1.0, 0.0, 0.0 };
+pub fn set_light_dir(dir: zm.Vec) void {
+    light_dir = dir;
+}
+
 pub fn deinit() void {
     mesh.deinit();
     fbo.deinit();
@@ -99,53 +109,72 @@ pub fn set_deferred(enable: bool) void {
     deferred = enable;
 }
 
-pub fn finalize() !void {
-    intermediateFBO.bind();
-    gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+pub fn finalize(shadow: bool) !void {
+    if (shadow) {} else {
+        intermediateFBO.bind();
+        gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    if (deferred) {
-        shader.use_comp_shader();
-        shader.set_comp_resolution();
+        if (deferred) {
+            shader.use_comp_shader();
+            shader.set_comp_resolution();
 
-        shader.set_comp_albedo(fbo.tex_color_buffer);
-        shader.set_comp_normal(fbo.tex_normal_buffer);
-        shader.set_comp_depth(fbo.tex_depth_buffer);
+            shader.set_comp_albedo(fbo.tex_color_buffer);
+            shader.set_comp_normal(fbo.tex_normal_buffer);
+            shader.set_comp_depth(fbo.tex_depth_buffer);
+            shader.set_comp_shadow(shadow_buffer_real.shadow_texture);
 
+            mesh.draw();
+        }
+
+        // Finalize with post processing
+        gl.bindFramebuffer(gl.FRAMEBUFFER, 0);
+        gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        shader.use_post_shader();
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, intermediateFBO.tex_color_buffer);
+
+        shader.set_post_resolution();
         mesh.draw();
+
+        // Also now draw the UI on top of everything
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.disable(gl.DEPTH_TEST);
+        try ui.update();
+        ui.draw();
+        gl.enable(gl.DEPTH_TEST);
+
+        try window.draw();
     }
-
-    // Finalize with post processing
-    gl.bindFramebuffer(gl.FRAMEBUFFER, 0);
-    gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    shader.use_post_shader();
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, intermediateFBO.tex_color_buffer);
-
-    shader.set_post_resolution();
-    mesh.draw();
-
-    // Also now draw the UI on top of everything
-
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.disable(gl.DEPTH_TEST);
-    try ui.update();
-    ui.draw();
-    gl.enable(gl.DEPTH_TEST);
-
-    try window.draw();
 }
 
 pub fn clear_color(r: f32, g: f32, b: f32, a: f32) void {
     gl.clearColor(r, g, b, a);
 }
 
-pub fn clear() void {
-    fbo.bind();
-    shader.use_render_shader();
-    gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+pub fn clear(shadow: bool) void {
+    if (shadow) {
+        shadow_buffer_real.bind();
+        gl.viewport(0, 0, ShadowBuffer.SHADOW_SIZE, ShadowBuffer.SHADOW_SIZE);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthMask(gl.TRUE);
+        gl.depthFunc(gl.LESS);
+        gl.clearDepth(1.0);
+        gl.clear(gl.DEPTH_BUFFER_BIT);
+        gl.cullFace(gl.FRONT);
+
+        gl.enable(gl.POLYGON_OFFSET_FILL);
+        gl.polygonOffset(2.0, 4.0);
+    } else {
+        fbo.bind();
+        shader.use_render_shader();
+        gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.cullFace(gl.BACK);
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+    }
 }

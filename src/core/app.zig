@@ -165,11 +165,19 @@ pub fn event_loop() !void {
         // Simulation update w/ input
         try sm.update();
 
+        // Shadow pass
         // Build draw list
-        try sm.draw();
+        try sm.draw(true);
 
         // Commit to GPU and render to screen
-        try gfx.finalize();
+        try gfx.finalize(true);
+
+        // Render pass
+        // Build draw list
+        try sm.draw(false);
+
+        // Commit to GPU and render to screen
+        try gfx.finalize(false);
 
         next_frame_start += frame_time_ns;
 

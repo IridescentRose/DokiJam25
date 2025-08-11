@@ -37,6 +37,6 @@ pub fn update() anyerror!void {
     try curr_state.update();
 }
 
-pub fn draw() anyerror!void {
-    try curr_state.draw();
+pub fn draw(shadow: bool) anyerror!void {
+    try curr_state.draw(shadow);
 }

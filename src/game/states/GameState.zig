@@ -23,15 +23,59 @@ fn update(ctx: *anyopaque) anyerror!void {
     try world.update();
 }
 
+// vec3 sunDirSimple(float t) {
+//     t = fract(t);
+//     float maxAlt = radians(75.0);
+//     float alt = sin(2.0 * PI * (t - 0.25)) * maxAlt;
+//     float az  = (PI * 0.5) + 2.0 * PI * t;
+//     return normalize(vec3(sin(az) * cos(alt), sin(alt), cos(az) * cos(alt)));
+// }
+
+fn sun_dir_simple(t: f32) zm.Vec {
+    const PI: f32 = 3.14159265358979323846;
+    const max_alt: f32 = std.math.degreesToRadians(75.0);
+    const alt = zm.sin(2.0 * PI * (t - 0.25)) * max_alt;
+    const az = (PI * 0.5) + 2.0 * PI * t;
+    return zm.normalize3(zm.Vec{
+        zm.sin(az) * zm.cos(alt),
+        zm.sin(alt),
+        zm.cos(az) * zm.cos(alt),
+        0.0,
+    });
+}
+
 var frame: u32 = 0;
-fn draw(ctx: *anyopaque) anyerror!void {
+fn draw(ctx: *anyopaque, shadow: bool) anyerror!void {
     _ = ctx;
     gfx.clear_color(0, 0, 0, 1);
-    gfx.clear();
-
-    world.draw();
+    gfx.clear(shadow);
 
     const t = @as(f32, @floatFromInt(world.tick % 24000)) / 24000.0;
+
+    // Build light matrices (same as you had)
+    const center_ws = zm.Vec{ world.player.camera.target[0], world.player.camera.target[1], world.player.camera.target[2], 1.0 };
+    const shadow_dist: f32 = 64.0;
+    const dir = -sun_dir_simple(t); // same dir you use for lighting
+    gfx.set_light_dir(dir);
+
+    const up_ws = zm.Vec{ 0, 1, 0, 0 };
+
+    const light_pos = center_ws - dir * @as(zm.Vec, @splat(shadow_dist));
+    const light_view = zm.lookAtRh(light_pos, center_ws, up_ws);
+
+    // IMPORTANT: use the GL variant so NDC.z is [-1..1]
+    const half = 32.0;
+    const nearL = 32.0;
+    const farL = 96.0;
+    const light_proj = zm.orthographicOffCenterRhGl(-half, half, -half, half, nearL, farL);
+
+    // zmath is row-major: compose as V * P (row space)
+    const light_pv_row = zm.mul(light_view, light_proj);
+
+    // Upload transpose so GLSL sees column-major P * V
+    gfx.shader.set_shadow_proj(light_pv_row);
+
+    world.draw(shadow);
     frame += 1;
 
     gfx.shader.use_comp_shader();

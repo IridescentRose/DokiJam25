@@ -434,16 +434,27 @@ pub fn do_damage(self: *Self, amount: u8) void {
     // TODO: Death
 }
 
-pub fn draw(self: *Self) void {
-    gfx.shader.use_render_shader();
+pub fn draw(self: *Self, shadow: bool) void {
+    if (shadow) {
+        gfx.shader.use_shadow_shader();
 
-    self.camera.distance = 5.0 + @as(f32, @floatFromInt(input.scroll_pos)) * 0.5;
-    self.camera.update();
-    self.entity.get_ptr(.transform).pos[1] += player_size[1] + 0.1; // Offset player up a bit so they don't clip into the ground
-    gfx.shader.set_model(self.entity.get(.transform).get_matrix());
-    self.entity.get_ptr(.transform).pos[1] -= player_size[1] + 0.1; // Reset position
-    self.entity.get_ptr(.model).draw();
+        self.camera.distance = 5.0 + @as(f32, @floatFromInt(input.scroll_pos)) * 0.5;
+        self.entity.get_ptr(.transform).pos[1] += player_size[1] + 0.1; // Offset player up a bit so they don't clip into the ground
+        gfx.shader.set_shadow_model(self.entity.get(.transform).get_matrix());
+        self.entity.get_ptr(.transform).pos[1] -= player_size[1] + 0.1; // Reset position
+        self.entity.get_ptr(.model).draw();
+    } else {
+        gfx.shader.use_render_shader();
+        self.camera.update();
 
+        self.camera.distance = 5.0 + @as(f32, @floatFromInt(input.scroll_pos)) * 0.5;
+        self.entity.get_ptr(.transform).pos[1] += player_size[1] + 0.1; // Offset player up a bit so they don't clip into the ground
+        gfx.shader.set_model(self.entity.get(.transform).get_matrix());
+        self.entity.get_ptr(.transform).pos[1] -= player_size[1] + 0.1; // Reset position
+        self.entity.get_ptr(.model).draw();
+    }
+
+    if (shadow) return; // Don't draw UI in shadow pass
     for (0..10) |i| {
         const i_f = @as(f32, @floatFromInt(i));
         const position = [_]f32{ 30.0 + i_f * 42.0, ui.UI_RESOLUTION[1] - 30.0, 2.0 + 0.01 * i_f };

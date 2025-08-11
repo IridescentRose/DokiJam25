@@ -6,7 +6,7 @@ const VTable = struct {
     deinit: *const fn (ctx: *anyopaque) void,
 
     update: *const fn (ctx: *anyopaque) anyerror!void,
-    draw: *const fn (ctx: *anyopaque) anyerror!void,
+    draw: *const fn (ctx: *anyopaque, shadow: bool) anyerror!void,
 };
 
 const Self = @This();
@@ -23,6 +23,6 @@ pub fn update(self: *Self) anyerror!void {
     try self.tab.update(self.ptr);
 }
 
-pub fn draw(self: *Self) anyerror!void {
-    try self.tab.draw(self.ptr);
+pub fn draw(self: *Self, shadow: bool) anyerror!void {
+    try self.tab.draw(self.ptr, shadow);
 }

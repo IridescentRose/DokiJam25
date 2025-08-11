@@ -23,6 +23,9 @@ const post_frag_source = @embedFile("shader_raw/post.frag");
 const ui_vert_source = @embedFile("shader_raw/ui.vert");
 const ui_frag_source = @embedFile("shader_raw/ui.frag");
 
+const shad_vert_source = @embedFile("shader_raw/shadow.vert");
+const shad_frag_source = @embedFile("shader_raw/shadow.frag");
+
 const edit_comp_source = @embedFile("shader_raw/apply_voxel_edit.comp");
 
 var uber: c_uint = 0;
@@ -32,6 +35,10 @@ var ray: c_uint = 0;
 var edit: c_uint = 0;
 var post: c_uint = 0;
 var ui: c_uint = 0;
+var shadow: c_uint = 0;
+
+var shadProjLoc: c_int = 0;
+var shadModelLoc: c_int = 0;
 
 var vpLoc: c_int = 0;
 var modelLoc: c_int = 0;
@@ -57,6 +64,9 @@ var compFrameLoc: c_int = 0; // for dither
 var compGAlbedoLoc: c_int = 0;
 var compGNormalLoc: c_int = 0;
 var compGDepthLoc: c_int = 0;
+var compGShadowLoc: c_int = 0;
+
+var compLightSpaceMatrixLoc: c_int = 0;
 
 var compFogColorLoc: c_int = 0;
 var compFogDensityLoc: c_int = 0;
@@ -124,11 +134,19 @@ pub fn init() !void {
     compGAlbedoLoc = gl.getUniformLocation(comp, "gAlbedo");
     compGNormalLoc = gl.getUniformLocation(comp, "gNormal");
     compGDepthLoc = gl.getUniformLocation(comp, "gDepth");
+    compGShadowLoc = gl.getUniformLocation(comp, "gShadow");
     compFogColorLoc = gl.getUniformLocation(comp, "uFogColor");
     compFogDensityLoc = gl.getUniformLocation(comp, "uFogDensity");
     compCameraPosLoc = gl.getUniformLocation(comp, "cameraPos");
+    compLightSpaceMatrixLoc = gl.getUniformLocation(comp, "uLightSpaceMatrix");
     compViewLoc = gl.getUniformLocation(comp, "uView");
     compProjLoc = gl.getUniformLocation(comp, "uProj");
+
+    const shadow_v = compile_shader(@ptrCast(&shad_vert_source), gl.VERTEX_SHADER);
+    const shadow_f = compile_shader(@ptrCast(&shad_frag_source), gl.FRAGMENT_SHADER);
+    shadow = create_program(shadow_v, shadow_f);
+    shadProjLoc = gl.getUniformLocation(shadow, "uProj");
+    shadModelLoc = gl.getUniformLocation(shadow, "uModel");
 
     const part_v = compile_shader(@ptrCast(&part_vert_source), gl.VERTEX_SHADER);
     const part_f = compile_shader(@ptrCast(&part_frag_source), gl.FRAGMENT_SHADER);
@@ -150,6 +168,7 @@ pub fn init() !void {
     edit = gl.createProgram();
     gl.attachShader(edit, edit_comp);
     gl.linkProgram(edit);
+
     var success: c_uint = 0;
     gl.getProgramiv(edit, gl.LINK_STATUS, @ptrCast(&success));
     if (success == 0) {
@@ -289,6 +308,13 @@ pub fn set_comp_depth(tex: c_uint) void {
     gl.uniform1i(compGDepthLoc, 2);
 }
 
+pub fn set_comp_shadow(tex: c_uint) void {
+    use_comp_shader();
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(compGShadowLoc, 3);
+}
+
 pub fn set_comp_fog_color(color: zm.Vec) void {
     use_comp_shader();
     gl.uniform3f(compFogColorLoc, color[0], color[1], color[2]);
@@ -330,4 +356,24 @@ pub fn use_ui_shader() void {
 pub fn set_ui_proj(matrix: zm.Mat) void {
     use_ui_shader();
     gl.uniformMatrix4fv(uiProjLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_shadow_proj(matrix: zm.Mat) void {
+    set_comp_light_space_matrix(matrix);
+    gl.useProgram(shadow);
+    gl.uniformMatrix4fv(shadProjLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_shadow_model(matrix: zm.Mat) void {
+    gl.useProgram(shadow);
+    gl.uniformMatrix4fv(shadModelLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
+}
+
+pub fn set_comp_light_space_matrix(matrix: zm.Mat) void {
+    use_comp_shader();
+    gl.uniformMatrix4fv(compLightSpaceMatrixLoc, 1, gl.FALSE, zm.arrNPtr(&matrix));
+}
+
+pub fn use_shadow_shader() void {
+    gl.useProgram(shadow);
 }

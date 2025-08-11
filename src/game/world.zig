@@ -628,13 +628,15 @@ pub fn update() !void {
     // try particles.update();
 }
 
-pub fn draw() void {
+pub fn draw(shadow: bool) void {
     ui.clear_sprites();
 
-    chunk_mesh.draw();
+    chunk_mesh.draw(shadow);
 
-    player.draw();
+    player.draw(shadow);
     // particles.draw();
+
+    if (shadow) return; // Don't draw the UI in shadow pass
 
     var buf: [64]u8 = @splat(0);
     const hours: usize = @intCast(tick / TICK_PER_HOUR);

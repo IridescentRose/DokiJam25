@@ -4,11 +4,13 @@ layout(location = 0) out vec4 FragColor;
 uniform sampler2D gAlbedo;
 uniform sampler2D gNormal;
 uniform sampler2D gDepth;
+uniform sampler2D gShadow;
 
 uniform vec2 uResolution;
 
 uniform mat4 uInvProj;     // inverse projection
 uniform mat4 uInvView;     // inverse view
+uniform mat4 uLightSpaceMatrix;
 uniform mat4 uView;
 uniform mat4 uProj;
 
@@ -272,6 +274,48 @@ vec3 godRays(vec2 uv, vec2 sunSS, float sunVis, vec3 sunCol) {
     return sunCol * rays;
 }
 
+
+// -- shadows --
+vec2 rot2(vec2 p, float a) { float c = cos(a), s = sin(a); return vec2(p.x*c - p.y*s, p.x*s + p.y*c); }
+float shadowPCF(vec3 worldPos, vec3 N, vec3 L)
+{
+    // --- 1) normal-bias in *world units* (~1–2 texels)
+    float texelWorld = (2.0 *  32.0) / 1024.0; // assuming 1024 shadow map
+    worldPos += N * (1.6 * texelWorld);
+
+    // --- 2) project to light space
+    vec4 lp  = uLightSpaceMatrix * vec4(worldPos, 1.0);
+    vec3 ndc = lp.xyz / max(lp.w, 1e-6);
+    vec3 ltc = ndc * 0.5 + 0.5;
+
+    // --- 3) outside frustum -> lit
+    if (ltc.x <= 0.0 || ltc.x >= 1.0 || ltc.y <= 0.0 || ltc.y >= 1.0 ||
+        ltc.z <= 0.0 || ltc.z >= 1.0)
+        return 0.0;
+
+    // --- 4) slope-aware depth bias in *shadow depth units*
+    float ndotl = max(dot(N, normalize(L)), 0.0);
+    float depthTexel = 1.0 / max(100.0 - 1.0, 1e-6);
+    float depthBias  = max(0.75 * depthTexel, (1.0 - ndotl) * 3.0 * depthTexel);
+
+    // --- 5) small rotated Poisson PCF (de-grids moiré)
+    vec2 texel = vec2(1.0 / 1024.0, 1.0 / 1024.0); // assuming 1024 shadow map
+    vec2 poisson[8] = vec2[8](
+        vec2(-0.5,-0.1), vec2(-0.1,-0.6), vec2( 0.6,-0.3), vec2( 0.2, 0.5),
+        vec2(-0.4, 0.6), vec2(-0.7, 0.1), vec2( 0.7, 0.7), vec2( 0.0,-0.9)
+    );
+    float a = hash12(ltc.xy * 8192.0) * 6.2831853; // tiny per-pixel rotation
+    float radius = 1.25; // in texels
+
+    float shadow = 0.0;
+    for (int i = 0; i < 8; ++i) {
+        vec2 o = rot2(poisson[i], a) * radius * texel;
+        float zRef = texture(gShadow, ltc.xy + o).r;
+        shadow += (ltc.z - depthBias) > zRef ? 1.0 : 0.0;
+    }
+    return shadow / 8.0; // 0 = lit, 1 = shadow
+}
+
 // --- main ---
 void main() {
     vec2 uv = gl_FragCoord.xy / uResolution;
@@ -311,10 +355,14 @@ void main() {
         float I_moon = night * smoothstep(0.0, 0.12, moonDir.y) * 0.07;
         vec3  moonCol = vec3(0.85, 0.88, 1.0);
 
-        float NdotLs = max(dot(N, normalize(sunDir)), 0.0);
-        float NdotLm = max(dot(N, normalize(moonDir)), 0.0);
+        vec3  Ls = normalize(sunDir);
+        vec3  Lm = normalize(moonDir);
+        float NdotLs = max(dot(N, Ls), 0.0);
+        float NdotLm = max(dot(N, Lm), 0.0);
 
-        vec3 direct = NdotLs * sunCol * I_sun + NdotLm * moonCol * I_moon;
+        // Shadow the sun term (keep moon unshadowed, or add another shadow map if desired)
+        float sh = shadowPCF(worldPos, N, Ls);   // 0..1
+        vec3 direct = (1.0 - sh) * (NdotLs * sunCol * I_sun) + (NdotLm * moonCol * I_moon);
 
         vec3 ambient = skyAmbient(N, sunDir, moonDir, 3.0);
         float dayAmt   = smoothstep(0.02, 0.20, sunDir.y);

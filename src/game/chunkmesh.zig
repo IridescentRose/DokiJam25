@@ -135,13 +135,15 @@ pub fn update_edits(self: *Self, edits: []u64) void {
     gl.memoryBarrier(gl.SHADER_STORAGE_BARRIER_BIT);
 }
 
-pub fn draw(self: *Self) void {
-    shader.use_ray_shader();
-    shader.set_ray_resolution();
-    shader.set_ray_vp(world.player.camera.get_projview_matrix());
-    shader.set_ray_inv_vp(zm.inverse(world.player.camera.get_projview_matrix()));
+pub fn draw(self: *Self, shadow: bool) void {
+    if (!shadow) {
+        shader.use_ray_shader();
+        shader.set_ray_resolution();
+        shader.set_ray_vp(world.player.camera.get_projview_matrix());
+        shader.set_ray_inv_vp(zm.inverse(world.player.camera.get_projview_matrix()));
 
-    gl.bindVertexArray(self.vao);
+        gl.bindVertexArray(self.vao);
 
-    gl.drawElements(gl.TRIANGLES, @intCast(self.indices.items.len), gl.UNSIGNED_INT, null);
+        gl.drawElements(gl.TRIANGLES, @intCast(self.indices.items.len), gl.UNSIGNED_INT, null);
+    }
 }

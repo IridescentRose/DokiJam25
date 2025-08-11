@@ -5,12 +5,14 @@ const zm = @import("zmath");
 const c = @import("../consts.zig");
 const world = @import("../world.zig");
 
-const TERMINAL_VELOCITY = -10.0; // Dragoon terminal velocity
-const GRAVITY = -9.8; // Dragoon is light!
-const MOVE_SPEED = 1.0;
+const TERMINAL_VELOCITY = -50.0;
+const GRAVITY = -32.0;
+const MOVE_SPEED = 3.0;
+const TOMATO_VISION_RANGE = 24.0; // Range at which the tomato can see the player
+const TOMATO_KILL_RANGE = 1.5; // Range at which the tomato can kill the player
 
 pub fn create(position: [3]f32, rotation: [3]f32, model: components.ModelComponent) !ecs.Entity {
-    const entity = try ecs.create_entity(.dragoon);
+    const entity = try ecs.create_entity(.tomato);
 
     // Initialize components
     try entity.add_component(.transform, components.TransformComponent.new());
@@ -31,7 +33,7 @@ pub fn create(position: [3]f32, rotation: [3]f32, model: components.ModelCompone
     return entity;
 }
 
-pub fn update(self: ecs.Entity, dt: f32) void {
+pub fn update(self: ecs.Entity, player_pos: [3]f32, dt: f32) void {
     const mask = self.get(.mask);
     const can_update = mask.transform and mask.velocity and mask.on_ground;
 
@@ -70,6 +72,27 @@ pub fn update(self: ecs.Entity, dt: f32) void {
     if (velocity[0] == 0.0 and velocity[2] == 0.0) {
         velocity[0] = 1.0; // Default to 1.0 in x direction
         velocity[2] = 1.0; // Default to 1.0 in z direction
+    }
+
+    // if player in range, move towards player
+    const player_delta = [_]f32{
+        player_pos[0] - self.get(.transform).pos[0],
+        player_pos[1] - self.get(.transform).pos[1],
+        player_pos[2] - self.get(.transform).pos[2],
+    };
+
+    const dist = player_delta[0] * player_delta[0] + player_delta[1] * player_delta[1] + player_delta[2] * player_delta[2];
+    if (dist < TOMATO_VISION_RANGE * TOMATO_VISION_RANGE) {
+        const norm = zm.normalize3([_]f32{ player_delta[0], 0.0, player_delta[2], 0.0 }) * @as(@Vector(4, f32), @splat(MOVE_SPEED)); // 5 units/sec move speed
+        velocity[0] = norm[0];
+        velocity[2] = norm[2];
+
+        if (dist < TOMATO_KILL_RANGE * TOMATO_KILL_RANGE) {
+            world.player.do_damage(1);
+        }
+
+        // Update rotation based on movement direction
+        self.get_ptr(.transform).rot[1] = std.math.radiansToDegrees(std.math.atan2(velocity[0], velocity[2])) + 180.0;
     }
 
     velocity[1] += GRAVITY * dt;

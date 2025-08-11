@@ -39,6 +39,7 @@ button_hover_tex: u32,
 last_damage: i128,
 dead: bool,
 spawn_pos: [3]f32 = [_]f32{ 0, 0, 0 }, // Where the player spawns
+iframe_time: i128 = 0,
 
 // TODO: make a component so that dragoons can have different inventories
 inventory: Inventory,
@@ -528,11 +529,16 @@ pub fn update(self: *Self) void {
 pub fn do_damage(self: *Self, amount: u8) void {
     const health = self.entity.get_ptr(.health);
     self.last_damage = std.time.nanoTimestamp();
-    if (health.* > 0) {
+    if (health.* > 0 and self.last_damage > self.iframe_time) {
         health.* -|= amount;
+        self.iframe_time = self.last_damage + 250 * std.time.ns_per_ms; // 250ms of invulnerability
     }
 
-    // TODO: Death
+    if (health.* == 0 and !self.dead) {
+        self.dead = true;
+        window.set_relative(false) catch unreachable;
+        std.debug.print("You died!\n", .{});
+    }
 }
 
 pub fn draw(self: *Self, shadow: bool) void {

@@ -13,6 +13,7 @@ const zm = @import("zmath");
 const gfx = @import("../gfx/gfx.zig");
 const Voxel = @import("voxel.zig");
 const Dragoon = @import("ai/dragoon.zig");
+const Tomato = @import("ai/tomato.zig");
 
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
@@ -36,6 +37,7 @@ var edit_list: std.ArrayList(VoxelEdit) = undefined;
 var chunk_freelist: std.ArrayList(usize) = undefined;
 pub var light_pv_row: zm.Mat = undefined;
 var dragoon_model: Voxel = undefined;
+var tomato_model: Voxel = undefined;
 
 // Pause menu
 pub var paused: bool = true;
@@ -113,13 +115,24 @@ pub fn init(seed: u64) !void {
         break;
     }
 
+    // TEST DRAGOON
     const dragoon_tex = try gfx.texture.load_image_from_file("dragoon.png");
     dragoon_model = Voxel.init(dragoon_tex);
     try dragoon_model.build();
 
     var dragoon_pos = player.entity.get(.transform).pos;
-    dragoon_pos[1] += 10.0; // Spawn dragoon a bit above the player
+    dragoon_pos[1] += 4.0; // Spawn dragoon a bit above the player
     _ = try Dragoon.create(dragoon_pos, @splat(0), dragoon_model);
+
+    // TEST TOMATO
+    const tomato_tex = try gfx.texture.load_image_from_file("tomato.png");
+    tomato_model = Voxel.init(tomato_tex);
+    try tomato_model.build();
+
+    var tomato_pos = player.entity.get(.transform).pos;
+    tomato_pos[0] += 10.0; // Spawn tomato a bit in front of the player
+    tomato_pos[1] += 10.0; // Spawn tomato a bit above the player
+    _ = try Tomato.create(tomato_pos, @splat(0), tomato_model);
 
     active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
 
@@ -160,6 +173,7 @@ pub fn deinit() void {
     worldgen.deinit();
 
     dragoon_model.deinit();
+    tomato_model.deinit();
     ecs.deinit();
 
     util.allocator().free(blocks);
@@ -404,16 +418,18 @@ pub fn update() !void {
     for (ecs.active_entities.items) |*entity| {
         const kind = entity.get(.kind);
 
+        // TODO: do not update if out of world boiunds
+        // TODO: This is just a refactor of duplicated logic
         switch (kind) {
             .player => {
                 entity.do_physics(1.0 / 60.0);
             },
             .dragoon => {
-                // TODO: AI
                 Dragoon.update(entity.*, 1.0 / 60.0);
                 entity.do_physics(1.0 / 60.0);
             },
             .tomato => {
+                Tomato.update(entity.*, player.entity.get(.transform).pos, 1.0 / 60.0);
                 entity.do_physics(1.0 / 60.0);
             },
             else => {

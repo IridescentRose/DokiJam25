@@ -29,7 +29,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
     // Forces using DESKTOP OpenGL instead
     try sdl3.hints.set(.opengl_es_driver, "0");
 
-    // Force OpenGL 4.3
+    // Force OpenGL 4.5
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_MINOR_VERSION, 5);
     _ = sdl3.c.SDL_GL_SetAttribute(sdl3.c.SDL_GL_CONTEXT_PROFILE_MASK, sdl3.c.SDL_GL_CONTEXT_PROFILE_CORE);
@@ -40,7 +40,7 @@ pub fn init(width: u32, height: u32, title: [:0]const u8) !void {
     context = window.context();
 
     try gl.load(context, get_context);
-    // try gl.GL_ARB_bindless_texture.load(context, get_context);
+    try gl.GL_ARB_bindless_texture.load(context, get_context);
 
     try shader.init();
 

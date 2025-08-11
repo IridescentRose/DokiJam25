@@ -52,28 +52,32 @@ fn draw(ctx: *anyopaque, shadow: bool) anyerror!void {
 
     const t = @as(f32, @floatFromInt(world.tick % 24000)) / 24000.0;
 
-    // Build light matrices (same as you had)
-    const center_ws = zm.Vec{ world.player.camera.target[0], world.player.camera.target[1], world.player.camera.target[2], 1.0 };
-    const shadow_dist: f32 = 64.0;
-    const dir = -sun_dir_simple(t); // same dir you use for lighting
-    gfx.set_light_dir(dir);
+    // dir points from world to the sun (light points along -dir)
+    const is_day = (t >= 0.25 and t <= 0.75); // Zig uses 'and'
+    const sunDir = sun_dir_simple(t);
+    const moonDir = zm.normalize3(-sunDir); // ≈ opposite of sun
 
-    const up_ws = zm.Vec{ 0, 1, 0, 0 };
+    const dir = -(if (is_day) sunDir else moonDir);
+
+    // Pick a stable up
+    const worldUp = zm.Vec{ 0, 1, 0, 0 };
+    const altUp = zm.Vec{ 0, 0, 1, 0 };
+    const up_ws = if (@abs(dir[1]) > 0.9) altUp else worldUp; // threshold ~ cos(25°)
+
+    const center_ws = zm.Vec{ world.player.camera.target[0], world.player.camera.target[1], world.player.camera.target[2], 1.0 };
+    const shadow_dist: f32 = 32.0;
 
     const light_pos = center_ws - dir * @as(zm.Vec, @splat(shadow_dist));
+
     const light_view = zm.lookAtRh(light_pos, center_ws, up_ws);
 
-    // IMPORTANT: use the GL variant so NDC.z is [-1..1]
     const half = 32.0;
-    const nearL = 32.0;
-    const farL = 96.0;
+    const nearL = 1.0;
+    const farL = 200.0;
     const light_proj = zm.orthographicOffCenterRhGl(-half, half, -half, half, nearL, farL);
 
-    // zmath is row-major: compose as V * P (row space)
-    const light_pv_row = zm.mul(light_view, light_proj);
-
-    // Upload transpose so GLSL sees column-major P * V
-    gfx.shader.set_shadow_proj(light_pv_row);
+    world.light_pv_row = zm.mul(light_view, light_proj);
+    gfx.shader.set_shadow_proj(world.light_pv_row);
 
     world.draw(shadow);
     frame += 1;

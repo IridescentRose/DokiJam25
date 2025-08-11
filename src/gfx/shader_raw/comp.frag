@@ -295,7 +295,7 @@ float shadowPCF(vec3 worldPos, vec3 N, vec3 L)
 
     // --- 4) slope-aware depth bias in *shadow depth units*
     float ndotl = max(dot(N, normalize(L)), 0.0);
-    float depthTexel = 1.0 / max(100.0 - 1.0, 1e-6);
+    float depthTexel = 1.0 / max(200 - 1.0, 1e-6);
     float depthBias  = max(0.75 * depthTexel, (1.0 - ndotl) * 3.0 * depthTexel);
 
     // --- 5) small rotated Poisson PCF (de-grids moiré)
@@ -311,7 +311,7 @@ float shadowPCF(vec3 worldPos, vec3 N, vec3 L)
     for (int i = 0; i < 8; ++i) {
         vec2 o = rot2(poisson[i], a) * radius * texel;
         float zRef = texture(gShadow, ltc.xy + o).r;
-        shadow += (ltc.z - depthBias) > zRef ? 1.0 : 0.0;
+        shadow += (ltc.z - depthBias) >= zRef ? 1.0 : 0.0;
     }
     return shadow / 8.0; // 0 = lit, 1 = shadow
 }
@@ -361,8 +361,9 @@ void main() {
         float NdotLm = max(dot(N, Lm), 0.0);
 
         // Shadow the sun term (keep moon unshadowed, or add another shadow map if desired)
-        float sh = shadowPCF(worldPos, N, Ls);   // 0..1
-        vec3 direct = (1.0 - sh) * (NdotLs * sunCol * I_sun) + (NdotLm * moonCol * I_moon);
+        float sh = shadowPCF(worldPos, N, normalize(sunDir));
+
+        vec3 direct = (1.0 - sh) * (NdotLs * sunCol * I_sun) +  (1.0 - sh) * (NdotLm * moonCol * I_moon);
 
         vec3 ambient = skyAmbient(N, sunDir, moonDir, 3.0);
         float dayAmt   = smoothstep(0.02, 0.20, sunDir.y);

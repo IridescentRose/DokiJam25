@@ -169,6 +169,8 @@ pub fn clear(shadow: bool) void {
 
         gl.enable(gl.POLYGON_OFFSET_FILL);
         gl.polygonOffset(2.0, 4.0);
+        gl.colorMask(gl.FALSE, gl.FALSE, gl.FALSE, gl.FALSE); // no colors
+
     } else {
         fbo.bind();
         shader.use_render_shader();
@@ -176,5 +178,6 @@ pub fn clear(shadow: bool) void {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.cullFace(gl.BACK);
         gl.disable(gl.POLYGON_OFFSET_FILL);
+        gl.colorMask(gl.TRUE, gl.TRUE, gl.TRUE, gl.TRUE);
     }
 }

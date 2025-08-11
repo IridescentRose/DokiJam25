@@ -447,6 +447,7 @@ pub fn draw(self: *Self, shadow: bool) void {
         gfx.shader.use_render_shader();
         self.camera.update();
 
+        gfx.shader.set_projview(self.camera.get_projview_matrix());
         self.camera.distance = 5.0 + @as(f32, @floatFromInt(input.scroll_pos)) * 0.5;
         self.entity.get_ptr(.transform).pos[1] += player_size[1] + 0.1; // Offset player up a bit so they don't clip into the ground
         gfx.shader.set_model(self.entity.get(.transform).get_matrix());

@@ -141,9 +141,17 @@ pub fn draw(self: *Self, shadow: bool) void {
         shader.set_ray_resolution();
         shader.set_ray_vp(world.player.camera.get_projview_matrix());
         shader.set_ray_inv_vp(zm.inverse(world.player.camera.get_projview_matrix()));
-
-        gl.bindVertexArray(self.vao);
-
-        gl.drawElements(gl.TRIANGLES, @intCast(self.indices.items.len), gl.UNSIGNED_INT, null);
+        shader.set_ray_is_shadow_pass(false);
+    } else {
+        shader.use_ray_shader();
+        shader.set_ray_resolution();
+        shader.set_ray_vp(world.light_pv_row);
+        shader.set_ray_inv_vp(zm.inverse(world.light_pv_row));
+        shader.set_ray_is_shadow_pass(true);
+        gl.disable(gl.CULL_FACE);
     }
+
+    gl.bindVertexArray(self.vao);
+    gl.drawElements(gl.TRIANGLES, @intCast(self.indices.items.len), gl.UNSIGNED_INT, null);
+    gl.enable(gl.CULL_FACE);
 }

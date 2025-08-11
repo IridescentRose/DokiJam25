@@ -51,6 +51,7 @@ var partPitchLoc: c_int = 0;
 var rayResolutionLoc: c_int = 0;
 var rayVpLoc: c_int = 0;
 var rayInvVpLoc: c_int = 0;
+var rayIsShadowPassLoc: c_int = 0;
 
 var compResolutionLoc: c_int = 0;
 var compInvProjLoc: c_int = 0;
@@ -158,6 +159,7 @@ pub fn init() !void {
     rayResolutionLoc = gl.getUniformLocation(ray, "uResolution");
     rayVpLoc = gl.getUniformLocation(ray, "uProjView");
     rayInvVpLoc = gl.getUniformLocation(ray, "uInvProjView");
+    rayIsShadowPassLoc = gl.getUniformLocation(ray, "uIsShadowPass");
 
     const post_v = compile_shader(@ptrCast(&post_vert_source), gl.VERTEX_SHADER);
     const post_f = compile_shader(@ptrCast(&post_frag_source), gl.FRAGMENT_SHADER);
@@ -376,4 +378,9 @@ pub fn set_comp_light_space_matrix(matrix: zm.Mat) void {
 
 pub fn use_shadow_shader() void {
     gl.useProgram(shadow);
+}
+
+pub fn set_ray_is_shadow_pass(is_shadow: bool) void {
+    use_ray_shader();
+    gl.uniform1i(rayIsShadowPassLoc, if (is_shadow) 1 else 0);
 }

@@ -9,6 +9,7 @@ const gl = @import("../gfx/gl.zig");
 const ui = @import("../gfx/ui.zig");
 const ecs = @import("entity/ecs.zig");
 const input = @import("../core/input.zig");
+const zm = @import("zmath");
 
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
@@ -30,6 +31,7 @@ var chunk_mesh: ChunkMesh = undefined;
 pub var blocks: []Chunk.Atom = undefined;
 var edit_list: std.ArrayList(VoxelEdit) = undefined;
 var chunk_freelist: std.ArrayList(usize) = undefined;
+pub var light_pv_row: zm.Mat = undefined;
 
 // Pause menu
 pub var paused: bool = true;
@@ -385,7 +387,7 @@ pub fn update() !void {
     }
 
     if (paused) return;
-    tick += 1;
+    tick += 2;
 
     // Rain
     for (0..8) |_| {

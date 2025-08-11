@@ -25,6 +25,7 @@ const TERMINAL_VELOCITY = -50.0;
 const BLOCK_SCALE = 1.0 / @as(f32, c.SUB_BLOCKS_PER_BLOCK);
 const EPSILON = 1e-3;
 const JUMP_VELOCITY = 16.0;
+const MOVE_SPEED = 8.6; // 5 units/sec move speed
 
 tex: gfx.texture.Texture,
 camera: Camera,
@@ -47,10 +48,10 @@ pub fn init() !Self {
     var res: Self = undefined;
 
     res.tex = try gfx.texture.load_image_from_file("doki.png");
-    res.entity = try ecs.create_entity();
+    res.entity = try ecs.create_entity(.player);
 
     var transform = Transform.new();
-    transform.size = [_]f32{ 20.0, 37, 20.0 };
+    transform.size = [_]f32{ 20.0, -4.01, 20.0 };
     transform.scale = @splat(1.0 / 10.0);
 
     var voxel = Voxel.init(res.tex);
@@ -310,6 +311,78 @@ fn pause(ctx: *anyopaque, down: bool) void {
     }
 }
 
+fn set_hotbar_slot1(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    if (!down) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+    self.inventory.hotbarIdx = 0;
+}
+
+fn set_hotbar_slot2(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    if (!down) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+    self.inventory.hotbarIdx = 1;
+}
+
+fn set_hotbar_slot3(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    if (!down) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+    self.inventory.hotbarIdx = 2;
+}
+
+fn set_hotbar_slot4(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    if (!down) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+    self.inventory.hotbarIdx = 3;
+}
+
+fn set_hotbar_slot5(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    if (!down) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+    self.inventory.hotbarIdx = 4;
+}
+
+fn set_hotbar_slot6(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    if (!down) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+    self.inventory.hotbarIdx = 5;
+}
+
+fn set_hotbar_slot7(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    if (!down) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+    self.inventory.hotbarIdx = 6;
+}
+
+fn set_hotbar_slot8(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    if (!down) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+    self.inventory.hotbarIdx = 7;
+}
+
 pub fn register_input(self: *Self) !void {
     try input.register_key_callback(.w, .{
         .ctx = self,
@@ -348,6 +421,46 @@ pub fn register_input(self: *Self) !void {
         .cb = decrement_hotbar,
     });
 
+    try input.register_key_callback(.one, .{
+        .ctx = self,
+        .cb = set_hotbar_slot1,
+    });
+
+    try input.register_key_callback(.two, .{
+        .ctx = self,
+        .cb = set_hotbar_slot2,
+    });
+
+    try input.register_key_callback(.three, .{
+        .ctx = self,
+        .cb = set_hotbar_slot3,
+    });
+
+    try input.register_key_callback(.four, .{
+        .ctx = self,
+        .cb = set_hotbar_slot4,
+    });
+
+    try input.register_key_callback(.five, .{
+        .ctx = self,
+        .cb = set_hotbar_slot5,
+    });
+
+    try input.register_key_callback(.six, .{
+        .ctx = self,
+        .cb = set_hotbar_slot6,
+    });
+
+    try input.register_key_callback(.seven, .{
+        .ctx = self,
+        .cb = set_hotbar_slot7,
+    });
+
+    try input.register_key_callback(.eight, .{
+        .ctx = self,
+        .cb = set_hotbar_slot8,
+    });
+
     input.mouse_relative_handle = .{
         .ctx = self,
         .cb = mouseCb,
@@ -371,15 +484,17 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn update(self: *Self) void {
+
+    // Update camera
+    self.camera.target = self.entity.get(.transform).pos;
+    self.camera.target[1] += player_size[1] + 0.25;
+    self.camera.distance = 5.0 + @as(f32, @floatFromInt(input.scroll_pos)) * 0.5;
+
     const curr_pos = [_]isize{
         @intFromFloat(self.entity.get(.transform).pos[0]),
         @intFromFloat(@max(@min(self.entity.get(.transform).pos[1], 62.0), 0)), // Clamp y to world height
         @intFromFloat(self.entity.get(.transform).pos[2]),
     };
-
-    // Update camera
-    self.camera.target = self.entity.get(.transform).pos;
-    self.camera.target[1] += player_size[1] + 0.25;
 
     if (!world.is_in_world([_]isize{ curr_pos[0] * c.SUB_BLOCKS_PER_BLOCK, curr_pos[1] * c.SUB_BLOCKS_PER_BLOCK, curr_pos[2] * c.SUB_BLOCKS_PER_BLOCK })) return;
 
@@ -398,7 +513,7 @@ pub fn update(self: *Self) void {
     if (self.moving[2]) movement -= right;
     if (self.moving[3]) movement += right;
     if (zm.length3(movement)[0] > 0.1) {
-        movement = zm.normalize3(movement) * @as(@Vector(4, f32), @splat(5.0)); // 5 units/sec move speed
+        movement = zm.normalize3(movement) * @as(@Vector(4, f32), @splat(MOVE_SPEED)); // 5 units/sec move speed
         self.entity.get_ptr(.transform).rot[1] = std.math.radiansToDegrees(std.math.atan2(movement[0], movement[2])) + 180.0;
     }
 
@@ -408,20 +523,6 @@ pub fn update(self: *Self) void {
     vel[2] = movement[2];
     vel[1] += GRAVITY * dt;
     if (vel[1] < TERMINAL_VELOCITY) vel[1] = TERMINAL_VELOCITY;
-
-    // 3) Perform physics
-    var new_pos = [_]f32{
-        self.entity.get(.transform).pos[0] + vel[0] * dt,
-        self.entity.get(.transform).pos[1] + vel[1] * dt,
-        self.entity.get(.transform).pos[2] + vel[2] * dt,
-    };
-
-    self.entity.get(.aabb).collide_aabb_with_world(&new_pos, vel, self.entity.get_ptr(.on_ground));
-    self.entity.get_ptr(.transform).pos = new_pos;
-
-    // Remove any velocity in the x and z directions to prevent sliding
-    vel[0] = 0;
-    vel[2] = 0;
 }
 
 pub fn do_damage(self: *Self, amount: u8) void {
@@ -435,27 +536,10 @@ pub fn do_damage(self: *Self, amount: u8) void {
 }
 
 pub fn draw(self: *Self, shadow: bool) void {
-    if (shadow) {
-        gfx.shader.use_shadow_shader();
-
-        self.camera.distance = 5.0 + @as(f32, @floatFromInt(input.scroll_pos)) * 0.5;
-        self.entity.get_ptr(.transform).pos[1] += player_size[1] + 0.1; // Offset player up a bit so they don't clip into the ground
-        gfx.shader.set_shadow_model(self.entity.get(.transform).get_matrix());
-        self.entity.get_ptr(.transform).pos[1] -= player_size[1] + 0.1; // Reset position
-        self.entity.get_ptr(.model).draw();
-    } else {
-        gfx.shader.use_render_shader();
-        self.camera.update();
-
-        gfx.shader.set_projview(self.camera.get_projview_matrix());
-        self.camera.distance = 5.0 + @as(f32, @floatFromInt(input.scroll_pos)) * 0.5;
-        self.entity.get_ptr(.transform).pos[1] += player_size[1] + 0.1; // Offset player up a bit so they don't clip into the ground
-        gfx.shader.set_model(self.entity.get(.transform).get_matrix());
-        self.entity.get_ptr(.transform).pos[1] -= player_size[1] + 0.1; // Reset position
-        self.entity.get_ptr(.model).draw();
-    }
-
     if (shadow) return; // Don't draw UI in shadow pass
+
+    self.camera.update();
+
     for (0..10) |i| {
         const i_f = @as(f32, @floatFromInt(i));
         const position = [_]f32{ 30.0 + i_f * 42.0, ui.UI_RESOLUTION[1] - 30.0, 2.0 + 0.01 * i_f };

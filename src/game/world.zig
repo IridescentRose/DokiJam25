@@ -10,6 +10,9 @@ const ui = @import("../gfx/ui.zig");
 const ecs = @import("entity/ecs.zig");
 const input = @import("../core/input.zig");
 const zm = @import("zmath");
+const gfx = @import("../gfx/gfx.zig");
+const Voxel = @import("voxel.zig");
+const Dragoon = @import("ai/dragoon.zig");
 
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
@@ -32,6 +35,7 @@ pub var blocks: []Chunk.Atom = undefined;
 var edit_list: std.ArrayList(VoxelEdit) = undefined;
 var chunk_freelist: std.ArrayList(usize) = undefined;
 pub var light_pv_row: zm.Mat = undefined;
+var dragoon_model: Voxel = undefined;
 
 // Pause menu
 pub var paused: bool = true;
@@ -109,6 +113,14 @@ pub fn init(seed: u64) !void {
         break;
     }
 
+    const dragoon_tex = try gfx.texture.load_image_from_file("dragoon.png");
+    dragoon_model = Voxel.init(dragoon_tex);
+    try dragoon_model.build();
+
+    var dragoon_pos = player.entity.get(.transform).pos;
+    dragoon_pos[1] += 10.0; // Spawn dragoon a bit above the player
+    _ = try Dragoon.create(dragoon_pos, @splat(0), dragoon_model);
+
     active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
 
     blocks = try util.allocator().alloc(Chunk.Atom, c.CHUNK_SUBVOXEL_SIZE * c.MAX_CHUNKS);
@@ -147,6 +159,7 @@ pub fn deinit() void {
 
     worldgen.deinit();
 
+    dragoon_model.deinit();
     ecs.deinit();
 
     util.allocator().free(blocks);
@@ -387,6 +400,28 @@ pub fn update() !void {
     }
 
     if (paused) return;
+
+    for (ecs.active_entities.items) |*entity| {
+        const kind = entity.get(.kind);
+
+        switch (kind) {
+            .player => {
+                entity.do_physics(1.0 / 60.0);
+            },
+            .dragoon => {
+                // TODO: AI
+                Dragoon.update(entity.*, 1.0 / 60.0);
+                entity.do_physics(1.0 / 60.0);
+            },
+            .tomato => {
+                entity.do_physics(1.0 / 60.0);
+            },
+            else => {
+                // Other entities can be updated here
+            },
+        }
+    }
+
     tick += 2;
 
     // Rain
@@ -636,6 +671,18 @@ pub fn draw(shadow: bool) void {
     chunk_mesh.draw(shadow);
 
     player.draw(shadow);
+
+    for (ecs.active_entities.items) |*entity| {
+        const kind = entity.get(.kind);
+
+        switch (kind) {
+            // .player => {}, // Player draws itself
+            else => {
+                entity.draw(shadow, player.camera.target);
+            },
+        }
+    }
+
     // particles.draw();
 
     if (shadow) return; // Don't draw the UI in shadow pass

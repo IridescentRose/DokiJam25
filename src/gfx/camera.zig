@@ -8,6 +8,7 @@ target: [3]f32,
 distance: f32,
 pitch: f32,
 yaw: f32,
+fpv: bool = false,
 
 const Self = @This();
 
@@ -22,17 +23,32 @@ pub fn get_projection_matrix(self: *Self) zm.Mat {
 }
 
 pub fn get_view_matrix(self: *Self) zm.Mat {
-    const eye = [_]f32{ self.target[0] + self.distance * std.math.cos(std.math.degreesToRadians(self.pitch)) * std.math.cos(std.math.degreesToRadians(self.yaw)), self.target[1] + self.distance * std.math.sin(std.math.degreesToRadians(self.pitch)), self.target[2] + self.distance * std.math.cos(std.math.degreesToRadians(self.pitch)) * std.math.sin(std.math.degreesToRadians(self.yaw)), 1.0 };
-    const up = [_]f32{ 0, 1, 0, 0 };
+    if (self.fpv) {
+        const yaw = std.math.degreesToRadians(self.yaw - 90);
+        const pitch = std.math.degreesToRadians(self.pitch);
 
-    const target_4 = [_]f32{
-        self.target[0],
-        self.target[1],
-        self.target[2],
-        1.0,
-    };
+        // camera position in world (your "target" seems to be the eye position)
+        const t = zm.translation(-self.target[0], -self.target[1] - 0.5, -self.target[2]);
 
-    return zm.lookAtRh(eye, target_4, up);
+        // apply inverse rotation to the world (note the minus signs)
+        const ry = zm.rotationY(yaw);
+        const rx = zm.rotationX(pitch);
+
+        // Row-vector order: translate first, then yaw, then pitch
+        return zm.mul(zm.mul(t, ry), rx);
+    } else {
+        const eye = [_]f32{ self.target[0] + self.distance * std.math.cos(std.math.degreesToRadians(self.pitch)) * std.math.cos(std.math.degreesToRadians(self.yaw)), self.target[1] + self.distance * std.math.sin(std.math.degreesToRadians(self.pitch)), self.target[2] + self.distance * std.math.cos(std.math.degreesToRadians(self.pitch)) * std.math.sin(std.math.degreesToRadians(self.yaw)), 1.0 };
+        const up = [_]f32{ 0, 1, 0, 0 };
+
+        const target_4 = [_]f32{
+            self.target[0],
+            self.target[1],
+            self.target[2],
+            1.0,
+        };
+
+        return zm.lookAtRh(eye, target_4, up);
+    }
 }
 
 pub fn get_projview_matrix(self: *Self) zm.Mat {

@@ -526,10 +526,6 @@ pub fn update() !void {
                     [_]isize{ atom.coord[0] + 3, atom.coord[1] - 1, atom.coord[2] },
                     [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] - 3 },
                     [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] + 3 },
-                    [_]isize{ atom.coord[0] - 4, atom.coord[1] - 1, atom.coord[2] },
-                    [_]isize{ atom.coord[0] + 4, atom.coord[1] - 1, atom.coord[2] },
-                    [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] - 4 },
-                    [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] + 4 },
                 };
 
                 var found = false;
@@ -696,6 +692,9 @@ pub fn draw(shadow: bool) void {
         const kind = entity.get(.kind);
 
         switch (kind) {
+            .player => {
+                // Player is already drawn
+            },
             else => {
                 entity.draw(shadow, player.camera.target);
             },

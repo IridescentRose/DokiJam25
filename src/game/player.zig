@@ -45,6 +45,11 @@ spawn_pos: [3]f32 = [_]f32{ 0, 0, 0 }, // Where the player spawns
 iframe_time: i128 = 0,
 knockback_vel: [3]f32 = .{ 0, 0, 0 },
 inventory_open: bool = false, // Whether the inventory is open
+block_mode: bool = false, // Whether we are in block mode (can place and break blocks)
+voxel_guide: Voxel = undefined,
+voxel_guide_transform: Transform = undefined,
+voxel_guide_transform_place: Transform = undefined,
+voxel_tex: gfx.texture.Texture,
 
 // TODO: make a component so that dragoons can have different inventories
 inventory: Inventory,
@@ -100,6 +105,14 @@ pub fn init() !Self {
         .material = 258, // Cooked steak,
         .count = 64,
     };
+
+    res.voxel_tex = try gfx.texture.load_image_from_file("dot.png");
+    res.voxel_guide = Voxel.init(res.voxel_tex);
+    res.voxel_guide_transform = Transform.new();
+    res.voxel_guide_transform.size = @splat(-1.0);
+    res.voxel_guide_transform_place = Transform.new();
+    res.block_mode = false;
+    try res.voxel_guide.build();
 
     // TODO: ECS this
     res.knockback_vel = @splat(0);
@@ -174,18 +187,24 @@ fn mouseCb(ctx: *anyopaque, dx: f32, dy: f32) void {
     self.camera.yaw += dx * sensitivity;
     self.camera.pitch += dy * sensitivity;
 
-    if (self.camera.pitch > 60.0) self.camera.pitch = 60.0;
-    if (self.camera.pitch < -60.0) self.camera.pitch = -60.0;
+    if (self.block_mode) {
+        if (self.camera.pitch > 89.0) self.camera.pitch = 89.0;
+        if (self.camera.pitch < -89.0) self.camera.pitch = -89.0;
+    } else {
+        if (self.camera.pitch > 60.0) self.camera.pitch = 60.0;
+        if (self.camera.pitch < -60.0) self.camera.pitch = -60.0;
+    }
 }
 
 fn place_block(self: *Self) void {
-    const coord = [_]f32{ self.entity.get(.transform).pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[1] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[2] * c.SUB_BLOCKS_PER_BLOCK };
+    const coord = [_]isize{
+        @intFromFloat(self.voxel_guide_transform_place.pos[0]),
+        @intFromFloat(self.voxel_guide_transform_place.pos[1]),
+        @intFromFloat(self.voxel_guide_transform_place.pos[2]),
+    };
+    std.debug.print("Coords to break: {d}, {d}, {d}\n", .{ coord[0], coord[1], coord[2] });
 
-    const subvoxel_coord = [3]isize{ @intFromFloat(coord[0]), @intFromFloat(coord[1]), @intFromFloat(coord[2]) };
-    const voxel_coord = [3]isize{ @divFloor(subvoxel_coord[0], c.SUB_BLOCKS_PER_BLOCK), @divFloor(subvoxel_coord[1], c.SUB_BLOCKS_PER_BLOCK), @divFloor(subvoxel_coord[2], c.SUB_BLOCKS_PER_BLOCK) };
-
-    // This is the bottom left corner of the voxel we are looking at
-    const rescaled_subvoxel = [3]isize{ voxel_coord[0] * c.SUB_BLOCKS_PER_BLOCK, voxel_coord[1] * c.SUB_BLOCKS_PER_BLOCK, voxel_coord[2] * c.SUB_BLOCKS_PER_BLOCK };
+    const rescaled_subvoxel = [3]isize{ coord[0] * c.SUB_BLOCKS_PER_BLOCK, coord[1] * c.SUB_BLOCKS_PER_BLOCK, coord[2] * c.SUB_BLOCKS_PER_BLOCK };
 
     const hand = self.inventory.get_hand_slot();
     if (hand.material == 256 or hand.material == 257) {
@@ -349,14 +368,15 @@ fn toggle_inventory(ctx: *anyopaque, down: bool) void {
 }
 
 fn break_block(self: *Self) void {
-    // TODO: Better way of doing this
-    const coord = [_]f32{ self.entity.get(.transform).pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[1] * c.SUB_BLOCKS_PER_BLOCK - 0.05, self.entity.get(.transform).pos[2] * c.SUB_BLOCKS_PER_BLOCK };
-
-    const subvoxel_coord = [3]isize{ @intFromFloat(coord[0]), @intFromFloat(coord[1]), @intFromFloat(coord[2]) };
-    const voxel_coord = [3]isize{ @divFloor(subvoxel_coord[0], c.SUB_BLOCKS_PER_BLOCK), @divFloor(subvoxel_coord[1], c.SUB_BLOCKS_PER_BLOCK), @divFloor(subvoxel_coord[2], c.SUB_BLOCKS_PER_BLOCK) };
-
     // This is the bottom left corner of the voxel we are looking at
-    const rescaled_subvoxel = [3]isize{ voxel_coord[0] * c.SUB_BLOCKS_PER_BLOCK, voxel_coord[1] * c.SUB_BLOCKS_PER_BLOCK, voxel_coord[2] * c.SUB_BLOCKS_PER_BLOCK };
+    const coord = [_]isize{
+        @intFromFloat(self.voxel_guide_transform.pos[0]),
+        @intFromFloat(self.voxel_guide_transform.pos[1]),
+        @intFromFloat(self.voxel_guide_transform.pos[2]),
+    };
+    std.debug.print("Coords to break: {d}, {d}, {d}\n", .{ coord[0], coord[1], coord[2] });
+
+    const rescaled_subvoxel = [3]isize{ coord[0] * c.SUB_BLOCKS_PER_BLOCK, coord[1] * c.SUB_BLOCKS_PER_BLOCK, coord[2] * c.SUB_BLOCKS_PER_BLOCK };
 
     for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
         for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
@@ -547,6 +567,15 @@ fn set_hotbar_slot8(ctx: *anyopaque, down: bool) void {
     self.inventory.hotbarIdx = 7;
 }
 
+fn toggle_break_mode(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    if (down) {
+        const self = util.ctx_to_self(Self, ctx);
+        self.block_mode = !self.block_mode;
+    }
+}
+
 pub fn register_input(self: *Self) !void {
     try input.register_key_callback(.w, .{
         .ctx = self,
@@ -579,6 +608,10 @@ pub fn register_input(self: *Self) !void {
     try input.register_key_callback(.q, .{
         .ctx = self,
         .cb = decrement_hotbar,
+    });
+    try input.register_key_callback(.f, .{
+        .ctx = self,
+        .cb = toggle_break_mode,
     });
 
     try input.register_key_callback(.one, .{
@@ -645,10 +678,162 @@ pub fn register_input(self: *Self) !void {
 }
 
 pub fn deinit(self: *Self) void {
+    self.voxel_guide.deinit();
     self.entity.get_ptr(.model).deinit();
 }
 
+fn signi(x: f32) i32 {
+    return if (x > 0) 1 else if (x < 0) -1 else 0;
+}
+
+fn inf() f32 {
+    return std.math.inf(f32);
+}
+
+fn ray_from_camera_center(view: zm.Mat) struct { origin: [3]f32, dir: [3]f32 } {
+    const inv = zm.inverse(view);
+
+    // Correct order: row-vector * matrix
+    const o4 = zm.mul(zm.f32x4(0.0, 0.0, 0.0, 1.0), inv);
+    const origin: [3]f32 = [_]f32{ o4[0], o4[1], o4[2] };
+
+    // Direction is transformed as a vector (w = 0)
+    const f4 = zm.mul(zm.f32x4(0.0, 0.0, -1.0, 0.0), inv);
+    var dir: [3]f32 = [_]f32{ f4[0], f4[1], f4[2] };
+
+    const len = std.math.sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+    if (len != 0) {
+        dir[0] /= len;
+        dir[1] /= len;
+        dir[2] /= len;
+    }
+    return .{ .origin = origin, .dir = dir };
+}
+
+/// Grid DDA in subvoxel space. Returns subvoxel coords of first solid cell, or null.
+/// DDA in (your current) grid space; returns first solid hit and the last empty cell before it.
+/// Also returns the face normal (grid step) of the hit.
+fn raycast_hit_with_prev(origin_ws: [3]f32, dir_ws: [3]f32, max_dist_ws: f32) ?struct { hit: [3]isize, prev: [3]isize, face: [3]i32 } {
+    const SUB = c.SUB_BLOCKS_PER_BLOCK;
+
+    // --- origin & direction in the same grid the loop uses (your current code) ---
+    const o = [_]f32{ origin_ws[0] * SUB, origin_ws[1] * SUB, origin_ws[2] * SUB };
+
+    var d = [_]f32{ dir_ws[0], dir_ws[1], dir_ws[2] };
+    const dlen = std.math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+    if (dlen == 0) return null;
+    d[0] /= dlen;
+    d[1] /= dlen;
+    d[2] /= dlen;
+
+    var voxel = [_]isize{
+        @intFromFloat(@floor(o[0])),
+        @intFromFloat(@floor(o[1])),
+        @intFromFloat(@floor(o[2])),
+    };
+
+    const step = [_]i32{ signi(d[0]), signi(d[1]), signi(d[2]) };
+
+    var tMax = [_]f32{ inf(), inf(), inf() };
+    var tDel = [_]f32{ inf(), inf(), inf() };
+
+    inline for (0..3) |i| {
+        if (d[i] != 0) {
+            const invDir = 1.0 / d[i];
+            const v_border = if (step[i] > 0)
+                (@as(f32, @floatFromInt(voxel[i])) + 1.0)
+            else
+                (@as(f32, @floatFromInt(voxel[i])));
+            tMax[i] = (v_border - o[i]) * invDir; // param in "voxel units" per your current math
+            tDel[i] = @abs(invDir);
+        }
+    }
+
+    const max_t = max_dist_ws * SUB;
+    const MAX_STEPS: usize = 4096;
+
+    // Track last empty cell and the face normal of the hit
+    var prev_empty = voxel; // initialized to start cell; corrected below if needed
+    var hit_face: [3]i32 = .{ 0, 0, 0 };
+
+    // If we start inside solid: report this voxel as hit, and synthesize prev by stepping back
+    if (world.is_in_world(voxel) and world.get_voxel(voxel) != .Air) {
+        // Choose the axis you would cross first, then step one cell backward along that axis
+        var axis: usize = 0;
+        if (tMax[1] < tMax[axis]) axis = 1;
+        if (tMax[2] < tMax[axis]) axis = 2;
+
+        prev_empty = .{ voxel[0] - step[axis], voxel[1] - step[1], voxel[2] - step[2] };
+        hit_face = .{ step[0], step[1], step[2] };
+        return .{ .hit = voxel, .prev = prev_empty, .face = hit_face };
+    }
+
+    var t: f32 = 0.0;
+    var step_count: usize = 0;
+    while (step_count < MAX_STEPS and t <= max_t) : (step_count += 1) {
+        // choose axis
+        var axis: usize = 0;
+        if (tMax[1] < tMax[axis]) axis = 1;
+        if (tMax[2] < tMax[axis]) axis = 2;
+
+        // advance
+        t = tMax[axis];
+        tMax[axis] += tDel[axis];
+
+        // record the empty cell we were in before stepping
+        prev_empty = voxel;
+
+        voxel[axis] += step[axis];
+        if (t > max_t or !world.is_in_world(voxel)) break;
+
+        if (world.get_voxel(voxel) != .Air) {
+            // Hit! prev_empty is the placement cell. Face normal is the step direction.
+            hit_face = .{ 0, 0, 0 };
+            hit_face[axis] = step[axis];
+            return .{ .hit = voxel, .prev = prev_empty, .face = hit_face };
+        }
+    }
+    return null;
+}
+
+pub fn place_voxel_guide(self: *Self) void {
+    if (!self.block_mode) {
+        self.voxel_guide_transform.pos = .{ 0, -1000, 0 };
+        return;
+    }
+
+    const view = self.camera.get_view_matrix();
+    const ray = ray_from_camera_center(view);
+    const MAX_REACH: f32 = 16.0;
+
+    const result = raycast_hit_with_prev(ray.origin, ray.dir, MAX_REACH);
+    if (result) |rp| {
+        self.voxel_guide_transform.pos = .{
+            @floor(@as(f32, @floatFromInt(rp.hit[0])) / c.SUB_BLOCKS_PER_BLOCK),
+            @floor(@as(f32, @floatFromInt(rp.hit[1])) / c.SUB_BLOCKS_PER_BLOCK),
+            @floor(@as(f32, @floatFromInt(rp.hit[2])) / c.SUB_BLOCKS_PER_BLOCK),
+        };
+        self.voxel_guide_transform_place.pos = .{
+            @floor(@as(f32, @floatFromInt(rp.prev[0])) / c.SUB_BLOCKS_PER_BLOCK),
+            @floor(@as(f32, @floatFromInt(rp.prev[1])) / c.SUB_BLOCKS_PER_BLOCK),
+            @floor(@as(f32, @floatFromInt(rp.prev[2])) / c.SUB_BLOCKS_PER_BLOCK),
+        };
+        self.voxel_guide_transform.scale = @splat(1.02);
+    } else {
+        self.voxel_guide_transform.pos = .{ 0, -1000, 0 };
+        self.voxel_guide_transform_place.pos = .{ 0, -1000, 0 };
+    }
+}
+
 pub fn update(self: *Self) void {
+    self.place_voxel_guide();
+
+    if (self.block_mode) {
+        self.camera.fpv = true;
+    } else {
+        self.camera.fpv = false;
+    }
+
     // Update camera
     self.camera.target = self.entity.get(.transform).pos;
     self.camera.target[1] += player_size[1] + 0.25;
@@ -719,7 +904,28 @@ pub fn do_damage(self: *Self, amount: u8, direction: [3]f32) void {
 }
 
 pub fn draw(self: *Self, shadow: bool) void {
+    if (!self.block_mode) {
+        if (shadow) {
+            gfx.shader.use_shadow_shader();
+            gfx.shader.set_shadow_model(self.entity.get(.transform).get_matrix());
+            self.entity.get_ptr(.model).draw();
+        } else {
+            gfx.shader.use_render_shader();
+            gfx.shader.set_model(self.entity.get(.transform).get_matrix());
+            self.entity.get_ptr(.model).draw();
+        }
+    }
+
     if (shadow) return; // Don't draw UI in shadow pass
+
+    self.voxel_guide_transform.pos[0] -= 0.01;
+    self.voxel_guide_transform.pos[1] -= 0.01;
+    self.voxel_guide_transform.pos[2] -= 0.01;
+    gfx.shader.set_model(self.voxel_guide_transform.get_matrix());
+    self.voxel_guide_transform.pos[0] += 0.01;
+    self.voxel_guide_transform.pos[1] += 0.01;
+    self.voxel_guide_transform.pos[2] += 0.01;
+    self.voxel_guide.draw();
 
     self.camera.update();
 

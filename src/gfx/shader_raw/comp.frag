@@ -365,6 +365,26 @@ void main() {
 
         vec3 direct = (1.0 - sh) * (NdotLs * sunCol * I_sun) +  (1.0 - sh) * (NdotLm * moonCol * I_moon);
 
+        // --- dull specular (broad, low-intensity) ---
+        // Blinn-Phong with small Fresnel F0; wide lobe (low shininess)
+        vec3  Hs   = normalize(Ls + V);
+        vec3  Hm   = normalize(Lm + V);
+        float nhs  = max(dot(N, Hs), 0.0);
+        float nhm  = max(dot(N, Hm), 0.0);
+        float shininess = 8.0;            // wide lobe -> dull
+        float specS = pow(nhs, shininess);
+        float specM = pow(nhm, shininess);
+        // tiny Fresnel so it’s visible at grazing but never shiny
+        float F0 = 0.02;
+        float nv = max(dot(N, V), 0.0);
+        float fres = F0 + (1.0 - F0) * pow(1.0 - nv, 5.0);
+        // color/energy: lit only where the light is (sun is shadowed)
+        vec3 specular =
+            (1.0 - sh) * specS * sunCol * I_sun +
+                         specM * moonCol * I_moon;
+        // master strength kept very low
+        specular *= fres * 0.08;
+
         vec3 ambient = skyAmbient(N, sunDir, moonDir, 3.0);
         float dayAmt   = smoothstep(0.02, 0.20, sunDir.y);
         float nightAmt = 1.0 - dayAmt;
@@ -375,7 +395,7 @@ void main() {
         vec3 nightFloor = vec3(0.02, 0.025, 0.035);
         ambient += nightFloor * nightAmt;
 
-        lit_color = albedo * (direct + ambient);
+        lit_color = albedo * (direct + ambient) + specular;
 
         // --- screen-space god rays ---
         // Sun world point far away along direction (Directional light proxy)

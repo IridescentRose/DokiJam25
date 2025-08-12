@@ -526,6 +526,10 @@ pub fn update() !void {
                     [_]isize{ atom.coord[0] + 3, atom.coord[1] - 1, atom.coord[2] },
                     [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] - 3 },
                     [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] + 3 },
+                    [_]isize{ atom.coord[0] - 4, atom.coord[1] - 1, atom.coord[2] },
+                    [_]isize{ atom.coord[0] + 4, atom.coord[1] - 1, atom.coord[2] },
+                    [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] - 4 },
+                    [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] + 4 },
                 };
 
                 var found = false;

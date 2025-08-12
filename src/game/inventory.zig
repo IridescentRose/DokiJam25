@@ -3,7 +3,7 @@ const Chunk = @import("chunk.zig");
 const Self = @This();
 
 pub const Slot = struct {
-    material: Chunk.AtomKind,
+    material: u16,
     count: u16,
 };
 
@@ -12,8 +12,8 @@ pub const MAX_SLOTS = 32;
 pub const HOTBAR_SIZE = 8;
 
 hotbarIdx: u8 = 0,
-slots: [MAX_SLOTS]Slot = @splat(.{ .material = .Air, .count = 0 }),
-mouse_slot: Slot = .{ .material = .Air, .count = 0 },
+slots: [MAX_SLOTS]Slot = @splat(.{ .material = 0, .count = 0 }),
+mouse_slot: Slot = .{ .material = 0, .count = 0 },
 
 pub fn new() Self {
     return Self{};
@@ -34,7 +34,7 @@ pub fn decrement_hotbar(self: *Self) void {
 pub fn remove_item_hand(self: *Self) bool {
     const slot = self.get_hand_slot();
 
-    if (slot.material == .Air) return false;
+    if (slot.material == 0) return false;
     if (slot.count == 0) return false;
 
     return true;
@@ -53,7 +53,7 @@ pub fn add_item_inventory(self: *Self, to_add: Slot) usize {
             total_added += added;
         }
 
-        if (self.slots[i].material == .Air) {
+        if (self.slots[i].material == 0) {
             const added = @min(to_add.count - total_added, MAX_ITEMS_PER_SLOT);
             self.slots[i].material = to_add.material;
             self.slots[i].count = added;

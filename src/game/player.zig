@@ -38,6 +38,7 @@ dmg_tex: u32,
 button_tex: u32,
 button_hover_tex: u32,
 block_item_tex: u32,
+item_tex: u32,
 last_damage: i128,
 dead: bool,
 spawn_pos: [3]f32 = [_]f32{ 0, 0, 0 }, // Where the player spawns
@@ -86,10 +87,19 @@ pub fn init() !Self {
     res.button_tex = try ui.load_ui_texture("button.png");
     res.button_hover_tex = try ui.load_ui_texture("button_hover.png");
     res.block_item_tex = try ui.load_ui_texture("b_items.png");
+    res.item_tex = try ui.load_ui_texture("items.png");
     res.last_damage = 0;
     res.moving = @splat(false);
     // TODO: ECS this
     res.inventory = Inventory.new();
+    res.inventory.slots[0] = .{
+        .material = 257, // Cooked steak,
+        .count = 64,
+    };
+    res.inventory.slots[1] = .{
+        .material = 258, // Cooked steak,
+        .count = 64,
+    };
 
     // TODO: ECS this
     res.knockback_vel = @splat(0);
@@ -177,6 +187,21 @@ fn place_block(self: *Self) void {
     // This is the bottom left corner of the voxel we are looking at
     const rescaled_subvoxel = [3]isize{ voxel_coord[0] * c.SUB_BLOCKS_PER_BLOCK, voxel_coord[1] * c.SUB_BLOCKS_PER_BLOCK, voxel_coord[2] * c.SUB_BLOCKS_PER_BLOCK };
 
+    const hand = self.inventory.get_hand_slot();
+    if (hand.material == 256 or hand.material == 257) {
+        // FOOD EATING
+        // TODO: MOVE THIS
+        self.entity.get_ptr(.health).* += @intCast(4 * (hand.material - 255)); // Heal 2-4 hearts on meat
+        if (self.entity.get_ptr(.health).* > 20) {
+            self.entity.get_ptr(.health).* = 20; // Clamp to max health
+        }
+        hand.count -= 1;
+        if (hand.count == 0) {
+            hand.material = 0; // Remove item from hand
+        }
+    }
+
+    var sub_hand = true;
     for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
         for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
             for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
@@ -188,13 +213,32 @@ fn place_block(self: *Self) void {
                 const voxel = world.get_voxel(test_coord);
                 if (voxel == .Air) {
                     const stidx = blocks.stencil_index([3]usize{ x, y, z });
-                    const hand = self.inventory.get_hand_slot();
 
-                    if (hand.count > 0) {
-                        const stencil = blocks.registry[@intFromEnum(hand.material)];
-                        if (world.set_voxel(test_coord, stencil[stidx])) {
-                            hand.count -= 1;
-                            if (hand.count == 0) hand.material = .Air;
+                    if (hand.count > 0 and (hand.material < 256 or hand.material == 258)) { // Don't place items that are not blocks (will have exceptions later)
+
+                        if (hand.material == 258) {
+                            // Matches light fire.
+                            if (world.set_voxel(test_coord, .{
+                                .material = .Fire,
+                                .color = [_]u8{ 0xFF, 0x81, 0x42 },
+                            })) {
+                                if (sub_hand) {
+                                    sub_hand = false;
+                                    hand.count -= 1;
+                                    if (hand.count == 0) hand.material = 0;
+                                }
+
+                                world.active_atoms.append(.{
+                                    .coord = test_coord,
+                                    .moves = 255,
+                                }) catch break;
+                            }
+                        } else {
+                            const stencil = blocks.registry[hand.material];
+                            if (world.set_voxel(test_coord, stencil[stidx])) {
+                                hand.count -= 1;
+                                if (hand.count == 0) hand.material = 0;
+                            }
                         }
                     } else {
                         break;
@@ -229,15 +273,15 @@ fn right_click(ctx: *anyopaque, down: bool) void {
             const slot_idx = slot_y + slot_x * Inventory.HOTBAR_SIZE;
             std.debug.print("Clicked on inventory slot index: {d}\n", .{slot_idx});
 
-            if (self.inventory.slots[slot_idx].material != .Air) {
-                if (self.inventory.mouse_slot.material == .Air or
+            if (self.inventory.slots[slot_idx].material != 0) {
+                if (self.inventory.mouse_slot.material == 0 or
                     self.inventory.slots[slot_idx].material == self.inventory.mouse_slot.material)
                 {
                     // Move half from slot to mouse
                     const amount = self.inventory.slots[slot_idx].count / 2;
                     self.inventory.slots[slot_idx].count -= amount;
-                    if (self.inventory.slots[slot_idx].count == 0) self.inventory.slots[slot_idx].material = .Air;
-                    if (self.inventory.mouse_slot.material == .Air) {
+                    if (self.inventory.slots[slot_idx].count == 0) self.inventory.slots[slot_idx].material = 0;
+                    if (self.inventory.mouse_slot.material == 0) {
                         self.inventory.mouse_slot.material = self.inventory.slots[slot_idx].material;
                     }
                     self.inventory.mouse_slot.count += amount;
@@ -336,7 +380,7 @@ fn break_block(self: *Self) void {
                             mat = .Dirt;
                         }
 
-                        const amt = self.inventory.add_item_inventory(.{ .material = mat, .count = 1 });
+                        const amt = self.inventory.add_item_inventory(.{ .material = @intFromEnum(mat), .count = 1 });
                         if (amt == 0) {
                             std.debug.print("Inventory full, could not add item: {s}\n", .{@tagName(atom_type)});
                             std.debug.print("Tried to add item at coord: {d}, {d}, {d}\n", .{ test_coord[0], test_coord[1], test_coord[2] });
@@ -381,11 +425,11 @@ fn left_click(ctx: *anyopaque, down: bool) void {
 
             const slot_idx = slot_y + slot_x * Inventory.HOTBAR_SIZE;
 
-            if (self.inventory.mouse_slot.material != .Air) {
-                if (self.inventory.slots[slot_idx].material == .Air) {
+            if (self.inventory.mouse_slot.material != 0) {
+                if (self.inventory.slots[slot_idx].material == 0) {
                     // Just place all
                     self.inventory.slots[slot_idx] = self.inventory.mouse_slot;
-                    self.inventory.mouse_slot = .{ .material = .Air, .count = 0 };
+                    self.inventory.mouse_slot = .{ .material = 0, .count = 0 };
                 } else if (self.inventory.slots[slot_idx].material == self.inventory.mouse_slot.material) {
                     // Move as many as possible
                     const amt = @min(self.inventory.mouse_slot.count, Inventory.MAX_ITEMS_PER_SLOT - self.inventory.slots[slot_idx].count);
@@ -393,14 +437,14 @@ fn left_click(ctx: *anyopaque, down: bool) void {
                     self.inventory.slots[slot_idx].count += amt;
 
                     if (self.inventory.mouse_slot.count == 0) {
-                        self.inventory.mouse_slot.material = .Air;
+                        self.inventory.mouse_slot.material = 0;
                     }
                 }
             } else {
                 // We're empty, take everything from the clicked slot
-                if (self.inventory.slots[slot_idx].material != .Air) {
+                if (self.inventory.slots[slot_idx].material != 0) {
                     self.inventory.mouse_slot = self.inventory.slots[slot_idx];
-                    self.inventory.slots[slot_idx] = .{ .material = .Air, .count = 0 };
+                    self.inventory.slots[slot_idx] = .{ .material = 0, .count = 0 };
                 }
             }
         }
@@ -722,21 +766,28 @@ pub fn draw(self: *Self, shadow: bool) void {
 
         const item = self.inventory.slots[j];
 
-        if (item.count > 0 and item.material != .Air) {
+        if (item.count > 0 and item.material != 0) {
             const item_pos = [_]f32{ hotbar_slot_pos[0], hotbar_slot_pos[1], hotbar_slot_pos[2] + 0.01 };
+
+            var tex = self.block_item_tex;
+
+            var buf: [8]u8 = @splat(0);
+            var count = if (item.count / 128 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{item.count / 128}) catch "ERR" else "<1";
+            if (item.material > 256) {
+                tex = self.item_tex;
+                // If it's an item, the count is going to be the full count, not divided by 128
+                count = std.fmt.bufPrint(buf[0..], "{d}", .{item.count}) catch "ERR";
+            }
 
             ui.add_sprite(.{
                 .color = [_]u8{ 255, 255, 255, 255 },
                 .offset = item_pos,
                 .scale = [_]f32{ 48.0, 48.0 },
-                .tex_id = self.block_item_tex,
-                .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(@intFromEnum(item.material) % 16)), 15.0 / 16.0 },
+                .tex_id = tex,
+                .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(item.material % 16)), 15.0 / 16.0 },
                 .uv_scale = @splat(1.0 / 16.0),
             }) catch unreachable;
 
-            var buf: [8]u8 = @splat(0);
-
-            const count = if (item.count / 128 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{item.count / 128}) catch "ERR" else "<1";
             ui.add_text(
                 count,
                 [_]f32{ item_pos[0] + 20.0, item_pos[1] - 20.0 },
@@ -763,21 +814,28 @@ pub fn draw(self: *Self, shadow: bool) void {
 
                 const item = self.inventory.slots[j + (k + 1) * Inventory.HOTBAR_SIZE];
 
-                if (item.count > 0 and item.material != .Air) {
+                if (item.count > 0 and item.material != 0) {
                     const item_pos = [_]f32{ hotbar_slot_pos[0], hotbar_slot_pos[1], hotbar_slot_pos[2] + 0.01 };
+
+                    var tex = self.block_item_tex;
+
+                    var buf: [8]u8 = @splat(0);
+                    var count = if (item.count / 128 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{item.count / 128}) catch "ERR" else "<1";
+                    if (item.material > 256) {
+                        tex = self.item_tex;
+                        // If it's an item, the count is going to be the full count, not divided by 128
+                        count = std.fmt.bufPrint(buf[0..], "{d}", .{item.count}) catch "ERR";
+                    }
 
                     ui.add_sprite(.{
                         .color = [_]u8{ 255, 255, 255, 255 },
                         .offset = item_pos,
                         .scale = [_]f32{ 48.0, 48.0 },
-                        .tex_id = self.block_item_tex,
-                        .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(@intFromEnum(item.material) % 16)), 15.0 / 16.0 },
+                        .tex_id = tex,
+                        .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(item.material % 16)), 15.0 / 16.0 },
                         .uv_scale = @splat(1.0 / 16.0),
                     }) catch unreachable;
 
-                    var buf: [8]u8 = @splat(0);
-
-                    const count = if (item.count / 128 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{item.count / 128}) catch "ERR" else "<1";
                     ui.add_text(
                         count,
                         [_]f32{ item_pos[0] + 20.0, item_pos[1] - 20.0 },

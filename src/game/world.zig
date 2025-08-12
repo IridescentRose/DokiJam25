@@ -678,7 +678,7 @@ pub fn update() !void {
         try active_atoms.appendSlice(new_active_atoms.items);
     }
 
-    // try particles.update();
+    try particles.update();
 }
 
 pub fn draw(shadow: bool) void {
@@ -698,7 +698,7 @@ pub fn draw(shadow: bool) void {
         }
     }
 
-    // particles.draw();
+    particles.draw();
 
     if (shadow) return; // Don't draw the UI in shadow pass
 

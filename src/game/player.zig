@@ -26,6 +26,7 @@ const BLOCK_SCALE = 1.0 / @as(f32, c.SUB_BLOCKS_PER_BLOCK);
 const EPSILON = 1e-3;
 const JUMP_VELOCITY = 16.0;
 const MOVE_SPEED = 8.6; // 5 units/sec move speed
+const KNOCKBACK_STRENGTH = 24.0;
 
 tex: gfx.texture.Texture,
 camera: Camera,
@@ -40,6 +41,7 @@ last_damage: i128,
 dead: bool,
 spawn_pos: [3]f32 = [_]f32{ 0, 0, 0 }, // Where the player spawns
 iframe_time: i128 = 0,
+knockback_vel: [3]f32 = .{ 0, 0, 0 },
 
 // TODO: make a component so that dragoons can have different inventories
 inventory: Inventory,
@@ -83,7 +85,11 @@ pub fn init() !Self {
     res.button_hover_tex = try ui.load_ui_texture("button_hover.png");
     res.last_damage = 0;
     res.moving = @splat(false);
+    // TODO: ECS this
     res.inventory = Inventory.new();
+
+    // TODO: ECS this
+    res.knockback_vel = @splat(0);
     res.dead = false;
 
     return res;
@@ -97,7 +103,7 @@ fn hitYourself(ctx: *anyopaque, down: bool) void {
     if (!down) return;
 
     const self = util.ctx_to_self(Self, ctx);
-    self.do_damage(1);
+    self.do_damage(1, [_]f32{ 0, 1, 0 });
 
     if (self.entity.get(.health) == 0) {
         self.dead = true;
@@ -520,18 +526,29 @@ pub fn update(self: *Self) void {
 
     // 2) Prepare new velocity
     var vel = self.entity.get_ptr(.velocity);
-    vel[0] = movement[0];
-    vel[2] = movement[2];
-    vel[1] += GRAVITY * dt;
+    vel[0] = movement[0] + self.knockback_vel[0];
+    vel[2] = movement[2] + self.knockback_vel[2];
+    vel[1] += GRAVITY * dt + self.knockback_vel[1] * 1.0 / KNOCKBACK_STRENGTH;
+
     if (vel[1] < TERMINAL_VELOCITY) vel[1] = TERMINAL_VELOCITY;
+
+    const decay = std.math.exp(-4.0 * dt);
+    self.knockback_vel[0] *= decay;
+    self.knockback_vel[1] *= decay;
+    self.knockback_vel[2] *= decay;
 }
 
-pub fn do_damage(self: *Self, amount: u8) void {
+pub fn do_damage(self: *Self, amount: u8, direction: [3]f32) void {
     const health = self.entity.get_ptr(.health);
+
     self.last_damage = std.time.nanoTimestamp();
     if (health.* > 0 and self.last_damage > self.iframe_time) {
         health.* -|= amount;
         self.iframe_time = self.last_damage + 250 * std.time.ns_per_ms; // 250ms of invulnerability
+
+        const damage_dir = zm.Vec{ direction[0], direction[1], direction[2], 0 };
+        const normalized_dir = zm.normalize3(damage_dir);
+        self.knockback_vel = [_]f32{ normalized_dir[0] * KNOCKBACK_STRENGTH, (normalized_dir[1] + 1) * KNOCKBACK_STRENGTH, normalized_dir[2] * KNOCKBACK_STRENGTH }; // Knockback
     }
 
     if (health.* == 0 and !self.dead) {
@@ -601,11 +618,11 @@ pub fn draw(self: *Self, shadow: bool) void {
     // DMG FLASH
     const time_since_last_damage = @divTrunc(std.time.nanoTimestamp() - self.last_damage, std.time.ns_per_ms);
 
-    if (time_since_last_damage <= 255) {
+    if (time_since_last_damage <= 127) {
         const alpha: u8 = @intCast(time_since_last_damage);
 
         ui.add_sprite(.{
-            .color = [_]u8{ 255, 255, 255, 255 - alpha },
+            .color = [_]u8{ 255, 255, 255, 255 -| alpha * 2 },
             .offset = [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2, 3.0 },
             .scale = ui.UI_RESOLUTION,
             .tex_id = self.dmg_tex,

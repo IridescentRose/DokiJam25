@@ -422,7 +422,20 @@ pub fn update() !void {
         // TODO: This is just a refactor of duplicated logic
         switch (kind) {
             .player => {
+                if (!entity.get(.on_ground)) {
+                    entity.get_ptr(.velocity)[0] *= 0.1;
+                    entity.get_ptr(.velocity)[2] *= 0.1;
+                }
                 entity.do_physics(1.0 / 60.0);
+
+                if (entity.get(.on_ground)) {
+                    entity.get_ptr(.velocity)[0] *= 0.1;
+                    entity.get_ptr(.velocity)[2] *= 0.1;
+                } else {
+                    // Apply air resistance
+                    entity.get_ptr(.velocity)[0] *= 0.99;
+                    entity.get_ptr(.velocity)[2] *= 0.99;
+                }
             },
             .dragoon => {
                 Dragoon.update(entity.*, 1.0 / 60.0);
@@ -692,7 +705,6 @@ pub fn draw(shadow: bool) void {
         const kind = entity.get(.kind);
 
         switch (kind) {
-            // .player => {}, // Player draws itself
             else => {
                 entity.draw(shadow, player.camera.target);
             },

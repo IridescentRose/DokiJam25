@@ -88,7 +88,7 @@ pub fn update(self: ecs.Entity, player_pos: [3]f32, dt: f32) void {
         velocity[2] = norm[2];
 
         if (dist < TOMATO_KILL_RANGE * TOMATO_KILL_RANGE) {
-            world.player.do_damage(1);
+            world.player.do_damage(1, player_delta);
         }
 
         // Update rotation based on movement direction

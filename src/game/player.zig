@@ -37,11 +37,13 @@ hotbar_select_tex: u32,
 dmg_tex: u32,
 button_tex: u32,
 button_hover_tex: u32,
+block_item_tex: u32,
 last_damage: i128,
 dead: bool,
 spawn_pos: [3]f32 = [_]f32{ 0, 0, 0 }, // Where the player spawns
 iframe_time: i128 = 0,
 knockback_vel: [3]f32 = .{ 0, 0, 0 },
+inventory_open: bool = false, // Whether the inventory is open
 
 // TODO: make a component so that dragoons can have different inventories
 inventory: Inventory,
@@ -83,6 +85,7 @@ pub fn init() !Self {
     res.hotbar_select_tex = try ui.load_ui_texture("selector.png");
     res.button_tex = try ui.load_ui_texture("button.png");
     res.button_hover_tex = try ui.load_ui_texture("button_hover.png");
+    res.block_item_tex = try ui.load_ui_texture("b_items.png");
     res.last_damage = 0;
     res.moving = @splat(false);
     // TODO: ECS this
@@ -90,6 +93,7 @@ pub fn init() !Self {
 
     // TODO: ECS this
     res.knockback_vel = @splat(0);
+    res.inventory_open = false;
     res.dead = false;
 
     return res;
@@ -164,13 +168,7 @@ fn mouseCb(ctx: *anyopaque, dx: f32, dy: f32) void {
     if (self.camera.pitch < -60.0) self.camera.pitch = -60.0;
 }
 
-fn right_click(ctx: *anyopaque, down: bool) void {
-    if (!down) return;
-    if (world.paused and !debugging_pause) return;
-
-    const self = util.ctx_to_self(Self, ctx);
-    if (self.dead) return;
-
+fn place_block(self: *Self) void {
     const coord = [_]f32{ self.entity.get(.transform).pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[1] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[2] * c.SUB_BLOCKS_PER_BLOCK };
 
     const subvoxel_coord = [3]isize{ @intFromFloat(coord[0]), @intFromFloat(coord[1]), @intFromFloat(coord[2]) };
@@ -205,6 +203,17 @@ fn right_click(ctx: *anyopaque, down: bool) void {
             }
         }
     }
+}
+
+fn right_click(ctx: *anyopaque, down: bool) void {
+    if (!down) return;
+    if (world.paused and !debugging_pause) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+    if (self.dead) return;
+    if (self.inventory_open) unreachable;
+
+    self.place_block();
 }
 
 fn pause_mouse() void {
@@ -246,15 +255,21 @@ fn deadmau5(self: *Self) void {
     }
 }
 
-fn left_click(ctx: *anyopaque, down: bool) void {
-    if (!down) return;
+fn toggle_inventory(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
 
-    if (world.paused and !debugging_pause and down) pause_mouse();
+    if (down) {
+        const self = util.ctx_to_self(Self, ctx);
+        self.inventory_open = !self.inventory_open;
+        if (self.inventory_open) {
+            window.set_relative(false) catch unreachable;
+        } else {
+            window.set_relative(true) catch unreachable;
+        }
+    }
+}
 
-    const self = util.ctx_to_self(Self, ctx);
-
-    if (down and self.dead) self.deadmau5();
-
+fn break_block(self: *Self) void {
     // TODO: Better way of doing this
     const coord = [_]f32{ self.entity.get(.transform).pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[1] * c.SUB_BLOCKS_PER_BLOCK - 0.05, self.entity.get(.transform).pos[2] * c.SUB_BLOCKS_PER_BLOCK };
 
@@ -273,15 +288,27 @@ fn left_click(ctx: *anyopaque, down: bool) void {
 
                 const test_coord = [3]isize{ rescaled_subvoxel[0] + ix, rescaled_subvoxel[1] + iy, rescaled_subvoxel[2] + iz };
                 const voxel = world.get_voxel(test_coord);
-                if (voxel != .Air) {
-                    const atom_type = voxel;
-                    const amt = self.inventory.add_item_inventory(.{ .material = atom_type, .count = 1 });
 
-                    if (amt == 0) {
-                        std.debug.print("Inventory full, could not add item: {s}\n", .{@tagName(atom_type)});
-                        std.debug.print("Tried to add item at coord: {d}, {d}, {d}\n", .{ test_coord[0], test_coord[1], test_coord[2] });
-                        return;
+                // Unobtainable blocks
+                if (voxel != .Air or voxel != .Water or voxel != .StillWater or voxel != .Bedrock) {
+                    const atom_type = voxel;
+
+                    if (voxel != .Fire) {
+                        var mat = atom_type;
+
+                        // Grass can't be harvested, turns into dirt
+                        if (voxel == .Grass) {
+                            mat = .Dirt;
+                        }
+
+                        const amt = self.inventory.add_item_inventory(.{ .material = mat, .count = 1 });
+                        if (amt == 0) {
+                            std.debug.print("Inventory full, could not add item: {s}\n", .{@tagName(atom_type)});
+                            std.debug.print("Tried to add item at coord: {d}, {d}, {d}\n", .{ test_coord[0], test_coord[1], test_coord[2] });
+                            return;
+                        }
                     }
+
                     if (!world.set_voxel(test_coord, .{
                         .material = .Air,
                         .color = [_]u8{ 0, 0, 0 },
@@ -294,12 +321,31 @@ fn left_click(ctx: *anyopaque, down: bool) void {
     }
 }
 
+fn left_click(ctx: *anyopaque, down: bool) void {
+    if (!down) return;
+
+    if (world.paused and !debugging_pause) pause_mouse();
+
+    const self = util.ctx_to_self(Self, ctx);
+
+    if (self.dead) self.deadmau5();
+
+    if (self.inventory_open) unreachable;
+
+    self.break_block();
+}
+
 fn pause(ctx: *anyopaque, down: bool) void {
     const self = util.ctx_to_self(Self, ctx);
     if (down and !self.dead) {
         world.paused = !world.paused;
         if (world.paused) {
             std.debug.print("Game paused\n", .{});
+
+            if (self.inventory_open) {
+                self.inventory_open = false; // Close inventory if paused
+            }
+
             window.set_relative(false) catch unreachable;
         } else {
             std.debug.print("Game unpaused\n", .{});
@@ -455,6 +501,11 @@ pub fn register_input(self: *Self) !void {
         .cb = set_hotbar_slot8,
     });
 
+    try input.register_key_callback(.i, .{
+        .cb = toggle_inventory,
+        .ctx = self,
+    });
+
     input.mouse_relative_handle = .{
         .ctx = self,
         .cb = mouseCb,
@@ -494,6 +545,7 @@ pub fn update(self: *Self) void {
 
     if (world.paused and !debugging_pause) return;
     if (self.dead) return;
+    if (self.inventory_open) return;
 
     const dt: f32 = 1.0 / 60.0;
 
@@ -590,6 +642,33 @@ pub fn draw(self: *Self, shadow: bool) void {
             .uv_offset = [_]f32{ 0.0, 0.0 },
             .uv_scale = [_]f32{ 1.0, 1.0 },
         }) catch unreachable;
+
+        const item = self.inventory.slots[j];
+
+        if (item.count > 0 and item.material != .Air) {
+            const item_pos = [_]f32{ hotbar_slot_pos[0], hotbar_slot_pos[1], hotbar_slot_pos[2] + 0.01 };
+
+            ui.add_sprite(.{
+                .color = [_]u8{ 255, 255, 255, 255 },
+                .offset = item_pos,
+                .scale = [_]f32{ 48.0, 48.0 },
+                .tex_id = self.block_item_tex,
+                .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(@intFromEnum(item.material) % 16)), 15.0 / 16.0 },
+                .uv_scale = @splat(1.0 / 16.0),
+            }) catch unreachable;
+
+            var buf: [8]u8 = @splat(0);
+
+            const count = if (item.count / 128 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{item.count / 128}) catch "ERR" else "<1";
+            ui.add_text(
+                count,
+                [_]f32{ item_pos[0] + 20.0, item_pos[1] - 20.0 },
+                [_]u8{ 255, 255, 255, 255 },
+                2.0,
+                1.0,
+                .Right,
+            ) catch unreachable;
+        }
     }
 
     const hotbar_select_pos = [_]f32{ 38, ui.UI_RESOLUTION[1] - 144 - @as(f32, @floatFromInt(self.inventory.hotbarIdx)) * 60.0, 1.5 };

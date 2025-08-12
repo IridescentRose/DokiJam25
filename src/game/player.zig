@@ -290,7 +290,7 @@ fn break_block(self: *Self) void {
                 const voxel = world.get_voxel(test_coord);
 
                 // Unobtainable blocks
-                if (voxel != .Air or voxel != .Water or voxel != .StillWater or voxel != .Bedrock) {
+                if (voxel != .Air and voxel != .Water and voxel != .StillWater and voxel != .Bedrock) {
                     const atom_type = voxel;
 
                     if (voxel != .Fire) {
@@ -604,7 +604,7 @@ pub fn draw(self: *Self, shadow: bool) void {
 
     for (0..10) |i| {
         const i_f = @as(f32, @floatFromInt(i));
-        const position = [_]f32{ 30.0 + i_f * 42.0, ui.UI_RESOLUTION[1] - 30.0, 2.0 + 0.01 * i_f };
+        const position = [_]f32{ 30.0 + i_f * 48.0, ui.UI_RESOLUTION[1] - 30.0, 2.0 + 0.01 * i_f };
 
         const half_heart_offset = [_]f32{ 0.0, 0.0 };
         const full_heart_offset = [_]f32{ 0.0, 0.5 };

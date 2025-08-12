@@ -158,8 +158,8 @@ const sensitivity = 0.1;
 
 fn mouseCb(ctx: *anyopaque, dx: f32, dy: f32) void {
     if (world.paused and !debugging_pause) return;
-
     var self = util.ctx_to_self(Self, ctx);
+    if (self.inventory_open) return;
 
     self.camera.yaw += dx * sensitivity;
     self.camera.pitch += dy * sensitivity;
@@ -211,7 +211,42 @@ fn right_click(ctx: *anyopaque, down: bool) void {
 
     const self = util.ctx_to_self(Self, ctx);
     if (self.dead) return;
-    if (self.inventory_open) unreachable;
+
+    if (self.inventory_open) {
+        const min_x = 8.0;
+        const max_x = 8.0 + 60.0 * 4;
+        const max_y = ui.UI_RESOLUTION[1] - 114.0;
+        const min_y = max_y - 60.0 * Inventory.HOTBAR_SIZE;
+
+        const mouse_pos = input.get_mouse_position();
+        if (mouse_pos[0] >= min_x and mouse_pos[0] <= max_x and
+            mouse_pos[1] >= min_y and mouse_pos[1] <= max_y)
+        {
+            const slot_x = @as(usize, @intFromFloat((mouse_pos[0] - min_x) / 60.0));
+            const slot_y = @as(usize, @intFromFloat((max_y - mouse_pos[1]) / 60.0));
+            std.debug.print("Clicked on inventory slot: {d}, {d}\n", .{ slot_x, slot_y });
+
+            const slot_idx = slot_y + slot_x * Inventory.HOTBAR_SIZE;
+            std.debug.print("Clicked on inventory slot index: {d}\n", .{slot_idx});
+
+            if (self.inventory.slots[slot_idx].material != .Air) {
+                if (self.inventory.mouse_slot.material == .Air or
+                    self.inventory.slots[slot_idx].material == self.inventory.mouse_slot.material)
+                {
+                    // Move half from slot to mouse
+                    const amount = self.inventory.slots[slot_idx].count / 2;
+                    self.inventory.slots[slot_idx].count -= amount;
+                    if (self.inventory.slots[slot_idx].count == 0) self.inventory.slots[slot_idx].material = .Air;
+                    if (self.inventory.mouse_slot.material == .Air) {
+                        self.inventory.mouse_slot.material = self.inventory.slots[slot_idx].material;
+                    }
+                    self.inventory.mouse_slot.count += amount;
+                }
+            }
+        }
+
+        return;
+    }
 
     self.place_block();
 }
@@ -330,7 +365,48 @@ fn left_click(ctx: *anyopaque, down: bool) void {
 
     if (self.dead) self.deadmau5();
 
-    if (self.inventory_open) unreachable;
+    if (self.inventory_open) {
+        const min_x = 8.0;
+        const max_x = 8.0 + 60.0 * 4;
+        const max_y = ui.UI_RESOLUTION[1] - 114.0;
+        const min_y = max_y - 60.0 * Inventory.HOTBAR_SIZE;
+
+        const mouse_pos = input.get_mouse_position();
+        if (mouse_pos[0] >= min_x and mouse_pos[0] <= max_x and
+            mouse_pos[1] >= min_y and mouse_pos[1] <= max_y)
+        {
+            const slot_x = @as(usize, @intFromFloat((mouse_pos[0] - min_x) / 60.0));
+            const slot_y = @as(usize, @intFromFloat((max_y - mouse_pos[1]) / 60.0));
+            std.debug.print("Clicked on inventory slot: {d}, {d}\n", .{ slot_x, slot_y });
+
+            const slot_idx = slot_y + slot_x * Inventory.HOTBAR_SIZE;
+
+            if (self.inventory.mouse_slot.material != .Air) {
+                if (self.inventory.slots[slot_idx].material == .Air) {
+                    // Just place all
+                    self.inventory.slots[slot_idx] = self.inventory.mouse_slot;
+                    self.inventory.mouse_slot = .{ .material = .Air, .count = 0 };
+                } else if (self.inventory.slots[slot_idx].material == self.inventory.mouse_slot.material) {
+                    // Move as many as possible
+                    const amt = @min(self.inventory.mouse_slot.count, Inventory.MAX_ITEMS_PER_SLOT - self.inventory.slots[slot_idx].count);
+                    self.inventory.mouse_slot.count -= amt;
+                    self.inventory.slots[slot_idx].count += amt;
+
+                    if (self.inventory.mouse_slot.count == 0) {
+                        self.inventory.mouse_slot.material = .Air;
+                    }
+                }
+            } else {
+                // We're empty, take everything from the clicked slot
+                if (self.inventory.slots[slot_idx].material != .Air) {
+                    self.inventory.mouse_slot = self.inventory.slots[slot_idx];
+                    self.inventory.slots[slot_idx] = .{ .material = .Air, .count = 0 };
+                }
+            }
+        }
+
+        return;
+    }
 
     self.break_block();
 }
@@ -529,7 +605,6 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn update(self: *Self) void {
-
     // Update camera
     self.camera.target = self.entity.get(.transform).pos;
     self.camera.target[1] += player_size[1] + 0.25;
@@ -545,7 +620,6 @@ pub fn update(self: *Self) void {
 
     if (world.paused and !debugging_pause) return;
     if (self.dead) return;
-    if (self.inventory_open) return;
 
     const dt: f32 = 1.0 / 60.0;
 
@@ -553,14 +627,17 @@ pub fn update(self: *Self) void {
     const radYaw = std.math.degreesToRadians(-self.camera.yaw - 90.0);
     const forward = zm.normalize3(.{ std.math.sin(radYaw), 0, std.math.cos(radYaw), 0 });
     const right = zm.normalize3(zm.cross3(forward, .{ 0, 1, 0, 0 }));
+
     var movement: @Vector(4, f32) = .{ 0, 0, 0, 0 };
-    if (self.moving[0]) movement += forward;
-    if (self.moving[1]) movement -= forward;
-    if (self.moving[2]) movement -= right;
-    if (self.moving[3]) movement += right;
-    if (zm.length3(movement)[0] > 0.1) {
-        movement = zm.normalize3(movement) * @as(@Vector(4, f32), @splat(MOVE_SPEED)); // 5 units/sec move speed
-        self.entity.get_ptr(.transform).rot[1] = std.math.radiansToDegrees(std.math.atan2(movement[0], movement[2])) + 180.0;
+    if (!self.inventory_open) {
+        if (self.moving[0]) movement += forward;
+        if (self.moving[1]) movement -= forward;
+        if (self.moving[2]) movement -= right;
+        if (self.moving[3]) movement += right;
+        if (zm.length3(movement)[0] > 0.1) {
+            movement = zm.normalize3(movement) * @as(@Vector(4, f32), @splat(MOVE_SPEED)); // 5 units/sec move speed
+            self.entity.get_ptr(.transform).rot[1] = std.math.radiansToDegrees(std.math.atan2(movement[0], movement[2])) + 180.0;
+        }
     }
 
     // 2) Prepare new velocity
@@ -668,6 +745,49 @@ pub fn draw(self: *Self, shadow: bool) void {
                 1.0,
                 .Right,
             ) catch unreachable;
+        }
+    }
+
+    if (self.inventory_open) {
+        for (0..(Inventory.MAX_SLOTS / Inventory.HOTBAR_SIZE - 1)) |k| {
+            for (0..Inventory.HOTBAR_SIZE) |j| {
+                const hotbar_slot_pos = [_]f32{ 38.0 + 60.0 * @as(f32, @floatFromInt(k + 1)), ui.UI_RESOLUTION[1] - 144 - @as(f32, @floatFromInt(j)) * 60.0, 2.0 + 0.01 * @as(f32, @floatFromInt(j)) };
+                ui.add_sprite(.{
+                    .color = [_]u8{ 255, 255, 255, 255 },
+                    .offset = hotbar_slot_pos,
+                    .scale = [_]f32{ 60.0, 60.0 },
+                    .tex_id = self.hotbar_slot_tex,
+                    .uv_offset = [_]f32{ 0.0, 0.0 },
+                    .uv_scale = [_]f32{ 1.0, 1.0 },
+                }) catch unreachable;
+
+                const item = self.inventory.slots[j + (k + 1) * Inventory.HOTBAR_SIZE];
+
+                if (item.count > 0 and item.material != .Air) {
+                    const item_pos = [_]f32{ hotbar_slot_pos[0], hotbar_slot_pos[1], hotbar_slot_pos[2] + 0.01 };
+
+                    ui.add_sprite(.{
+                        .color = [_]u8{ 255, 255, 255, 255 },
+                        .offset = item_pos,
+                        .scale = [_]f32{ 48.0, 48.0 },
+                        .tex_id = self.block_item_tex,
+                        .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(@intFromEnum(item.material) % 16)), 15.0 / 16.0 },
+                        .uv_scale = @splat(1.0 / 16.0),
+                    }) catch unreachable;
+
+                    var buf: [8]u8 = @splat(0);
+
+                    const count = if (item.count / 128 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{item.count / 128}) catch "ERR" else "<1";
+                    ui.add_text(
+                        count,
+                        [_]f32{ item_pos[0] + 20.0, item_pos[1] - 20.0 },
+                        [_]u8{ 255, 255, 255, 255 },
+                        2.0,
+                        1.0,
+                        .Right,
+                    ) catch unreachable;
+                }
+            }
         }
     }
 

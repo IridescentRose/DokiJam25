@@ -3,6 +3,7 @@ const assert = std.debug.assert;
 const util = @import("../../core/util.zig");
 const components = @import("components.zig");
 const gfx = @import("../../gfx/gfx.zig");
+const c = @import("../consts.zig");
 
 pub const Entity = struct {
     id: u32,
@@ -12,20 +13,30 @@ pub const Entity = struct {
         if (!can_do_physics) return;
 
         const vel = self.get_ptr(.velocity);
+        const on_ground_ptr = self.get_ptr(.on_ground);
 
-        var new_pos = [_]f32{
-            self.get(.transform).pos[0] + vel[0] * dt,
-            self.get(.transform).pos[1] + vel[1] * dt,
-            self.get(.transform).pos[2] + vel[2] * dt,
-        };
+        const max_move_per_step: f32 = 0.45 / @as(f32, c.SUB_BLOCKS_PER_BLOCK);
 
-        self.get(.aabb).collide_aabb_with_world(&new_pos, vel, self.get_ptr(.on_ground));
-        self.get_ptr(.transform).pos = new_pos;
+        const mx = @abs(vel[0]) * dt;
+        const my = @abs(vel[1]) * dt;
+        const mz = @abs(vel[2]) * dt;
+        const max_disp = @max(mx, @max(my, mz));
+        const step_f32 = max_disp / max_move_per_step;
+        const steps_i32 = if (max_disp <= max_move_per_step) 1 else @as(i32, @intFromFloat(@ceil(step_f32)));
+        const steps: i32 = @max(steps_i32, 1);
+        const sub_dt: f32 = dt / @as(f32, @floatFromInt(steps));
 
-        // Remove any velocity in the x and z directions to prevent sliding
-        // TODO: Make this configurable.
-        // vel[0] = 0;
-        // vel[2] = 0;
+        var i: i32 = 0;
+        while (i < steps) : (i += 1) {
+            var new_pos = [_]f32{
+                self.get(.transform).pos[0] + vel[0] * sub_dt,
+                self.get(.transform).pos[1] + vel[1] * sub_dt,
+                self.get(.transform).pos[2] + vel[2] * sub_dt,
+            };
+
+            self.get(.aabb).collide_aabb_with_world(&new_pos, vel, on_ground_ptr);
+            self.get_ptr(.transform).pos = new_pos;
+        }
     }
 
     pub const MAX_ENTITY_DRAW_DISTANCE = 40.0; // Maximum distance to draw entities

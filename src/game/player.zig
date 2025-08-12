@@ -97,21 +97,6 @@ pub fn init() !Self {
 
 const debugging_pause = false;
 
-fn hitYourself(ctx: *anyopaque, down: bool) void {
-    if (world.paused and !debugging_pause) return;
-
-    if (!down) return;
-
-    const self = util.ctx_to_self(Self, ctx);
-    self.do_damage(1, [_]f32{ 0, 1, 0 });
-
-    if (self.entity.get(.health) == 0) {
-        self.dead = true;
-        window.set_relative(false) catch unreachable;
-        std.debug.print("You died!\n", .{});
-    }
-}
-
 fn moveForward(ctx: *anyopaque, down: bool) void {
     if (world.paused and !debugging_pause) return;
 
@@ -179,12 +164,13 @@ fn mouseCb(ctx: *anyopaque, dx: f32, dy: f32) void {
     if (self.camera.pitch < -60.0) self.camera.pitch = -60.0;
 }
 
-fn place_block(ctx: *anyopaque, down: bool) void {
+fn right_click(ctx: *anyopaque, down: bool) void {
+    if (!down) return;
     if (world.paused and !debugging_pause) return;
 
-    if (!down) return;
-
     const self = util.ctx_to_self(Self, ctx);
+    if (self.dead) return;
+
     const coord = [_]f32{ self.entity.get(.transform).pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[1] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[2] * c.SUB_BLOCKS_PER_BLOCK };
 
     const subvoxel_coord = [3]isize{ @intFromFloat(coord[0]), @intFromFloat(coord[1]), @intFromFloat(coord[2]) };
@@ -221,48 +207,53 @@ fn place_block(ctx: *anyopaque, down: bool) void {
     }
 }
 
-fn destroy_block(ctx: *anyopaque, down: bool) void {
-    if (world.paused and !debugging_pause and down) {
-        const mouse_pos = input.get_mouse_position();
+fn pause_mouse() void {
+    const mouse_pos = input.get_mouse_position();
 
-        // Resume
-        if (mouse_pos[0] >= ui.UI_RESOLUTION[0] / 2 - 96 * 7 / 2 and
-            mouse_pos[0] <= ui.UI_RESOLUTION[0] / 2 + 96 * 7 / 2 and
-            mouse_pos[1] >= ui.UI_RESOLUTION[1] / 2 + 32 - 12 * 7 / 2 and
-            mouse_pos[1] <= ui.UI_RESOLUTION[1] / 2 + 32 + 12 * 7 / 2)
-        {
-            world.paused = !world.paused;
-            window.set_relative(true) catch unreachable;
-        }
-
-        // Quit (which triggers save)
-        if (mouse_pos[0] >= ui.UI_RESOLUTION[0] / 2 - 96 * 7 / 2 and
-            mouse_pos[0] <= ui.UI_RESOLUTION[0] / 2 + 96 * 7 / 2 and
-            mouse_pos[1] >= ui.UI_RESOLUTION[1] / 2 - 128 - 12 * 7 / 2 and
-            mouse_pos[1] <= ui.UI_RESOLUTION[1] / 2 - 128 + 12 * 7 / 2)
-        {
-            app.running = false;
-        }
-        return;
+    // Resume
+    if (mouse_pos[0] >= ui.UI_RESOLUTION[0] / 2 - 96 * 7 / 2 and
+        mouse_pos[0] <= ui.UI_RESOLUTION[0] / 2 + 96 * 7 / 2 and
+        mouse_pos[1] >= ui.UI_RESOLUTION[1] / 2 + 32 - 12 * 7 / 2 and
+        mouse_pos[1] <= ui.UI_RESOLUTION[1] / 2 + 32 + 12 * 7 / 2)
+    {
+        world.paused = !world.paused;
+        window.set_relative(true) catch unreachable;
     }
+
+    // Quit (which triggers save)
+    if (mouse_pos[0] >= ui.UI_RESOLUTION[0] / 2 - 96 * 7 / 2 and
+        mouse_pos[0] <= ui.UI_RESOLUTION[0] / 2 + 96 * 7 / 2 and
+        mouse_pos[1] >= ui.UI_RESOLUTION[1] / 2 - 128 - 12 * 7 / 2 and
+        mouse_pos[1] <= ui.UI_RESOLUTION[1] / 2 - 128 + 12 * 7 / 2)
+    {
+        app.running = false;
+    }
+    return;
+}
+
+// Hah, get it? Dead mouse, deadmau5?
+fn deadmau5(self: *Self) void {
+    const mouse_pos = input.get_mouse_position();
+    if (mouse_pos[0] >= ui.UI_RESOLUTION[0] / 2 - 96 * 7 / 2 and
+        mouse_pos[0] <= ui.UI_RESOLUTION[0] / 2 + 96 * 7 / 2 and
+        mouse_pos[1] >= ui.UI_RESOLUTION[1] / 2 - 168 - 12 * 7 / 2 and
+        mouse_pos[1] <= ui.UI_RESOLUTION[1] / 2 - 168 + 12 * 7 / 2)
+    {
+        self.dead = false;
+        self.entity.get_ptr(.health).* = 20;
+        self.entity.get_ptr(.transform).pos = self.spawn_pos;
+        window.set_relative(true) catch unreachable;
+    }
+}
+
+fn left_click(ctx: *anyopaque, down: bool) void {
+    if (!down) return;
+
+    if (world.paused and !debugging_pause and down) pause_mouse();
 
     const self = util.ctx_to_self(Self, ctx);
 
-    if (down and self.dead) {
-        const mouse_pos = input.get_mouse_position();
-        if (mouse_pos[0] >= ui.UI_RESOLUTION[0] / 2 - 96 * 7 / 2 and
-            mouse_pos[0] <= ui.UI_RESOLUTION[0] / 2 + 96 * 7 / 2 and
-            mouse_pos[1] >= ui.UI_RESOLUTION[1] / 2 - 168 - 12 * 7 / 2 and
-            mouse_pos[1] <= ui.UI_RESOLUTION[1] / 2 - 168 + 12 * 7 / 2)
-        {
-            self.dead = false;
-            self.entity.get_ptr(.health).* = 20;
-            self.entity.get_ptr(.transform).pos = self.spawn_pos;
-            window.set_relative(true) catch unreachable;
-        }
-    }
-
-    if (!down) return;
+    if (down and self.dead) self.deadmau5();
 
     // TODO: Better way of doing this
     const coord = [_]f32{ self.entity.get(.transform).pos[0] * c.SUB_BLOCKS_PER_BLOCK, self.entity.get(.transform).pos[1] * c.SUB_BLOCKS_PER_BLOCK - 0.05, self.entity.get(.transform).pos[2] * c.SUB_BLOCKS_PER_BLOCK };
@@ -415,10 +406,6 @@ pub fn register_input(self: *Self) !void {
         .ctx = self,
         .cb = pause,
     });
-    try input.register_key_callback(.func1, .{
-        .ctx = self,
-        .cb = hitYourself,
-    });
     try input.register_key_callback(.e, .{
         .ctx = self,
         .cb = increment_hotbar,
@@ -475,11 +462,11 @@ pub fn register_input(self: *Self) !void {
 
     try input.register_mouse_callback(.left, .{
         .ctx = self,
-        .cb = destroy_block,
+        .cb = left_click,
     });
     try input.register_mouse_callback(.right, .{
         .ctx = self,
-        .cb = place_block,
+        .cb = right_click,
     });
 
     if (!world.paused)

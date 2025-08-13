@@ -1053,6 +1053,39 @@ pub fn draw(self: *Self, shadow: bool) void {
                 }
             }
         }
+
+        if (self.inventory.mouse_slot.material != 0 and self.inventory.mouse_slot.count != 0) {
+            const mouse_pos = input.get_mouse_position();
+            const item_pos = [_]f32{ mouse_pos[0], mouse_pos[1], 2 + 0.01 };
+
+            var tex = self.block_item_tex;
+
+            var buf: [8]u8 = @splat(0);
+            var count = if (self.inventory.mouse_slot.count / 128 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{self.inventory.mouse_slot.count / 128}) catch "ERR" else "<1";
+            if (self.inventory.mouse_slot.material > 256) {
+                tex = self.item_tex;
+                // If it's an item, the count is going to be the full count, not divided by 128
+                count = std.fmt.bufPrint(buf[0..], "{d}", .{self.inventory.mouse_slot.count}) catch "ERR";
+            }
+
+            ui.add_sprite(.{
+                .color = [_]u8{ 255, 255, 255, 255 },
+                .offset = item_pos,
+                .scale = [_]f32{ 48.0, 48.0 },
+                .tex_id = tex,
+                .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(self.inventory.mouse_slot.material % 16)), 15.0 / 16.0 },
+                .uv_scale = @splat(1.0 / 16.0),
+            }) catch unreachable;
+
+            ui.add_text(
+                count,
+                [_]f32{ item_pos[0] + 20.0, item_pos[1] - 20.0 },
+                [_]u8{ 255, 255, 255, 255 },
+                2.0,
+                1.0,
+                .Right,
+            ) catch unreachable;
+        }
     }
 
     const hotbar_select_pos = [_]f32{ 38, ui.UI_RESOLUTION[1] - 144 - @as(f32, @floatFromInt(self.inventory.hotbarIdx)) * 60.0, 1.5 };

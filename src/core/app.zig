@@ -63,12 +63,21 @@ fn parse_config() !void {
     }
 }
 
+var can_quit = true;
+pub var quit_cb: ?*const fn () void = null;
+pub fn set_quit(enabled: bool) void {
+    can_quit = enabled;
+}
+
 pub fn init(state: State) !void {
     util.init();
 
     parse_config() catch |err| {
         std.debug.print("Failed to parse config: {}\n", .{err});
-        return err;
+        // Continue with default config
+        std.debug.print("Using default config: width={}, height={}, vsync={}, fps={}\n", .{
+            config.width, config.height, config.vsync, config.fps,
+        });
     };
 
     try sdl3.init(init_flags);
@@ -96,7 +105,11 @@ pub fn deinit() void {
 fn handle_updates() void {
     while (sdl3.events.poll()) |event| {
         switch (event) {
-            .quit, .terminating => running = false,
+            .quit, .terminating => if (can_quit) {
+                running = false;
+            } else if (quit_cb) |cb| {
+                cb();
+            },
             .key_down, .key_up => |t| {
                 if (t.scancode != null) {
                     if (input.get_key_callback(t.scancode.?)) |cbd| {

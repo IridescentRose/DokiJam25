@@ -429,7 +429,7 @@ pub fn update() !void {
         }
     }
 
-    tick += 2;
+    tick += 1;
 
     // Rain
     for (0..8) |_| {
@@ -669,7 +669,7 @@ pub fn update() !void {
         try active_atoms.appendSlice(new_active_atoms.items);
     }
 
-    try particles.update();
+    // try particles.update();
 }
 
 pub fn draw(shadow: bool) void {
@@ -692,9 +692,9 @@ pub fn draw(shadow: bool) void {
         }
     }
 
-    particles.draw();
+    if (shadow) return; // Don't draw the UI in shadow pass; particles are unlit
 
-    if (shadow) return; // Don't draw the UI in shadow pass
+    // particles.draw();
 
     var buf: [64]u8 = @splat(0);
     const hours: usize = @intCast(tick / TICK_PER_HOUR);

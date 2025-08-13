@@ -4,6 +4,7 @@ const ui = @import("../../gfx/ui.zig");
 const input = @import("../../core/input.zig");
 const sm = @import("../../core/statemachine.zig");
 const GameState = @import("GameState.zig");
+const IntroState = @import("IntroState.zig");
 
 const State = @import("../../core/State.zig");
 const Self = @This();
@@ -15,6 +16,7 @@ var button_hover_texture: u32 = 0;
 var has_save = true;
 
 var game_state: GameState = undefined;
+var intro_state: IntroState = undefined;
 
 fn click(ctx: *anyopaque, down: bool) void {
     _ = ctx;
@@ -33,7 +35,13 @@ fn click(ctx: *anyopaque, down: bool) void {
             mouse_position[1] > (height / 2 - button_height / 2 - 100) and
             mouse_position[1] < (height / 2 + button_height / 2 - 100))
         {
-            sm.transition(game_state.state()) catch unreachable;
+            if (has_save) {
+                // Continue game
+                sm.transition(game_state.state()) catch unreachable;
+            } else {
+                // Start new game
+                sm.transition(intro_state.state()) catch unreachable;
+            }
         }
     }
 }

@@ -199,7 +199,7 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
     for (0..c.CHUNK_BLOCKS) |z| {
         for (0..c.CHUNK_BLOCKS) |x| {
             // Try placing trees
-            if (prng.random().float(f32) < 0.005) {
+            if (prng.random().float(f32) < 0.01) {
                 const h = heightmap.items[(z * c.SUB_BLOCKS_PER_BLOCK) * c.CHUNK_SUB_BLOCKS + (x * c.SUB_BLOCKS_PER_BLOCK)] - 1.0;
 
                 // Check we aren't on water or sand

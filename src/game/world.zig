@@ -415,7 +415,7 @@ pub fn update() !void {
 
     if (paused) return;
 
-    for (ecs.active_entities.items) |*entity| {
+    for (ecs.storage.active_entities.items) |*entity| {
         const kind = entity.get(.kind);
 
         // TODO: do not update if out of world boiunds
@@ -688,7 +688,7 @@ pub fn draw(shadow: bool) void {
 
     player.draw(shadow);
 
-    for (ecs.active_entities.items) |*entity| {
+    for (ecs.storage.active_entities.items) |*entity| {
         const kind = entity.get(.kind);
 
         switch (kind) {

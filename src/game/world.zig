@@ -535,7 +535,7 @@ pub fn update() !void {
                         if (set_voxel(far_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } })) {
                             if (set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
                                 atom.coord = far_coord;
-                                atom.moves -= 1;
+                                atom.moves -|= 1;
                                 found = true;
                             } else {
                                 // Failed, so undo the first set
@@ -575,7 +575,7 @@ pub fn update() !void {
                 if (valid_dirs_len == 0) {
                     // We don't go to zero because it's possible that another atom will move away
                     // and we can still spread out
-                    atom.moves -= 1;
+                    atom.moves -|= 1;
                     continue;
                 }
 
@@ -586,7 +586,7 @@ pub fn update() !void {
                 if (set_voxel(next_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } })) {
                     if (set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
                         atom.coord = next_coord;
-                        atom.moves -= 1;
+                        atom.moves -|= 1;
                     } else {
                         // Failed, so undo the first set
                         _ = set_voxel(next_coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
@@ -608,7 +608,7 @@ pub fn update() !void {
                 var random_amount = rand.random().intRangeLessThan(u16, 0, 100);
                 while (atom.moves > 0 and random_amount > 0) : ({
                     atom.moves -|= 1;
-                    random_amount -= 1;
+                    random_amount -|= 1;
                 }) {
                     const dx = rand.random().intRangeLessThan(isize, -24, 24);
                     const dy = rand.random().intRangeLessThan(isize, -24, 24);

@@ -50,7 +50,7 @@ fn generate_bedrock(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
     for (stencil) |*atom| {
         const gray = rng.random().int(u8) % 96;
         atom.* = .{
-            .material = .Stone,
+            .material = .Bedrock,
             .color = [_]u8{ gray, gray, gray },
         };
     }

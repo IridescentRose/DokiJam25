@@ -12,6 +12,7 @@ var bg_texture: u32 = 0;
 var logo_texture: u32 = 0;
 var button_texture: u32 = 0;
 var button_hover_texture: u32 = 0;
+var has_save = true;
 
 var game_state: GameState = undefined;
 
@@ -19,8 +20,8 @@ fn click(ctx: *anyopaque, down: bool) void {
     _ = ctx;
 
     if (down) {
-        const width: f32 = @floatFromInt(gfx.window.get_width() catch 0);
-        const height: f32 = @floatFromInt(gfx.window.get_height() catch 0);
+        const width: f32 = ui.UI_RESOLUTION[0];
+        const height: f32 = ui.UI_RESOLUTION[1];
 
         const mouse_position = input.get_mouse_position();
 
@@ -48,6 +49,19 @@ fn init(ctx: *anyopaque) anyerror!void {
         .cb = click,
         .ctx = &game_state,
     });
+
+    var dir = std.fs.cwd().openDir("world", .{}) catch |err| {
+        if (err == error.FileNotFound) {
+            has_save = false;
+            return;
+        } else {
+            return err;
+        }
+    };
+    defer dir.close();
+
+    // TODO: Check for specific files to verify it's a valid save
+    has_save = true;
 }
 
 fn deinit(ctx: *anyopaque) void {
@@ -58,8 +72,8 @@ fn deinit(ctx: *anyopaque) void {
 fn update(ctx: *anyopaque) anyerror!void {
     _ = ctx;
 
-    const width: f32 = @floatFromInt(gfx.window.get_width() catch 0);
-    const height: f32 = @floatFromInt(gfx.window.get_height() catch 0);
+    const width: f32 = ui.UI_RESOLUTION[0];
+    const height: f32 = ui.UI_RESOLUTION[1];
 
     ui.clear_sprites();
     try ui.add_sprite(.{
@@ -102,18 +116,19 @@ fn update(ctx: *anyopaque) anyerror!void {
         .tex_id = tex_id,
     });
 
-    try ui.add_text("Start Game", [_]f32{ width / 2, height / 2 - 6 - 100 }, text_color, 4, 2, .Center);
+    try ui.add_text(if (!has_save) "Start Game" else "Continue Game", [_]f32{ width / 2, height / 2 - 6 - 100 }, text_color, 4, 2, .Center);
     try ui.add_text("Ver 1", [_]f32{ width - 12, 16 }, [_]u8{ 255, 255, 255, 255 }, 4, 1, .Right);
     try ui.add_text("Built With Love", [_]f32{ 12, 16 + 36 }, [_]u8{ 255, 255, 255, 255 }, 4, 1, .Left);
-    try ui.add_text("And One Last Cup Of Coffee", [_]f32{ 12, 16 }, [_]u8{ 255, 255, 255, 255 }, 4, 1, .Left);
+    try ui.add_text("And A Cup Of Coffee", [_]f32{ 12, 16 }, [_]u8{ 255, 255, 255, 255 }, 4, 1, .Left);
 }
 
-fn draw(ctx: *anyopaque) anyerror!void {
+fn draw(ctx: *anyopaque, shadow: bool) anyerror!void {
     _ = ctx;
     gfx.clear_color(1, 1, 1, 1);
-    gfx.clear();
+    gfx.clear(shadow);
 
-    try ui.update();
+    if (!shadow)
+        try ui.update();
 }
 
 pub fn state(self: *Self) State {

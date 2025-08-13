@@ -120,19 +120,10 @@ pub fn init(seed: u64) !void {
     dragoon_model = Voxel.init(dragoon_tex);
     try dragoon_model.build();
 
-    var dragoon_pos = player.entity.get(.transform).pos;
-    dragoon_pos[1] += 4.0; // Spawn dragoon a bit above the player
-    _ = try Dragoon.create(dragoon_pos, @splat(0), dragoon_model);
-
     // TEST TOMATO
     const tomato_tex = try gfx.texture.load_image_from_file("tomato.png");
     tomato_model = Voxel.init(tomato_tex);
     try tomato_model.build();
-
-    var tomato_pos = player.entity.get(.transform).pos;
-    tomato_pos[0] += 10.0; // Spawn tomato a bit in front of the player
-    tomato_pos[1] += 10.0; // Spawn tomato a bit above the player
-    _ = try Tomato.create(tomato_pos, @splat(0), tomato_model);
 
     active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
 

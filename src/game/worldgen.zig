@@ -83,7 +83,7 @@ pub fn fillPlace(chunk: Chunk, internal_location: [3]usize, stencil: *const bloc
     }
 }
 
-pub fn fill(chunk: Chunk, location: [2]isize) !void {
+pub fn fill(chunk: Chunk, location: [2]isize) ![256][2]usize {
     const blocks_per_chunk = c.CHUNK_SUB_BLOCKS;
 
     var heightmap = std.ArrayList(f32).init(util.allocator());
@@ -146,7 +146,6 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
 
     // TODO: Fix the bug where foliage and trees generate outside the chunk bounds
     // (happens when x or z is near the edge of the chunk)
-
     for (0..c.CHUNK_SUB_BLOCKS) |z| {
         for (0..c.CHUNK_SUB_BLOCKS) |x| {
             if (prng.random().float(f32) < foliage_density) {
@@ -196,10 +195,14 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
         }
     }
 
+    var locs = chunk.tree_locs;
+    var tree_count: usize = 0;
     for (0..c.CHUNK_BLOCKS) |z| {
         for (0..c.CHUNK_BLOCKS) |x| {
             // Try placing trees
             if (prng.random().float(f32) < 0.01) {
+                locs[tree_count] = [_]usize{ x, z };
+                tree_count += 1;
                 const h = heightmap.items[(z * c.SUB_BLOCKS_PER_BLOCK) * c.CHUNK_SUB_BLOCKS + (x * c.SUB_BLOCKS_PER_BLOCK)] - 1.0;
 
                 // Check we aren't on water or sand
@@ -257,4 +260,6 @@ pub fn fill(chunk: Chunk, location: [2]isize) !void {
             }
         }
     }
+
+    return locs;
 }

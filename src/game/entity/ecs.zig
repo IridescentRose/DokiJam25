@@ -110,6 +110,7 @@ pub const ComponentType = enum(u8) {
     on_ground = 6,
     health = 7,
     timer = 8,
+    ai_state = 9,
 };
 
 const ComponentTypes = [_]type{
@@ -122,6 +123,7 @@ const ComponentTypes = [_]type{
     components.OnGroundComponent,
     components.HealthComponent,
     i64,
+    usize,
 };
 
 pub const Mask = packed struct(u32) {
@@ -133,7 +135,8 @@ pub const Mask = packed struct(u32) {
     on_ground: bool = false,
     health: bool = false,
     timer: bool = false,
-    reserved: u24 = 0,
+    ai_state: bool = false,
+    reserved: u23 = 0,
 };
 
 fn ecs_storage() type {

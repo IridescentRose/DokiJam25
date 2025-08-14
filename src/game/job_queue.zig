@@ -49,7 +49,7 @@ fn worker_thread() void {
         switch (job) {
             .GenerateChunk => |gen| {
                 var chunk = world.chunkMap.get(gen.pos) orelse continue;
-                worldgen.fill(chunk, gen.pos) catch |err| {
+                const locs = worldgen.fill(chunk, gen.pos) catch |err| {
                     std.debug.print("Error generating chunk at {any}: {}\n", .{ gen.pos, err });
                     continue;
                 };
@@ -61,6 +61,7 @@ fn worker_thread() void {
                     .size = chunk.size,
                     .populated = true,
                     .uploaded = false,
+                    .tree_locs = locs,
                     .edits = chunk.edits,
                 }) catch |err| {
                     std.debug.print("Error updating chunk map for {any}: {}\n", .{ gen.pos, err });

@@ -46,6 +46,7 @@ size: u32 = c.CHUNK_SUBVOXEL_SIZE,
 populated: bool = false,
 uploaded: bool = false,
 edits: std.AutoArrayHashMap(usize, Atom),
+tree_locs: [256][2]usize = @splat(@as([2]usize, @splat(0))),
 
 pub fn get_index(coord: [3]usize) usize {
     return (coord[1] * c.CHUNK_SUB_BLOCKS + coord[2]) * c.CHUNK_SUB_BLOCKS + coord[0];

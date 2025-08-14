@@ -286,7 +286,7 @@ fn place_block(self: *Self) void {
     if (town_placed) {
         hand.material = 0;
         hand.count = 0;
-        world.town.create(self.voxel_guide_transform_place.pos);
+        world.town.create(self.voxel_guide_transform_place.pos) catch unreachable;
     }
 }
 

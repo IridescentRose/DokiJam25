@@ -15,6 +15,9 @@ const Voxel = @import("voxel.zig");
 const Dragoon = @import("ai/dragoon.zig");
 const Tomato = @import("ai/tomato.zig");
 const Town = @import("town/Town.zig");
+const Builder = @import("ai/dragoons//builder.zig");
+const Farmer = @import("ai/dragoons/farmer.zig");
+const Lumberjack = @import("ai/dragoons/lumberjack.zig");
 
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
@@ -425,6 +428,18 @@ pub fn update() !void {
                 Dragoon.update(entity.*, 1.0 / 60.0);
                 entity.do_physics(1.0 / 60.0);
             },
+            .dragoon_builder => {
+                Builder.update(entity.*, 1.0 / 60.0);
+                entity.do_physics(1.0 / 60.0);
+            },
+            .dragoon_farmer => {
+                Farmer.update(entity.*, 1.0 / 60.0);
+                entity.do_physics(1.0 / 60.0);
+            },
+            .dragoon_lumberjack => {
+                Lumberjack.update(entity.*, 1.0 / 60.0);
+                entity.do_physics(1.0 / 60.0);
+            },
             .tomato => {
                 Tomato.update(entity.*, player.entity.get(.transform).pos, 1.0 / 60.0);
                 entity.do_physics(1.0 / 60.0);
@@ -435,7 +450,7 @@ pub fn update() !void {
         }
     }
 
-    tick += 1;
+    tick += 6;
 
     // Rain
     for (0..8) |_| {
@@ -452,6 +467,8 @@ pub fn update() !void {
 
     var new_active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
     defer new_active_atoms.deinit();
+
+    town.update();
 
     if (tick % 6 == 0) {
         var a_count: usize = 0;

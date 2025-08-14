@@ -1,9 +1,9 @@
 const std = @import("std");
-const ecs = @import("../entity/ecs.zig");
-const components = @import("../entity/components.zig");
+const ecs = @import("../../entity/ecs.zig");
+const components = @import("../../entity/components.zig");
 const zm = @import("zmath");
-const c = @import("../consts.zig");
-const world = @import("../world.zig");
+const c = @import("../../consts.zig");
+const world = @import("../../world.zig");
 
 const TERMINAL_VELOCITY = -10.0; // Dragoon terminal velocity
 const GRAVITY = -9.8; // Dragoon is light!
@@ -56,7 +56,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
 
     // Because time only updates every 5 seconds, we actually get a random velocity every 5 seconds.
     // This is to prevent the dragoon from switching directions too quickly.
-    var rng = std.Random.DefaultPrng.init(@bitCast(time.*));
+    var rng = std.Random.DefaultPrng.init(@as(u64, @bitCast(time.*)) + self.id);
 
     const size: f32 = @floatFromInt(std.math.maxInt(i16));
 
@@ -70,6 +70,12 @@ pub fn update(self: ecs.Entity, dt: f32) void {
     if (velocity[0] == 0.0 and velocity[2] == 0.0) {
         velocity[0] = 1.0; // Default to 1.0 in x direction
         velocity[2] = 1.0; // Default to 1.0 in z direction
+    }
+
+    const daytime = world.tick % 24000;
+    if (daytime <= 6000 or daytime >= 18000) {
+        velocity[0] = 0.0;
+        velocity[2] = 0.0;
     }
 
     velocity[1] += GRAVITY * dt;

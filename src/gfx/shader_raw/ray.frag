@@ -78,8 +78,8 @@ void refreshMeta(inout MetaCache mc, ivec3 ccFull) {
     mc.offset = metadata[mc.metaIdx].offset;
 }
 
-#define DRAW_DISTANCE       512
-#define SHADOW_RESOLUTION   1024.0
+#define DRAW_DISTANCE       384
+#define SHADOW_RESOLUTION   512.0
 
 void main()
 {

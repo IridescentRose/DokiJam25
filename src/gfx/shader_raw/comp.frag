@@ -275,12 +275,13 @@ vec3 godRays(vec2 uv, vec2 sunSS, float sunVis, vec3 sunCol) {
 }
 
 
+#define SHADOW_RESOLUTION 512.0
 // -- shadows --
 vec2 rot2(vec2 p, float a) { float c = cos(a), s = sin(a); return vec2(p.x*c - p.y*s, p.x*s + p.y*c); }
 float shadowPCF(vec3 worldPos, vec3 N, vec3 L)
 {
     // --- 1) normal-bias in *world units* (~1–2 texels)
-    float texelWorld = (2.0 *  32.0) / 1024.0; // assuming 1024 shadow map
+    float texelWorld = (2.0 *  40.0) / SHADOW_RESOLUTION; // assuming 512 shadow map
     worldPos += N * (1.6 * texelWorld);
 
     // --- 2) project to light space
@@ -295,11 +296,11 @@ float shadowPCF(vec3 worldPos, vec3 N, vec3 L)
 
     // --- 4) slope-aware depth bias in *shadow depth units*
     float ndotl = max(dot(N, normalize(L)), 0.0);
-    float depthTexel = 1.0 / max(200 - 1.0, 1e-6);
+    float depthTexel = 1.0 / max(250 - 1.0, 1e-6);
     float depthBias  = max(0.75 * depthTexel, (1.0 - ndotl) * 3.0 * depthTexel);
 
     // --- 5) small rotated Poisson PCF (de-grids moiré)
-    vec2 texel = vec2(1.0 / 1024.0, 1.0 / 1024.0); // assuming 1024 shadow map
+    vec2 texel = vec2(1.0 / SHADOW_RESOLUTION, 1.0 / SHADOW_RESOLUTION); // assuming 1024 shadow map
     vec2 poisson[8] = vec2[8](
         vec2(-0.5,-0.1), vec2(-0.1,-0.6), vec2( 0.6,-0.3), vec2( 0.2, 0.5),
         vec2(-0.4, 0.6), vec2(-0.7, 0.1), vec2( 0.7, 0.7), vec2( 0.0,-0.9)

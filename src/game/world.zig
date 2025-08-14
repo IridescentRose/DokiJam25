@@ -14,6 +14,7 @@ const gfx = @import("../gfx/gfx.zig");
 const Voxel = @import("voxel.zig");
 const Dragoon = @import("ai/dragoon.zig");
 const Tomato = @import("ai/tomato.zig");
+const Town = @import("town/Town.zig");
 
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
@@ -39,6 +40,8 @@ pub var light_pv_row: zm.Mat = undefined;
 var dragoon_model: Voxel = undefined;
 var tomato_model: Voxel = undefined;
 
+pub var town: Town = undefined;
+
 // Pause menu
 pub var paused: bool = true;
 var overlay_tex: u32 = 0;
@@ -60,6 +63,8 @@ pub fn init(seed: u64) !void {
     try job_queue.init();
 
     try ecs.init();
+
+    town = try Town.init();
 
     std.fs.cwd().makeDir("world") catch |err| switch (err) {
         error.PathAlreadyExists => {},
@@ -153,6 +158,7 @@ pub fn deinit() void {
         it.value_ptr.edits.deinit();
     }
 
+    town.deinit();
     chunkMap.deinit();
     player.deinit();
 

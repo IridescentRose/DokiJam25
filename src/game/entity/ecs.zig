@@ -95,6 +95,9 @@ pub const EntityKind = enum(u8) {
     player = 1,
     dragoon = 2,
     tomato = 3,
+    dragoon_builder = 4,
+    dragoon_farmer = 5,
+    dragoon_lumberjack = 6,
 };
 
 pub const ComponentType = enum(u8) {

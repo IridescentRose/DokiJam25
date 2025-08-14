@@ -105,6 +105,10 @@ pub fn init() !Self {
         .material = 258, // Cooked steak,
         .count = 64,
     };
+    res.inventory.slots[2] = .{
+        .material = 14, // Town block
+        .count = 512,
+    };
 
     res.voxel_tex = try gfx.texture.load_image_from_file("dot.png");
     res.voxel_guide = Voxel.init(res.voxel_tex);
@@ -220,6 +224,11 @@ fn place_block(self: *Self) void {
         }
     }
 
+    var town_placed = false;
+    if (hand.material == 14) {
+        town_placed = true;
+    }
+
     var sub_hand = true;
     for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
         for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
@@ -253,10 +262,17 @@ fn place_block(self: *Self) void {
                                 }) catch break;
                             }
                         } else {
-                            const stencil = blocks.registry[hand.material];
-                            if (world.set_voxel(test_coord, stencil[stidx])) {
-                                hand.count -= 1;
-                                if (hand.count == 0) hand.material = 0;
+                            if (town_placed) {
+                                const stencil = blocks.registry[14];
+                                _ = world.set_voxel(test_coord, stencil[stidx]);
+
+                                // TODO: Instantiate town
+                            } else {
+                                const stencil = blocks.registry[hand.material];
+                                if (world.set_voxel(test_coord, stencil[stidx])) {
+                                    hand.count -= 1;
+                                    if (hand.count == 0) hand.material = 0;
+                                }
                             }
                         }
                     } else {
@@ -265,6 +281,12 @@ fn place_block(self: *Self) void {
                 }
             }
         }
+    }
+
+    if (town_placed) {
+        hand.material = 0;
+        hand.count = 0;
+        world.town.create(self.voxel_guide_transform_place.pos);
     }
 }
 
@@ -311,7 +333,7 @@ fn right_click(ctx: *anyopaque, down: bool) void {
         return;
     }
 
-    self.place_block();
+    if (self.block_mode) self.place_block();
 }
 
 fn pause_mouse() void {
@@ -472,7 +494,7 @@ fn left_click(ctx: *anyopaque, down: bool) void {
         return;
     }
 
-    self.break_block();
+    if (self.block_mode) self.break_block();
 }
 
 fn pause(ctx: *anyopaque, down: bool) void {

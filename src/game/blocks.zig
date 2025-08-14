@@ -28,12 +28,22 @@ pub fn init(s: u32) Registry {
     generate_leaf(&rng, &reg[@intFromEnum(Chunk.AtomKind.Leaf)]);
     generate_log(&rng, &reg[@intFromEnum(Chunk.AtomKind.Log)]);
     generate_bedrock(&rng, &reg[@intFromEnum(Chunk.AtomKind.Bedrock)]);
+    generate_town_block(&rng, &reg[@intFromEnum(Chunk.AtomKind.TownBlock)]);
 
     return reg;
 }
 
 pub fn stencil_index(pos: [3]usize) usize {
     return ((pos[1] % c.SUB_BLOCKS_PER_BLOCK) * c.SUB_BLOCKS_PER_BLOCK + (pos[2] % c.SUB_BLOCKS_PER_BLOCK)) * c.SUB_BLOCKS_PER_BLOCK + (pos[0] % c.SUB_BLOCKS_PER_BLOCK);
+}
+
+fn generate_town_block(_: *std.Random.DefaultPrng, stencil: *Stencil) void {
+    for (stencil) |*atom| {
+        atom.* = .{
+            .material = .TownBlock,
+            .color = [_]u8{ 0xFF, 0xFF, 0x00 },
+        };
+    }
 }
 
 fn generate_stone(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {

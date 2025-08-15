@@ -147,7 +147,7 @@ pub fn add_text(text: []const u8, position: [2]f32, color: [4]u8, layer: f32, sc
 
         try add_sprite(.{
             .offset = [_]f32{ position[0] + @as(f32, @floatFromInt(i * 18)) * scale - align_off, position[1], layer + 0.01 * @as(f32, @floatFromInt(i)) },
-            .scale = [_]f32{ 24 * scale, 36 * scale },
+            .scale = [_]f32{ 24 * scale, 33 * scale },
             .color = color,
             .tex_id = font_texture,
             .uv_offset = [_]f32{ char_x, 1.0 - (char_y) }, // 0.0625 is the height of a character in the texture

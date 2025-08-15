@@ -212,6 +212,75 @@ pub fn get_full_voxel(coord: [3]isize) Chunk.Atom {
     }
 }
 
+// This is in block coordinates, not SUB_BLOCKS
+// Scans all sub blocks for a particular atom
+pub fn contained_in_block(key: Chunk.AtomKind, coord: [3]isize) bool {
+    if (coord[1] < 0 or coord[1] >= c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS) {
+        return false;
+    }
+
+    const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_BLOCKS), @divFloor(coord[2], c.CHUNK_BLOCKS) };
+    const sub_chunk_coord = [_]usize{ @intCast(@mod(coord[0], c.CHUNK_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_BLOCKS * c.VERTICAL_CHUNKS)), @intCast(@mod(coord[2], c.CHUNK_BLOCKS)) };
+
+    if (chunkMap.get(chunk_coord)) |chunk| {
+        // Still is being generated, don't give half results.
+        if (!chunk.populated) return false;
+
+        for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
+            for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
+                for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
+                    const idx = Chunk.get_index([_]usize{ x + sub_chunk_coord[0] * c.SUB_BLOCKS_PER_BLOCK, y + sub_chunk_coord[1] * c.SUB_BLOCKS_PER_BLOCK, z + sub_chunk_coord[2] * c.SUB_BLOCKS_PER_BLOCK });
+                    if (blocks[chunk.offset + idx].material == key) {
+                        return true;
+                    }
+                }
+            }
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
+// In block coords
+pub fn break_only_in_block(key: Chunk.AtomKind, coord: [3]isize) bool {
+    if (coord[1] < 0 or coord[1] >= c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS) {
+        return false;
+    }
+
+    const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_BLOCKS), @divFloor(coord[2], c.CHUNK_BLOCKS) };
+    const sub_chunk_coord = [_]usize{ @intCast(@mod(coord[0], c.CHUNK_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_BLOCKS * c.VERTICAL_CHUNKS)), @intCast(@mod(coord[2], c.CHUNK_BLOCKS)) };
+
+    if (chunkMap.get(chunk_coord)) |chunk| {
+        // Still is being generated, don't give half results.
+        if (!chunk.populated) return false;
+
+        var y: usize = c.SUB_BLOCKS_PER_BLOCK - 1;
+        while (y >= 0) : (y -= 1) {
+            for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
+                for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
+                    const idx = Chunk.get_index([_]usize{ x + sub_chunk_coord[0] * c.SUB_BLOCKS_PER_BLOCK, y + sub_chunk_coord[1] * c.SUB_BLOCKS_PER_BLOCK, z + sub_chunk_coord[2] * c.SUB_BLOCKS_PER_BLOCK });
+                    if (blocks[chunk.offset + idx].material == key) {
+                        return set_voxel([_]isize{ coord[0] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(x)), coord[1] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(y)), coord[2] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(z)) }, .{
+                            .material = .Air,
+                            .color = [_]u8{ 0, 0, 0 },
+                        });
+                    }
+                }
+            }
+
+            if (y == 0) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
 pub fn is_in_world(coord: [3]isize) bool {
     if (coord[1] < 0 or coord[1] >= c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS) {
         return false;
@@ -723,7 +792,7 @@ pub fn draw(shadow: bool) void {
     const hours: usize = @intCast(tick / TICK_PER_HOUR);
     const minutes: usize = @intCast((tick % TICK_PER_HOUR) / TICK_PER_MINUTE);
 
-    const time = std.fmt.bufPrint(&buf, "Time: {}:{s}{}", .{ hours % TICK_HOURS, if (minutes % 60 < 10) "0" else "", minutes % 60 }) catch unreachable;
+    const time = std.fmt.bufPrint(&buf, "TIME: {}:{s}{}", .{ hours % TICK_HOURS, if (minutes % 60 < 10) "0" else "", minutes % 60 }) catch unreachable;
     ui.add_text(time, [_]f32{ ui.UI_RESOLUTION[0] - 30.0, ui.UI_RESOLUTION[1] - 30.0 }, [_]u8{ 255, 255, 255, 255 }, 4, 1, .Right) catch unreachable;
 
     if (paused) {
@@ -768,7 +837,7 @@ pub fn draw(shadow: bool) void {
             .tex_id = save_texture,
         }) catch unreachable;
 
-        ui.add_text("Resume Game", [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2 + 32 - 6 }, [_]u8{ 255, 255, 255, 255 }, 3, 1.5, .Center) catch unreachable;
-        ui.add_text("Save And End", [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2 - 128 - 6 }, [_]u8{ 255, 255, 255, 255 }, 3, 1.5, .Center) catch unreachable;
+        ui.add_text("RESUME GAME", [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2 + 32 - 6 }, [_]u8{ 255, 255, 255, 255 }, 3, 2, .Center) catch unreachable;
+        ui.add_text("SAVE AND END", [_]f32{ ui.UI_RESOLUTION[0] / 2, ui.UI_RESOLUTION[1] / 2 - 128 - 6 }, [_]u8{ 255, 255, 255, 255 }, 3, 2, .Center) catch unreachable;
     }
 }

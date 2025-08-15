@@ -32,10 +32,4 @@ pub fn update(self: *Self) void {
             self.time_til_next_rain = rng.random().int(u32) % 85000;
         }
     }
-
-    if (!self.is_raining) {
-        std.debug.print("Time until next rain: {}\n", .{self.time_til_next_rain});
-    } else {
-        std.debug.print("Time until end of rain: {}\n", .{self.time_til_end_rain});
-    }
 }

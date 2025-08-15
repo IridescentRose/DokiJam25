@@ -11,7 +11,11 @@ pub fn init() !void {
     night_ambient = try audio.Clip.load_from_file("night.mp3", true, false);
 }
 
-pub fn deinit() void {}
+pub fn deinit() void {
+    rain_ambient.deinit();
+    day_ambient.deinit();
+    night_ambient.deinit();
+}
 
 pub fn update() !void {
     if (world.weather.is_raining) {

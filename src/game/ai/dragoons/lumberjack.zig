@@ -62,17 +62,21 @@ pub fn update(self: ecs.Entity, dt: f32) void {
 
     // Timer -- the internal "think" rate of the dragoon
     const time = self.get_ptr(.timer);
+    var updated = false;
     if (std.time.milliTimestamp() >= time.*) {
         // Next decision scheduled in 3 seconds.
         time.* = std.time.milliTimestamp() + std.time.ms_per_s * 3;
-        // NOTE: this is also when we refresh RNG seed (below).
+        updated = true; // We updated the timer, so we can change behavior
     }
+
+    // Behavior: randomize horizontal direction on timer ticks
+    // Seed RNG from timer + entity id to avoid constant changes
+    var rng = std.Random.DefaultPrng.init(@as(u64, @bitCast(time.*)) + self.id);
 
     // Various useful pointers
     var velocity = self.get_ptr(.velocity);
     const transform = self.get_ptr(.transform);
     const ai_state_ptr = self.get_ptr(.ai_state);
-    const ai_state: usize = ai_state_ptr.*;
 
     // Day/Night Gate
     const daytime = world.tick % 24000;
@@ -84,7 +88,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
     // --- AI/Behavior selection ---
     // For now you had a single "wander" behavior with a night stop.
     // Here it's split by ai_state with the same behavior preserved as default.
-    switch (ai_state) {
+    blk: switch (ai_state_ptr.*) {
         // Idle Wander
         AI_IDLE => {
             if (is_sleep_time) {
@@ -92,9 +96,29 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                 velocity[0] = 0.0;
                 velocity[2] = 0.0;
             } else {
-                // Behavior: randomize horizontal direction on timer ticks
-                // Seed RNG from timer + entity id to avoid constant changes
-                var rng = std.Random.DefaultPrng.init(@as(u64, @bitCast(time.*)) + self.id);
+                if (updated and rng.random().int(u32) % 1 == 0) {
+                    // Look for a nearby tree
+                    const chunkLoc = [_]isize{
+                        @divFloor(@as(isize, @intFromFloat(transform.pos[0])), 16),
+                        @divFloor(@as(isize, @intFromFloat(transform.pos[2])), 16),
+                    };
+                    const chunk = world.chunkMap.getPtr(chunkLoc) orelse return;
+
+                    const tree_idx = rng.random().int(u32) % 3;
+                    const tree = chunk.tree_locs[tree_idx];
+
+                    // 0
+                    if (tree[0] != 0 or tree[1] != 0) {
+                        // Set target position to the tree location
+                        self.get_ptr(.target_pos)[0] = @as(isize, @intCast(tree[0])) + chunkLoc[0] * 16;
+                        self.get_ptr(.target_pos)[2] = @as(isize, @intCast(tree[1])) + chunkLoc[1] * 16;
+
+                        // Tree consumed
+                        chunk.tree_locs[tree_idx] = @splat(0);
+                        ai_state_ptr.* = AI_SEEK_TREE;
+                        continue :blk ai_state_ptr.*;
+                    }
+                }
 
                 const size: f32 = @floatFromInt(std.math.maxInt(i16));
                 const x: f32 = @floatFromInt(rng.random().intRangeAtMost(i16, std.math.minInt(i16), std.math.maxInt(i16)));
@@ -128,23 +152,104 @@ pub fn update(self: ecs.Entity, dt: f32) void {
         // SEEK TREE (future hook)
         // ------------------------------
         AI_SEEK_TREE => {
-            // TODO: path or steer toward nearest tree target.
-            // If reached -> ai_state_ptr.* = AI_CHOP_TREE
+            const target_pos = self.get_ptr(.target_pos);
+            const dx = @as(f32, @floatFromInt(target_pos[0])) - transform.pos[0];
+            const dz = @as(f32, @floatFromInt(target_pos[2])) - transform.pos[2];
+            const dist = std.math.sqrt(dx * dx + dz * dz);
+
+            if (dist < 1.5) {
+                ai_state_ptr.* = AI_CHOP_TREE;
+
+                // Adds average tree worth of logs
+                _ = world.town.inventory.add_item_inventory(.{
+                    .material = 8,
+                    .count = 2500,
+                });
+                continue :blk ai_state_ptr.*;
+            } else {
+                // Move towards the tree
+                velocity[0] = dx;
+                velocity[2] = dz;
+            }
+
+            // Normalize to MOVE_SPEED (so large RNG spikes don't change speed)
+            const THRESHOLD: f32 = 0.1;
+            if (velocity[0] * velocity[0] + velocity[2] * velocity[2] > THRESHOLD * THRESHOLD) {
+                const norm = zm.normalize3([_]f32{ velocity[0], 0.0, velocity[2], 0.0 }) *
+                    @as(@Vector(4, f32), @splat(MOVE_SPEED));
+                velocity[0] = norm[0];
+                velocity[2] = norm[2];
+
+                // Face movement direction
+                transform.rot[1] = std.math.radiansToDegrees(std.math.atan2(velocity[0], velocity[2])) + 180.0;
+            }
         },
 
         // ------------------------------
         // CHOP TREE (future hook)
         // ------------------------------
         AI_CHOP_TREE => {
-            // TODO: stand still, chop, break tree.
-            // Do until there's no more log on the Y axis of the chosen tree.
+            velocity[0] = 0;
+            velocity[2] = 0;
+
+            const minPos = [_]isize{ @intFromFloat(transform.pos[0] - 4.0), @intFromFloat(transform.pos[1] - 7.0), @intFromFloat(transform.pos[2] - 4.0) };
+            const maxPos = [_]isize{ @intFromFloat(transform.pos[0] + 4.0), @intFromFloat(transform.pos[1] + 7.0), @intFromFloat(transform.pos[2] + 4.0) };
+
+            var mined_something = false;
+            var y = maxPos[1];
+            while (y >= minPos[1]) : (y -|= 1) {
+                var z = minPos[2];
+                var succeeded = false;
+                while (z < maxPos[2]) : (z += 1) {
+                    var x = minPos[0];
+                    while (x < maxPos[0]) : (x += 1) {
+                        if (world.contained_in_block(.Log, [_]isize{ x, y, z }) or world.contained_in_block(.Leaf, [_]isize{ x, y, z }) or world.contained_in_block(.Charcoal, [_]isize{ x, y, z })) {
+                            succeeded = true;
+
+                            _ = world.break_only_in_block(.Log, [_]isize{ x, y, z });
+                            _ = world.break_only_in_block(.Leaf, [_]isize{ x, y, z });
+                            _ = world.break_only_in_block(.Charcoal, [_]isize{ x, y, z });
+                        }
+                    }
+                }
+
+                mined_something = succeeded or mined_something;
+                if (succeeded) break;
+            }
+
+            if (!mined_something) {
+                // Go to return home
+                ai_state_ptr.* = AI_RETURN;
+                continue :blk ai_state_ptr.*;
+            }
         },
 
-        // ------------------------------
-        // RETURN HOME (future hook)
-        // ------------------------------
         AI_RETURN => {
-            // TODO: move toward town stockpile; drop resources; then AI_IDLE/SEEK_TREE.
+            const home = self.get(.home_pos);
+            const dx = @as(f32, @floatFromInt(home[0])) - transform.pos[0];
+            const dz = @as(f32, @floatFromInt(home[2])) - transform.pos[2];
+            const dist = std.math.sqrt(dx * dx + dz * dz);
+
+            if (dist < 1.5) {
+                ai_state_ptr.* = AI_IDLE;
+                continue :blk ai_state_ptr.*;
+            } else {
+                // Move towards the home position
+                velocity[0] = dx;
+                velocity[2] = dz;
+            }
+
+            // Normalize to MOVE_SPEED (so large RNG spikes don't change speed)
+            const THRESHOLD: f32 = 0.1;
+            if (velocity[0] * velocity[0] + velocity[2] * velocity[2] > THRESHOLD * THRESHOLD) {
+                const norm = zm.normalize3([_]f32{ velocity[0], 0.0, velocity[2], 0.0 }) *
+                    @as(@Vector(4, f32), @splat(MOVE_SPEED));
+                velocity[0] = norm[0];
+                velocity[2] = norm[2];
+
+                // Face movement direction
+                transform.rot[1] = std.math.radiansToDegrees(std.math.atan2(velocity[0], velocity[2])) + 180.0;
+            }
         },
 
         // Basically idle, fallback

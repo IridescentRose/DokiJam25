@@ -19,6 +19,7 @@ const Builder = @import("ai/dragoons//builder.zig");
 const Farmer = @import("ai/dragoons/farmer.zig");
 const Lumberjack = @import("ai/dragoons/lumberjack.zig");
 const Weather = @import("weather.zig");
+const ambience = @import("ambience.zig");
 
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
@@ -70,6 +71,7 @@ pub fn init(seed: u64) !void {
     try ecs.init();
 
     town = try Town.init();
+    try ambience.init();
 
     std.fs.cwd().makeDir("world") catch |err| switch (err) {
         error.PathAlreadyExists => {},
@@ -166,6 +168,7 @@ pub fn deinit() void {
 
     worldgen.deinit();
     ecs.deinit();
+    ambience.deinit();
 
     util.allocator().free(blocks);
     chunk_mesh.deinit();
@@ -448,6 +451,7 @@ pub fn update() !void {
 
     town.update();
     weather.update();
+    try ambience.update();
 
     if (tick % 6 == 0) {
         var a_count: usize = 0;

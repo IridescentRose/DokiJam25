@@ -432,7 +432,13 @@ void main() {
         // fog
         vec3 viewDir = normalize(worldPos - cameraPos);
         float d = length(worldPos - cameraPos);
-        float dEff = max(d - 33.0, 0.0);
+        
+        float distance = 33.0;
+        if(uIsRaining) {
+            distance = 15.0;
+        }
+
+        float dEff = max(d - distance, 0.0);
         float f = fogFactorExp(dEff, 0.1, cameraPos.y, worldPos.y, 32.0, 0.008);
         f = clamp(f, 0.0, 1.0);
 
@@ -440,6 +446,9 @@ void main() {
         float muFog = dot(viewDir, sunDir);
         float mieFog = hgPhase(muFog, 0.8) * 0.15;
         fogCol += sunColForFog * mieFog * f * sunVis * 0.25;
+        if(uIsRaining) {
+            fogCol = toGray(fogCol);
+        }
 
         lit_color = mix(lit_color, fogCol, f);
     }

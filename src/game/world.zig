@@ -20,6 +20,7 @@ const Farmer = @import("ai/dragoons/farmer.zig");
 const Lumberjack = @import("ai/dragoons/lumberjack.zig");
 const Weather = @import("weather.zig");
 const ambience = @import("ambience.zig");
+const Blocks = @import("blocks.zig");
 
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
@@ -108,7 +109,6 @@ pub fn init(seed: u64) !void {
     // Find a random spawn point
     try worldgen.init(seed);
     weather = Weather.init(seed);
-    weather.time_til_next_rain = 1500;
     var rng = std.Random.DefaultPrng.init(seed);
     while (true) {
         const x = @mod(rng.random().int(i32), 4096);
@@ -281,6 +281,29 @@ pub fn break_only_in_block(key: Chunk.AtomKind, coord: [3]isize) bool {
     }
 }
 
+pub fn place_block(new_blk: Chunk.AtomKind, coord: [3]isize) bool {
+    if (coord[1] < 0 or coord[1] >= c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS) {
+        return false;
+    }
+
+    for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
+        for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
+            for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
+                const ix: isize = @intCast(x);
+                const iy: isize = @intCast(y);
+                const iz: isize = @intCast(z);
+
+                const test_coord = [3]isize{ coord[0] * c.SUB_BLOCKS_PER_BLOCK + ix, coord[1] * c.SUB_BLOCKS_PER_BLOCK + iy, coord[2] * c.SUB_BLOCKS_PER_BLOCK + iz };
+                const stidx = Blocks.stencil_index([3]usize{ x, y, z });
+                const stencil = Blocks.registry[@intFromEnum(new_blk)];
+                _ = set_voxel(test_coord, stencil[stidx]);
+            }
+        }
+    }
+
+    return true;
+}
+
 pub fn is_in_world(coord: [3]isize) bool {
     if (coord[1] < 0 or coord[1] >= c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS) {
         return false;
@@ -426,6 +449,7 @@ fn lessThan(_: usize, a: ChunkMesh.IndirectionEntry, b: ChunkMesh.IndirectionEnt
     return a.x < b.x;
 }
 
+var count: usize = 0;
 pub fn update() !void {
     try update_player_surrounding_chunks();
 
@@ -513,7 +537,10 @@ pub fn update() !void {
         }
     }
 
-    tick += 1;
+    count += 1;
+    if (count % 3 == 0) {
+        tick += 2;
+    }
 
     var new_active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
     defer new_active_atoms.deinit();
@@ -685,7 +712,7 @@ pub fn update() !void {
                     };
 
                     const voxel = get_voxel(check_coord);
-                    if (voxel == .Grass or voxel == .Leaf or voxel == .Log) {
+                    if (voxel == .Grass or voxel == .Leaf or voxel == .Log or voxel == .Crop) {
                         if (voxel == .Grass) {
                             if (set_voxel(check_coord, .{ .material = .Ash, .color = [_]u8{ 0x0F, 0x0F, 0x0F } })) {
                                 try new_active_atoms.append(.{

@@ -28,7 +28,7 @@ pub fn get_max_pos(self: *const Self, new_pos: [3]f32) [3]f32 {
 
 pub fn can_walk_through(coord: [3]isize) bool {
     const material = world.get_voxel(coord);
-    return material == .Air or material == .Water or material == .StillWater or material == .Leaf or material == .Grass or material == .Fire or material == .Ash;
+    return material == .Air or material == .Water or material == .StillWater or material == .Leaf or material == .Crop or material == .Grass or material == .Fire or material == .Ash;
 }
 
 // Returns true if the AABB is clear at the given position

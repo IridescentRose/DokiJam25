@@ -85,9 +85,6 @@ pub fn update(self: ecs.Entity, dt: f32) void {
     // Always Gravity
     velocity[1] += GRAVITY * dt;
 
-    // --- AI/Behavior selection ---
-    // For now you had a single "wander" behavior with a night stop.
-    // Here it's split by ai_state with the same behavior preserved as default.
     blk: switch (ai_state_ptr.*) {
         // Idle Wander
         AI_IDLE => {
@@ -152,6 +149,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
         // SEEK TREE (future hook)
         // ------------------------------
         AI_SEEK_TREE => {
+            if (is_sleep_time) return;
             const target_pos = self.get_ptr(.target_pos);
             const dx = @as(f32, @floatFromInt(target_pos[0])) - transform.pos[0];
             const dz = @as(f32, @floatFromInt(target_pos[2])) - transform.pos[2];
@@ -159,12 +157,6 @@ pub fn update(self: ecs.Entity, dt: f32) void {
 
             if (dist < 1.5) {
                 ai_state_ptr.* = AI_CHOP_TREE;
-
-                // Adds average tree worth of logs
-                _ = world.town.inventory.add_item_inventory(.{
-                    .material = 8,
-                    .count = 2500,
-                });
                 continue :blk ai_state_ptr.*;
             } else {
                 // Move towards the tree
@@ -191,9 +183,11 @@ pub fn update(self: ecs.Entity, dt: f32) void {
         AI_CHOP_TREE => {
             velocity[0] = 0;
             velocity[2] = 0;
+            if (is_sleep_time) return;
 
-            const minPos = [_]isize{ @intFromFloat(transform.pos[0] - 4.0), @intFromFloat(transform.pos[1] - 7.0), @intFromFloat(transform.pos[2] - 4.0) };
-            const maxPos = [_]isize{ @intFromFloat(transform.pos[0] + 4.0), @intFromFloat(transform.pos[1] + 7.0), @intFromFloat(transform.pos[2] + 4.0) };
+            const target_pos = self.get_ptr(.target_pos);
+            const minPos = [_]isize{ target_pos[0] - 5, @as(isize, @intFromFloat(transform.pos[1] - 7)), target_pos[2] - 5 };
+            const maxPos = [_]isize{ target_pos[0] + 5, @as(isize, @intFromFloat(transform.pos[1] + 7)), target_pos[2] + 5 };
 
             var mined_something = false;
             var y = maxPos[1];
@@ -232,6 +226,10 @@ pub fn update(self: ecs.Entity, dt: f32) void {
 
             if (dist < 1.5) {
                 ai_state_ptr.* = AI_IDLE;
+                _ = world.town.inventory.add_item_inventory(.{
+                    .material = 8,
+                    .count = 2500,
+                });
                 continue :blk ai_state_ptr.*;
             } else {
                 // Move towards the home position

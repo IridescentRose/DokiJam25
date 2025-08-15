@@ -20,6 +20,7 @@ builder_model: Voxel,
 lumber_model: Voxel,
 sleep_model: Voxel,
 created: bool = false,
+farm_loc: ?[3]f32 = null,
 
 const Self = @This();
 

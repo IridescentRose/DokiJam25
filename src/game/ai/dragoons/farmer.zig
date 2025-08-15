@@ -12,8 +12,12 @@ const MOVE_SPEED = 1.0; // Horizontal move speed when "moving"
 const AI_IDLE: i32 = 0;
 const AI_SLEEP: i32 = 1;
 const AI_SEEK_LAND: i32 = 2;
-const AI_TILL_PLANT: i32 = 3;
-const AI_RETURN: i32 = 4;
+const AI_TILL: i32 = 3;
+const AI_PLANT: i32 = 4;
+const AI_HARVEST: i32 = 5;
+const AI_RETURN: i32 = 6;
+
+var has_grown: bool = false;
 
 pub fn create(position: [3]f32, rotation: [3]f32, home_pos: [3]isize, model: components.ModelComponent) !ecs.Entity {
     const entity = try ecs.create_entity(.dragoon_farmer);
@@ -81,10 +85,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
     // Always Gravity
     velocity[1] += GRAVITY * dt;
 
-    // --- AI/Behavior selection ---
-    // For now you had a single "wander" behavior with a night stop.
-    // Here it's split by ai_state with the same behavior preserved as default.
-    switch (ai_state) {
+    blk: switch (ai_state) {
         // Idle Wander
         AI_IDLE => {
             if (is_sleep_time) {
@@ -121,6 +122,12 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                     // Face movement direction
                     transform.rot[1] = std.math.radiansToDegrees(std.math.atan2(velocity[0], velocity[2])) + 180.0;
                 }
+
+                if (world.town.farm_loc) |loc| {
+                    ai_state_ptr.* = AI_SEEK_LAND; // Switch to seeking land if farm exists
+                    self.get_ptr(.target_pos).* = [_]isize{ @intFromFloat(loc[0]), @intFromFloat(loc[1]), @intFromFloat(loc[2]) };
+                    continue :blk ai_state_ptr.*; // Skip to next state
+                }
             }
         },
 
@@ -128,22 +135,201 @@ pub fn update(self: ecs.Entity, dt: f32) void {
         // SEEK LAND (future hook)
         // ------------------------------
         AI_SEEK_LAND => {
-            // TODO: path or steer toward nearest farmland target.
-            // If reached -> ai_state_ptr.* = AI_TILL_PLANT
+            if (is_sleep_time) return;
+            const target_pos = self.get_ptr(.target_pos);
+            const dx = @as(f32, @floatFromInt(target_pos[0])) - transform.pos[0];
+            const dz = @as(f32, @floatFromInt(target_pos[2])) - transform.pos[2];
+            const dist = std.math.sqrt(dx * dx + dz * dz);
+
+            if (dist < 1.5) {
+                ai_state_ptr.* = AI_TILL;
+
+                // Adds average tree worth of logs
+                _ = world.town.inventory.add_item_inventory(.{
+                    .material = 8,
+                    .count = 2500,
+                });
+                continue :blk ai_state_ptr.*;
+            } else {
+                // Move towards the tree
+                velocity[0] = dx;
+                velocity[2] = dz;
+            }
+
+            // Normalize to MOVE_SPEED (so large RNG spikes don't change speed)
+            const THRESHOLD: f32 = 0.1;
+            if (velocity[0] * velocity[0] + velocity[2] * velocity[2] > THRESHOLD * THRESHOLD) {
+                const norm = zm.normalize3([_]f32{ velocity[0], 0.0, velocity[2], 0.0 }) *
+                    @as(@Vector(4, f32), @splat(MOVE_SPEED));
+                velocity[0] = norm[0];
+                velocity[2] = norm[2];
+
+                // Face movement direction
+                transform.rot[1] = std.math.radiansToDegrees(std.math.atan2(velocity[0], velocity[2])) + 180.0;
+            }
         },
 
         // ------------------------------
         // TILL LAND (future hook)
         // ------------------------------
-        AI_TILL_PLANT => {
-            // TODO: stand still, till, plant crops.
+        AI_TILL => {
+            if (is_sleep_time) return;
+            velocity[0] = 0;
+            velocity[2] = 0;
+
+            const target_pos = self.get_ptr(.target_pos);
+            const minPos = [_]isize{ target_pos[0] - 7, target_pos[1] - 1, target_pos[2] - 7 };
+            const maxPos = [_]isize{ target_pos[0] + 7, target_pos[1] + 1, target_pos[2] + 7 };
+
+            var mined_something = false;
+
+            // DEBUG: Speed up
+            for (0..16) |_| {
+                var y = maxPos[1];
+                while (y >= minPos[1]) : (y -|= 1) {
+                    var z = minPos[2];
+                    var succeeded = false;
+                    while (z < maxPos[2]) : (z += 1) {
+                        var x = minPos[0];
+                        while (x < maxPos[0]) : (x += 1) {
+                            succeeded = succeeded or world.break_only_in_block(.Log, [_]isize{ x, y, z });
+                            succeeded = succeeded or world.break_only_in_block(.Leaf, [_]isize{ x, y, z });
+                            succeeded = succeeded or world.break_only_in_block(.Charcoal, [_]isize{ x, y, z });
+                            succeeded = succeeded or world.break_only_in_block(.Ash, [_]isize{ x, y, z });
+                            succeeded = succeeded or world.break_only_in_block(.Grass, [_]isize{ x, y, z });
+                        }
+                    }
+
+                    mined_something = succeeded or mined_something;
+                    if (succeeded) break;
+                }
+            }
+
+            if (!mined_something) {
+                // Go to return home
+                ai_state_ptr.* = AI_PLANT;
+                continue :blk ai_state_ptr.*;
+            }
+        },
+
+        AI_PLANT => {
+            if (is_sleep_time) return;
+            velocity[0] = 0;
+            velocity[2] = 0;
+
+            const target_pos = self.get_ptr(.target_pos);
+            const minPos = [_]isize{ target_pos[0] - 7, target_pos[1], target_pos[2] - 7 };
+            const maxPos = [_]isize{ target_pos[0] + 7, target_pos[1] + 1, target_pos[2] + 7 };
+
+            var mined_something = false;
+
+            // DEBUG: Speed up
+            var y = minPos[1];
+            while (y < maxPos[1]) : (y += 1) {
+                var z = minPos[2];
+                var succeeded = false;
+                while (z < maxPos[2]) : (z += 1) {
+                    var x = minPos[0];
+                    while (x < maxPos[0]) : (x += 1) {
+                        if (!world.contained_in_block(.Crop, [_]isize{ x, y, z }))
+                            succeeded = succeeded or world.place_block(.Crop, [_]isize{ x, y, z });
+                    }
+                }
+
+                mined_something = succeeded or mined_something;
+                if (succeeded) break;
+            }
+
+            if (!mined_something) {
+                // Go to return home
+                ai_state_ptr.* = AI_HARVEST;
+                has_grown = false;
+                continue :blk ai_state_ptr.*;
+            }
+        },
+
+        AI_HARVEST => {
+            velocity[0] = 0.0;
+            velocity[1] = 0.0;
+
+            if (is_sleep_time) {
+                has_grown = true;
+                return;
+            }
+
+            if (!has_grown) return;
+            std.debug.print("HARVESTING!\n", .{});
+
+            const target_pos = self.get_ptr(.target_pos);
+            const minPos = [_]isize{ target_pos[0] - 7, target_pos[1] - 1, target_pos[2] - 7 };
+            const maxPos = [_]isize{ target_pos[0] + 7, target_pos[1] + 1, target_pos[2] + 7 };
+
+            var mined_something = false;
+
+            // DEBUG: Speed up
+            for (0..16) |_| {
+                var y = maxPos[1];
+                while (y >= minPos[1]) : (y -|= 1) {
+                    var z = minPos[2];
+                    var succeeded = false;
+                    while (z < maxPos[2]) : (z += 1) {
+                        var x = minPos[0];
+                        while (x < maxPos[0]) : (x += 1) {
+                            succeeded = succeeded or world.break_only_in_block(.Log, [_]isize{ x, y, z });
+                            succeeded = succeeded or world.break_only_in_block(.Leaf, [_]isize{ x, y, z });
+                            succeeded = succeeded or world.break_only_in_block(.Charcoal, [_]isize{ x, y, z });
+                            succeeded = succeeded or world.break_only_in_block(.Ash, [_]isize{ x, y, z });
+                            succeeded = succeeded or world.break_only_in_block(.Grass, [_]isize{ x, y, z });
+                            succeeded = succeeded or world.break_only_in_block(.Crop, [_]isize{ x, y, z });
+                        }
+                    }
+
+                    mined_something = succeeded or mined_something;
+                    if (succeeded) break;
+                }
+            }
+
+            if (!mined_something) {
+                // Go to return home
+                ai_state_ptr.* = AI_RETURN;
+                continue :blk ai_state_ptr.*;
+            }
         },
 
         // ------------------------------
         // RETURN HOME (future hook)
         // ------------------------------
         AI_RETURN => {
-            // TODO: move toward town stockpile; drop resources; then AI_IDLE/SEEK_TREE.
+            const home = self.get(.home_pos);
+            const dx = @as(f32, @floatFromInt(home[0])) - transform.pos[0];
+            const dz = @as(f32, @floatFromInt(home[2])) - transform.pos[2];
+            const dist = std.math.sqrt(dx * dx + dz * dz);
+
+            if (dist < 1.5) {
+                ai_state_ptr.* = AI_IDLE;
+
+                _ = world.town.inventory.add_item_inventory(.{
+                    .material = 260,
+                    .count = 2500,
+                });
+                continue :blk ai_state_ptr.*;
+            } else {
+                // Move towards the home position
+                velocity[0] = dx;
+                velocity[2] = dz;
+            }
+
+            // Normalize to MOVE_SPEED (so large RNG spikes don't change speed)
+            const THRESHOLD: f32 = 0.1;
+            if (velocity[0] * velocity[0] + velocity[2] * velocity[2] > THRESHOLD * THRESHOLD) {
+                const norm = zm.normalize3([_]f32{ velocity[0], 0.0, velocity[2], 0.0 }) *
+                    @as(@Vector(4, f32), @splat(MOVE_SPEED));
+                velocity[0] = norm[0];
+                velocity[2] = norm[2];
+
+                // Face movement direction
+                transform.rot[1] = std.math.radiansToDegrees(std.math.atan2(velocity[0], velocity[2])) + 180.0;
+            }
         },
 
         // Basically idle, fallback

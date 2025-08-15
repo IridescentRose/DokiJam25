@@ -102,7 +102,7 @@ pub fn init() !Self {
         .count = 64,
     };
     res.inventory.slots[1] = .{
-        .material = 258, // Cooked steak,
+        .material = 258, // Matches,
         .count = 64,
     };
     res.inventory.slots[2] = .{
@@ -227,6 +227,19 @@ fn place_block(self: *Self) void {
     var town_placed = false;
     if (hand.material == 14) {
         town_placed = true;
+
+        // Give them a farm
+        hand.material = 15;
+        hand.count = 64;
+        world.town.create(self.voxel_guide_transform_place.pos) catch unreachable;
+        return;
+    }
+
+    if (hand.material == 15) {
+        world.town.farm_loc = self.voxel_guide_transform_place.pos;
+        hand.material = 0;
+        hand.count = 0;
+        return;
     }
 
     var sub_hand = true;
@@ -243,7 +256,6 @@ fn place_block(self: *Self) void {
                     const stidx = blocks.stencil_index([3]usize{ x, y, z });
 
                     if (hand.count > 0 and (hand.material < 256 or hand.material == 258)) { // Don't place items that are not blocks (will have exceptions later)
-
                         if (hand.material == 258) {
                             // Matches light fire.
                             if (world.set_voxel(test_coord, .{
@@ -262,17 +274,10 @@ fn place_block(self: *Self) void {
                                 }) catch break;
                             }
                         } else {
-                            if (town_placed) {
-                                const stencil = blocks.registry[14];
-                                _ = world.set_voxel(test_coord, stencil[stidx]);
-
-                                // TODO: Instantiate town
-                            } else {
-                                const stencil = blocks.registry[hand.material];
-                                if (world.set_voxel(test_coord, stencil[stidx])) {
-                                    hand.count -= 1;
-                                    if (hand.count == 0) hand.material = 0;
-                                }
+                            const stencil = blocks.registry[hand.material];
+                            if (world.set_voxel(test_coord, stencil[stidx])) {
+                                hand.count -= 1;
+                                if (hand.count == 0) hand.material = 0;
                             }
                         }
                     } else {
@@ -281,12 +286,6 @@ fn place_block(self: *Self) void {
                 }
             }
         }
-    }
-
-    if (town_placed) {
-        hand.material = 0;
-        hand.count = 0;
-        world.town.create(self.voxel_guide_transform_place.pos) catch unreachable;
     }
 }
 
@@ -414,7 +413,7 @@ fn break_block(self: *Self) void {
                 if (voxel != .Air and voxel != .Water and voxel != .StillWater and voxel != .Bedrock) {
                     const atom_type = voxel;
 
-                    if (voxel != .Fire) {
+                    if (voxel != .Fire and voxel != .Crop) {
                         var mat = atom_type;
 
                         // Grass can't be harvested, turns into dirt

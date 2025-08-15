@@ -26,6 +26,7 @@ pub fn init(s: u32) Registry {
     generate_grass(&rng, &reg[@intFromEnum(Chunk.AtomKind.Grass)]);
     generate_sand(&rng, &reg[@intFromEnum(Chunk.AtomKind.Sand)]);
     generate_leaf(&rng, &reg[@intFromEnum(Chunk.AtomKind.Leaf)]);
+    generate_crop(&rng, &reg[@intFromEnum(Chunk.AtomKind.Crop)]);
     generate_log(&rng, &reg[@intFromEnum(Chunk.AtomKind.Log)]);
     generate_bedrock(&rng, &reg[@intFromEnum(Chunk.AtomKind.Bedrock)]);
     generate_town_block(&rng, &reg[@intFromEnum(Chunk.AtomKind.TownBlock)]);
@@ -114,6 +115,23 @@ fn generate_leaf(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
             atom.* = .{
                 .material = .Leaf,
                 .color = [_]u8{ 0x35 + lightness, 0x79 + lightness, 0x20 + lightness % 8 },
+            };
+        } else {
+            atom.* = .{
+                .material = .Air,
+                .color = [_]u8{ 0, 0, 0 },
+            };
+        }
+    }
+}
+fn generate_crop(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
+    for (stencil) |*atom| {
+        const lightness = rng.random().int(u8) % 64;
+
+        if (lightness % 4 == 0) {
+            atom.* = .{
+                .material = .Crop,
+                .color = [_]u8{ 0x89 + lightness, 0x79 + lightness, 0x20 + lightness % 8 },
             };
         } else {
             atom.* = .{

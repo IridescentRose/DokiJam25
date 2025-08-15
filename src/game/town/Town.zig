@@ -65,9 +65,9 @@ pub fn create(self: *Self, pos: [3]f32) !void {
         self.town_center = pos;
         std.debug.print("Created town at position: ({}, {}, {})\n", .{ pos[0], pos[1], pos[2] });
 
-        self.citizens[0] = try Builder.create([_]f32{ pos[0] + 1, pos[1] + 1, pos[2] + 1 }, @splat(0), self.builder_model);
-        self.citizens[1] = try Lumber.create([_]f32{ pos[0] + 1, pos[1] + 1, pos[2] + 1 }, @splat(0), self.lumber_model);
-        self.citizens[2] = try Farmer.create([_]f32{ pos[0] + 1, pos[1] + 1, pos[2] + 1 }, @splat(0), self.farmer_model);
+        self.citizens[0] = try Builder.create([_]f32{ pos[0] + 1, pos[1] + 1, pos[2] + 1 }, @splat(0), [_]isize{ @intFromFloat(pos[0] + 1), @intFromFloat(pos[1] + 1), @intFromFloat(pos[2] + 1) }, self.builder_model);
+        self.citizens[1] = try Lumber.create([_]f32{ pos[0] + 1, pos[1] + 1, pos[2] + 1 }, @splat(0), [_]isize{ @intFromFloat(pos[0] + 1), @intFromFloat(pos[1] + 1), @intFromFloat(pos[2] + 1) }, self.lumber_model);
+        self.citizens[2] = try Farmer.create([_]f32{ pos[0] + 1, pos[1] + 1, pos[2] + 1 }, @splat(0), [_]isize{ @intFromFloat(pos[0] + 1), @intFromFloat(pos[1] + 1), @intFromFloat(pos[2] + 1) }, self.farmer_model);
 
         self.created = true;
     }

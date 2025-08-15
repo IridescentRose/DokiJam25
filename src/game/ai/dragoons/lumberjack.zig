@@ -15,7 +15,7 @@ const AI_SEEK_TREE: i32 = 2;
 const AI_CHOP_TREE: i32 = 3;
 const AI_RETURN: i32 = 4;
 
-pub fn create(position: [3]f32, rotation: [3]f32, model: components.ModelComponent) !ecs.Entity {
+pub fn create(position: [3]f32, rotation: [3]f32, home_pos: [3]isize, model: components.ModelComponent) !ecs.Entity {
     const entity = try ecs.create_entity(.dragoon_lumberjack);
 
     // Core
@@ -29,6 +29,8 @@ pub fn create(position: [3]f32, rotation: [3]f32, model: components.ModelCompone
     // AI / Timing
     try entity.add_component(.timer, std.time.milliTimestamp() + std.time.ms_per_s * 1);
     try entity.add_component(.ai_state, AI_IDLE); // start wandering/idle by default
+    try entity.add_component(.home_pos, home_pos);
+    try entity.add_component(.target_pos, [_]isize{ 0, 0, 0 });
 
     // Initial Pos
     const transform = entity.get_ptr(.transform);

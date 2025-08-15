@@ -18,6 +18,7 @@ const Town = @import("town/Town.zig");
 const Builder = @import("ai/dragoons//builder.zig");
 const Farmer = @import("ai/dragoons/farmer.zig");
 const Lumberjack = @import("ai/dragoons/lumberjack.zig");
+const Weather = @import("weather.zig");
 
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
@@ -44,6 +45,7 @@ var dragoon_model: Voxel = undefined;
 var tomato_model: Voxel = undefined;
 
 pub var town: Town = undefined;
+pub var weather: Weather = undefined;
 
 // Pause menu
 pub var paused: bool = true;
@@ -103,6 +105,8 @@ pub fn init(seed: u64) !void {
 
     // Find a random spawn point
     try worldgen.init(seed);
+    weather = Weather.init(seed);
+    weather.time_til_next_rain = 1500;
     var rng = std.Random.DefaultPrng.init(seed);
     while (true) {
         const x = @mod(rng.random().int(i32), 4096);
@@ -122,16 +126,6 @@ pub fn init(seed: u64) !void {
 
         break;
     }
-
-    // TEST DRAGOON
-    const dragoon_tex = try gfx.texture.load_image_from_file("dragoon.png");
-    dragoon_model = Voxel.init(dragoon_tex);
-    try dragoon_model.build();
-
-    // TEST TOMATO
-    const tomato_tex = try gfx.texture.load_image_from_file("tomato.png");
-    tomato_model = Voxel.init(tomato_tex);
-    try tomato_model.build();
 
     active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
 
@@ -171,9 +165,6 @@ pub fn deinit() void {
     edit_list.deinit();
 
     worldgen.deinit();
-
-    dragoon_model.deinit();
-    tomato_model.deinit();
     ecs.deinit();
 
     util.allocator().free(blocks);
@@ -450,25 +441,13 @@ pub fn update() !void {
         }
     }
 
-    tick += 6;
-
-    // Rain
-    for (0..8) |_| {
-        const rx = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
-        const rz = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
-        try particles.add_particle(Particle.Particle{
-            .kind = .Water,
-            .pos = [_]f32{ player.entity.get(.transform).pos[0] + rx * 0.25, 63.0, player.entity.get(.transform).pos[2] + rz * 0.25 },
-            .color = [_]u8{ 0xC0, 0xD0, 0xFF },
-            .vel = [_]f32{ 0, -80, 0 },
-            .lifetime = 300,
-        });
-    }
+    tick += 1;
 
     var new_active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
     defer new_active_atoms.deinit();
 
     town.update();
+    weather.update();
 
     if (tick % 6 == 0) {
         var a_count: usize = 0;
@@ -606,9 +585,7 @@ pub fn update() !void {
                         _ = set_voxel(next_coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
                     }
                 }
-            }
-
-            if (kind == .Fire or kind == .Ember) {
+            } else if (kind == .Fire or kind == .Ember) {
                 // // Chance to not spread
                 if (a_count % 7 != 0) {
                     atom.moves -|= 4;
@@ -664,6 +641,10 @@ pub fn update() !void {
                         }
                     }
                 }
+            } else {
+                // Unknown, stop movement
+                atom.moves = 0;
+                continue;
             }
         }
 
@@ -692,7 +673,20 @@ pub fn update() !void {
         try active_atoms.appendSlice(new_active_atoms.items);
     }
 
-    // try particles.update();
+    try particles.update();
+    if (weather.is_raining) {
+        for (0..8) |_| {
+            const rx = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
+            const rz = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
+            try particles.add_particle(Particle.Particle{
+                .kind = .Water,
+                .pos = [_]f32{ player.entity.get(.transform).pos[0] + rx * 0.25, 63.0, player.entity.get(.transform).pos[2] + rz * 0.25 },
+                .color = [_]u8{ 0xC0, 0xD0, 0xFF },
+                .vel = [_]f32{ 0, -80, 0 },
+                .lifetime = 300,
+            });
+        }
+    }
 }
 
 pub fn draw(shadow: bool) void {
@@ -717,7 +711,9 @@ pub fn draw(shadow: bool) void {
 
     if (shadow) return; // Don't draw the UI in shadow pass; particles are unlit
 
-    // particles.draw();
+    if (weather.is_raining) {
+        particles.draw();
+    }
 
     var buf: [64]u8 = @splat(0);
     const hours: usize = @intCast(tick / TICK_PER_HOUR);

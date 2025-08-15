@@ -58,6 +58,7 @@ var compInvProjLoc: c_int = 0;
 var compInvViewLoc: c_int = 0;
 var compViewLoc: c_int = 0;
 var compProjLoc: c_int = 0;
+var compIsRainingLoc: c_int = 0;
 
 var compTimeLoc: c_int = 0;
 var compFrameLoc: c_int = 0; // for dither
@@ -142,6 +143,7 @@ pub fn init() !void {
     compLightSpaceMatrixLoc = gl.getUniformLocation(comp, "uLightSpaceMatrix");
     compViewLoc = gl.getUniformLocation(comp, "uView");
     compProjLoc = gl.getUniformLocation(comp, "uProj");
+    compIsRainingLoc = gl.getUniformLocation(comp, "uIsRaining");
 
     const shadow_v = compile_shader(@ptrCast(&shad_vert_source), gl.VERTEX_SHADER);
     const shadow_f = compile_shader(@ptrCast(&shad_frag_source), gl.FRAGMENT_SHADER);
@@ -383,4 +385,9 @@ pub fn use_shadow_shader() void {
 pub fn set_ray_is_shadow_pass(is_shadow: bool) void {
     use_ray_shader();
     gl.uniform1i(rayIsShadowPassLoc, if (is_shadow) 1 else 0);
+}
+
+pub fn set_comp_is_raining(is_raining: bool) void {
+    use_comp_shader();
+    gl.uniform1i(compIsRainingLoc, if (is_raining) 1 else 0);
 }

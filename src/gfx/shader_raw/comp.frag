@@ -22,6 +22,8 @@ uniform int uFrame;       // 0..1 day cycle
 uniform vec3  uFogColor;   // not used (procedural sky fog)
 uniform float uFogDensity; // base density (used via helper)
 
+uniform bool uIsRaining;
+
 // --- reconstruction / tone helpers ---
 vec3 reconstructWorldPos(vec2 uv, float depth) {
     float z = depth * 2.0 - 1.0;
@@ -317,6 +319,9 @@ float shadowPCF(vec3 worldPos, vec3 N, vec3 L)
     return shadow / 8.0; // 0 = lit, 1 = shadow
 }
 
+const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
+vec3 toGray(vec3 c) { return vec3(dot(c, LUMA)); }
+
 // --- main ---
 void main() {
     vec2 uv = gl_FragCoord.xy / uResolution;
@@ -333,6 +338,10 @@ void main() {
     if (depth >= 0.999) {
         vec3 V = viewRay(uv);
         lit_color = skyColor_HDR(V, sunDir, moonDir, 3.0, 1.0);
+        
+        if (uIsRaining) {
+            lit_color = toGray(lit_color);
+        }
     } else {
         vec3 worldPos = reconstructWorldPos(uv, depth);
         vec3 N = normalize(texture(gNormal, uv).xyz * 2.0 - 1.0);

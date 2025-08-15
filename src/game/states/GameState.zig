@@ -88,6 +88,7 @@ fn draw(ctx: *anyopaque, shadow: bool) anyerror!void {
     gfx.shader.set_comp_inv_view(zm.inverse(world.player.camera.get_view_matrix()));
     gfx.shader.set_comp_proj(world.player.camera.get_projection_matrix());
     gfx.shader.set_comp_view(world.player.camera.get_view_matrix());
+    gfx.shader.set_comp_is_raining(world.weather.is_raining);
     gfx.shader.set_comp_time(t);
     gfx.shader.set_comp_frame(@intCast(frame));
     gfx.shader.set_comp_fog_color(zm.Vec{ 0.5, 0.6, 0.7, 1 });

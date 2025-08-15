@@ -65,11 +65,12 @@ pub fn update(self: ecs.Entity, dt: f32) void {
     })) return;
 
     // Timer -- the internal "think" rate of the dragoon
+    var updated = false;
     const time = self.get_ptr(.timer);
     if (std.time.milliTimestamp() >= time.*) {
         // Next decision scheduled in 3 seconds.
         time.* = std.time.milliTimestamp() + std.time.ms_per_s * 3;
-        // NOTE: this is also when we refresh RNG seed (below).
+        updated = true;
     }
 
     // Various useful pointers
@@ -223,7 +224,8 @@ pub fn update(self: ecs.Entity, dt: f32) void {
 
             var mined_something = false;
 
-            // DEBUG: Speed up
+            if (!updated) return;
+
             var y = minPos[1];
             while (y < maxPos[1]) : (y += 1) {
                 var z = minPos[2];

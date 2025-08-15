@@ -15,6 +15,9 @@ pub const AtomKind = enum(u8) {
     TownBlock = 14,
     FarmBlock = 15,
     Crop = 19,
+    Path = 16,
+    Fence = 17,
+    Home = 18,
 
     // TODO: These need to have stencils
     Charcoal = 12,

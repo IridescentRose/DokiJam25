@@ -6,10 +6,12 @@ const zm = @import("zmath");
 const State = @import("../../core/State.zig");
 const Self = @This();
 
+var last_time: i64 = 0;
 fn init(ctx: *anyopaque) anyerror!void {
     _ = ctx;
     gfx.set_deferred(true);
-    try world.init(42);
+    try world.init(@bitCast(std.time.microTimestamp()));
+    last_time = std.time.microTimestamp();
 }
 
 fn deinit(ctx: *anyopaque) void {
@@ -20,16 +22,10 @@ fn deinit(ctx: *anyopaque) void {
 
 fn update(ctx: *anyopaque) anyerror!void {
     _ = ctx;
-    try world.update();
+    const dt = std.time.microTimestamp() - last_time;
+    last_time = std.time.microTimestamp();
+    try world.update(@as(f32, @floatFromInt(dt)) / std.time.us_per_s);
 }
-
-// vec3 sunDirSimple(float t) {
-//     t = fract(t);
-//     float maxAlt = radians(75.0);
-//     float alt = sin(2.0 * PI * (t - 0.25)) * maxAlt;
-//     float az  = (PI * 0.5) + 2.0 * PI * t;
-//     return normalize(vec3(sin(az) * cos(alt), sin(alt), cos(az) * cos(alt)));
-// }
 
 fn sun_dir_simple(t: f32) zm.Vec {
     const PI: f32 = 3.14159265358979323846;

@@ -19,12 +19,12 @@ pub fn init(seed: u64) Self {
 
 pub fn update(self: *Self) void {
     if (self.is_raining) {
-        self.time_til_end_rain -= 1;
+        self.time_til_end_rain -|= 1;
         if (self.time_til_end_rain == 0) {
             self.is_raining = false;
         }
     } else {
-        self.time_til_next_rain -= 1;
+        self.time_til_next_rain -|= 1;
         if (self.time_til_next_rain == 0) {
             self.is_raining = true;
             var rng = std.Random.DefaultPrng.init(self.seed);

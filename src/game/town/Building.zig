@@ -1,6 +1,12 @@
-const BuildingType = enum {
+const BuildingKind = enum {
     House,
     TownHall,
-    Workshop,
     Farm,
+    Path,
+    Fence,
 };
+
+kind: BuildingKind,
+position: [3]isize,
+size: [3]isize,
+is_built: bool,

@@ -16,6 +16,7 @@ const Inventory = @import("inventory.zig");
 const app = @import("../core/app.zig");
 const ui = @import("../gfx/ui.zig");
 const ecs = @import("entity/ecs.zig");
+const audio = @import("../audio/audio.zig");
 
 // Half
 const player_size = [_]f32{ 0.5, 1.85, 0.5 };
@@ -230,7 +231,21 @@ fn place_block(self: *Self) void {
 
         // Give them a farm
         hand.material = 15;
-        hand.count = 64;
+        hand.count = 512;
+
+        _ = self.inventory.add_item_inventory(.{
+            .count = 51200,
+            .material = 16, // Path Block
+        });
+        _ = self.inventory.add_item_inventory(.{
+            .count = 51200,
+            .material = 17, // Fence Block
+        });
+        _ = self.inventory.add_item_inventory(.{
+            .count = 512 * 8,
+            .material = 18, // House Block
+        });
+
         world.town.create(self.voxel_guide_transform_place.pos) catch unreachable;
         return;
     }
@@ -846,7 +861,7 @@ pub fn place_voxel_guide(self: *Self) void {
     }
 }
 
-pub fn update(self: *Self) void {
+pub fn update(self: *Self, dt: f32) void {
     self.place_voxel_guide();
 
     if (self.block_mode) {
@@ -854,6 +869,8 @@ pub fn update(self: *Self) void {
     } else {
         self.camera.fpv = false;
     }
+
+    audio.set_listener_position(self.entity.get(.transform).pos);
 
     // Update camera
     self.camera.target = self.entity.get(.transform).pos;
@@ -870,8 +887,6 @@ pub fn update(self: *Self) void {
 
     if (world.paused and !debugging_pause) return;
     if (self.dead) return;
-
-    const dt: f32 = 1.0 / 60.0;
 
     // 1) Build movement vector from input & camera
     const radYaw = std.math.degreesToRadians(-self.camera.yaw - 90.0);
@@ -1011,7 +1026,7 @@ pub fn draw(self: *Self, shadow: bool) void {
                 .offset = item_pos,
                 .scale = [_]f32{ 48.0, 48.0 },
                 .tex_id = tex,
-                .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(item.material % 16)), 15.0 / 16.0 },
+                .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(item.material % 16)), 15.0 / 16.0 - 1.0 / 16.0 * @as(f32, @floatFromInt(@divTrunc(item.material, 16))) },
                 .uv_scale = @splat(1.0 / 16.0),
             }) catch unreachable;
 
@@ -1059,7 +1074,7 @@ pub fn draw(self: *Self, shadow: bool) void {
                         .offset = item_pos,
                         .scale = [_]f32{ 48.0, 48.0 },
                         .tex_id = tex,
-                        .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(item.material % 16)), 15.0 / 16.0 },
+                        .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(item.material % 16)), 15.0 / 16.0 - 1.0 / 16.0 * @as(f32, @floatFromInt(@divTrunc(item.material, 16))) },
                         .uv_scale = @splat(1.0 / 16.0),
                     }) catch unreachable;
 
@@ -1094,7 +1109,7 @@ pub fn draw(self: *Self, shadow: bool) void {
                 .offset = item_pos,
                 .scale = [_]f32{ 48.0, 48.0 },
                 .tex_id = tex,
-                .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(self.inventory.mouse_slot.material % 16)), 15.0 / 16.0 },
+                .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(self.inventory.mouse_slot.material % 16)), 15.0 / 16.0 - 1.0 / 16.0 * @as(f32, @floatFromInt(@divTrunc(self.inventory.mouse_slot.material, 16))) },
                 .uv_scale = @splat(1.0 / 16.0),
             }) catch unreachable;
 

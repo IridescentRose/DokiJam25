@@ -49,7 +49,7 @@ pub fn deinit(self: *Self) void {
 }
 
 var count: usize = 0;
-pub fn update(self: *Self) !void {
+pub fn update(self: *Self, dt: f32) !void {
     self.mesh.instances.clearAndFree(util.allocator());
 
     if (self.particles.items.len == 0) {
@@ -67,9 +67,9 @@ pub fn update(self: *Self) !void {
             });
 
             const final_pos = [_]f32{
-                particle.pos[0] + particle.vel[0] * 1.0 / 60.0,
-                particle.pos[1] + particle.vel[1] * 1.0 / 60.0,
-                particle.pos[2] + particle.vel[2] * 1.0 / 60.0,
+                particle.pos[0] + particle.vel[0] * dt,
+                particle.pos[1] + particle.vel[1] * dt,
+                particle.pos[2] + particle.vel[2] * dt,
             };
 
             var curr_pos = particle.pos;

@@ -134,6 +134,8 @@ pub fn init(seed: u64) !void {
     weather = Weather.init(world_seed);
 
     if (!ecs.loaded) {
+        // First day, rain likely
+        weather.time_til_next_rain = 6000;
         var rng = std.Random.DefaultPrng.init(world_seed);
         while (true) {
             const x = @mod(rng.random().int(u32), 4096);

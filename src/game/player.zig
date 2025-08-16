@@ -250,6 +250,45 @@ fn place_block(self: *Self) void {
         }
     }
 
+    if (hand.material == 260) {
+        self.entity.get_ptr(.health).* += 10;
+        if (self.entity.get_ptr(.health).* > 20) {
+            self.entity.get_ptr(.health).* = 20; // Clamp to max health
+        }
+        hand.count -= 1;
+        if (hand.count == 0) {
+            hand.material = 0; // Remove item from hand
+        }
+    }
+
+    if (hand.material == 261) {
+        var rng = std.Random.DefaultPrng.init(world.tick);
+        const health_amt = @rem(rng.random().int(i32), 5);
+
+        if (health_amt < 0) {
+            self.entity.get_ptr(.health).* -|= @intCast(-health_amt);
+        } else {
+            self.entity.get_ptr(.health).* +|= @intCast(health_amt);
+        }
+
+        if (self.entity.get_ptr(.health).* > 20) {
+            self.entity.get_ptr(.health).* = 20; // Clamp to max health
+        }
+        hand.count -= 1;
+        if (hand.count == 0) {
+            hand.material = 0; // Remove item from hand
+        }
+    }
+
+    if (hand.material == 262) {
+        // EXPLODE
+        world.explode(self.voxel_guide_transform_place.pos, 4);
+        hand.count -= 1;
+        if (hand.count == 0) {
+            hand.material = 0; // Remove item from hand
+        }
+    }
+
     var town_placed = false;
     if (hand.material == 14) {
         town_placed = true;

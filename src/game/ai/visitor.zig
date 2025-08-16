@@ -131,10 +131,42 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                 const model = @intFromEnum(self.get(.model));
 
                 switch (model) {
-                    5 => {},
-                    6 => {},
-                    7 => {},
-                    8 => {},
+                    5 => {
+                        // Mint gives you boba tea
+                        _ = world.player.entity.get_ptr(.inventory).add_item_inventory(.{
+                            .material = 260,
+                            .count = 16,
+                        });
+                    },
+                    6 => {
+                        // Dooby Gives you 2 stack wood, 1 stack stone
+                        _ = world.player.entity.get_ptr(.inventory).add_item_inventory(.{
+                            .material = 8,
+                            .count = 64000,
+                        });
+                        _ = world.player.entity.get_ptr(.inventory).add_item_inventory(.{
+                            .material = 8,
+                            .count = 64000,
+                        });
+                        _ = world.player.entity.get_ptr(.inventory).add_item_inventory(.{
+                            .material = 2,
+                            .count = 64000,
+                        });
+                    },
+                    7 => {
+                        // Nimi gives you suspicious stew
+                        _ = world.player.entity.get_ptr(.inventory).add_item_inventory(.{
+                            .material = 261,
+                            .count = 32,
+                        });
+                    },
+                    8 => {
+                        // Chibi gives you pipe bomb
+                        _ = world.player.entity.get_ptr(.inventory).add_item_inventory(.{
+                            .material = 262,
+                            .count = 64,
+                        });
+                    },
                     else => {},
                 }
 

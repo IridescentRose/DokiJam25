@@ -164,6 +164,31 @@ fn jump(ctx: *anyopaque, down: bool) void {
     }
 }
 
+fn deposit_blocks(ctx: *anyopaque, down: bool) void {
+    if (world.paused and !debugging_pause) return;
+
+    const self = util.ctx_to_self(Self, ctx);
+    if (down) {
+        // Check we're near town hall
+        const th_pos = world.town.town_center;
+        const pos = self.entity.get(.transform).pos;
+        const delta = [_]f32{
+            th_pos[0] - pos[0],
+            th_pos[1] - pos[1],
+            th_pos[2] - pos[2],
+        };
+
+        if (delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2] < 5.0) {
+            const hand = self.inventory.get_hand_slot();
+            if (hand.material != 0) {
+                _ = world.town.inventory.add_item_inventory(hand.*);
+                hand.material = 0;
+                hand.count = 0;
+            }
+        }
+    }
+}
+
 fn increment_hotbar(ctx: *anyopaque, down: bool) void {
     if (world.paused and !debugging_pause) return;
 
@@ -231,7 +256,7 @@ fn place_block(self: *Self) void {
 
         // Give them a farm
         hand.material = 15;
-        hand.count = 512;
+        hand.count = 128;
 
         _ = self.inventory.add_item_inventory(.{
             .count = 51200,
@@ -247,7 +272,32 @@ fn place_block(self: *Self) void {
         });
 
         world.town.create(self.voxel_guide_transform_place.pos) catch unreachable;
+
+        world.town.buildings[world.town.building_count] = .{
+            .position = [_]isize{ @intFromFloat(self.voxel_guide_transform_place.pos[0]), @intFromFloat(self.voxel_guide_transform_place.pos[1]), @intFromFloat(self.voxel_guide_transform_place.pos[2]) },
+            .kind = .TownHall,
+            .is_built = false,
+        };
+        world.town.building_count += 1;
+
         return;
+    }
+
+    if (hand.material == 16 or hand.material == 17 or hand.material == 18) {
+        hand.count -|= 128;
+        if (hand.count == 0) {
+            hand.material = 0;
+        }
+
+        if (hand.material == 16) {
+            world.town.buildings[world.town.building_count] = .{
+                .position = [_]isize{ @intFromFloat(self.voxel_guide_transform_place.pos[0]), @intFromFloat(self.voxel_guide_transform_place.pos[1]), @intFromFloat(self.voxel_guide_transform_place.pos[2]) },
+                .kind = .Path,
+                .is_built = false,
+            };
+            world.town.building_count += 1;
+        }
+        // TODO: OTHER BUILDINGS
     }
 
     if (hand.material == 15) {
@@ -613,6 +663,10 @@ fn toggle_break_mode(ctx: *anyopaque, down: bool) void {
 }
 
 pub fn register_input(self: *Self) !void {
+    try input.register_key_callback(.b, .{
+        .ctx = self,
+        .cb = deposit_blocks,
+    });
     try input.register_key_callback(.w, .{
         .ctx = self,
         .cb = moveForward,
@@ -1014,12 +1068,43 @@ pub fn draw(self: *Self, shadow: bool) void {
             var tex = self.block_item_tex;
 
             var buf: [8]u8 = @splat(0);
-            var count = if (item.count / 128 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{item.count / 128}) catch "ERR" else "<1";
+            var count = if (item.count / 512 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{item.count / 128}) catch "ERR" else "<1";
             if (item.material > 256) {
                 tex = self.item_tex;
                 // If it's an item, the count is going to be the full count, not divided by 128
                 count = std.fmt.bufPrint(buf[0..], "{d}", .{item.count}) catch "ERR";
             }
+
+            ui.add_sprite(.{
+                .color = [_]u8{ 255, 255, 255, 255 },
+                .offset = item_pos,
+                .scale = [_]f32{ 48.0, 48.0 },
+                .tex_id = tex,
+                .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(item.material % 16)), 15.0 / 16.0 - 1.0 / 16.0 * @as(f32, @floatFromInt(@divTrunc(item.material, 16))) },
+                .uv_scale = @splat(1.0 / 16.0),
+            }) catch unreachable;
+
+            ui.add_text(
+                count,
+                [_]f32{ item_pos[0] + 20.0, item_pos[1] - 20.0 },
+                [_]u8{ 255, 255, 255, 255 },
+                2.0,
+                1.0,
+                .Right,
+            ) catch unreachable;
+        }
+    }
+
+    for (0..5) |j| {
+        const item = world.town.request[j];
+
+        if (item.count > 0 and item.material != 0) {
+            const item_pos = [_]f32{ ui.UI_RESOLUTION[0] - 38 - @as(f32, @floatFromInt(j)) * 60.0, 38, 2.0 + 0.01 * @as(f32, @floatFromInt(j)) };
+
+            const tex = self.block_item_tex;
+
+            var buf: [8]u8 = @splat(0);
+            const count = std.fmt.bufPrint(buf[0..], "{d}", .{item.count}) catch "ERR";
 
             ui.add_sprite(.{
                 .color = [_]u8{ 255, 255, 255, 255 },
@@ -1062,10 +1147,10 @@ pub fn draw(self: *Self, shadow: bool) void {
                     var tex = self.block_item_tex;
 
                     var buf: [8]u8 = @splat(0);
-                    var count = if (item.count / 128 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{item.count / 128}) catch "ERR" else "<1";
+                    var count = if (item.count / 512 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{item.count / 512}) catch "ERR" else "<1";
                     if (item.material > 256) {
                         tex = self.item_tex;
-                        // If it's an item, the count is going to be the full count, not divided by 128
+                        // If it's an item, the count is going to be the full count, not divided by 512
                         count = std.fmt.bufPrint(buf[0..], "{d}", .{item.count}) catch "ERR";
                     }
 
@@ -1097,7 +1182,7 @@ pub fn draw(self: *Self, shadow: bool) void {
             var tex = self.block_item_tex;
 
             var buf: [8]u8 = @splat(0);
-            var count = if (self.inventory.mouse_slot.count / 128 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{self.inventory.mouse_slot.count / 128}) catch "ERR" else "<1";
+            var count = if (self.inventory.mouse_slot.count / 512 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{self.inventory.mouse_slot.count / 128}) catch "ERR" else "<1";
             if (self.inventory.mouse_slot.material > 256) {
                 tex = self.item_tex;
                 // If it's an item, the count is going to be the full count, not divided by 128

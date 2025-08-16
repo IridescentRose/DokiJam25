@@ -4,6 +4,7 @@ const components = @import("../../entity/components.zig");
 const zm = @import("zmath");
 const c = @import("../../consts.zig");
 const world = @import("../../world.zig");
+const schematic = @import("../../town/schematic.zig");
 
 const TERMINAL_VELOCITY = -10.0; // Max fall speed cap
 const GRAVITY = -9.8; // Downward accel applied each frame
@@ -12,8 +13,9 @@ const MOVE_SPEED = 1.0; // Horizontal move speed when "moving"
 const AI_IDLE: i32 = 0;
 const AI_SLEEP: i32 = 1;
 const AI_SEEK_UNBUILT: i32 = 2;
-const AI_BUILD: i32 = 3;
-const AI_RETURN: i32 = 4;
+const AI_BUILD_CLEAR: i32 = 3;
+const AI_BUILD_PLACE: i32 = 4;
+const AI_RETURN: i32 = 5;
 
 pub fn create(position: [3]f32, rotation: [3]f32, home_pos: [3]isize, model: components.ModelComponent) !ecs.Entity {
     const entity = try ecs.create_entity(.dragoon_builder);
@@ -62,10 +64,11 @@ pub fn update(self: ecs.Entity, dt: f32) void {
 
     // Timer -- the internal "think" rate of the dragoon
     const time = self.get_ptr(.timer);
+    var updated = false;
     if (std.time.milliTimestamp() >= time.*) {
         // Next decision scheduled in 3 seconds.
         time.* = std.time.milliTimestamp() + std.time.ms_per_s * 3;
-        // NOTE: this is also when we refresh RNG seed (below).
+        updated = true;
     }
 
     // Various useful pointers
@@ -81,10 +84,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
     // Always Gravity
     velocity[1] += GRAVITY * dt;
 
-    // --- AI/Behavior selection ---
-    // For now you had a single "wander" behavior with a night stop.
-    // Here it's split by ai_state with the same behavior preserved as default.
-    switch (ai_state) {
+    blk: switch (ai_state) {
         // Idle Wander
         AI_IDLE => {
             if (is_sleep_time) {
@@ -121,6 +121,17 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                     // Face movement direction
                     transform.rot[1] = std.math.radiansToDegrees(std.math.atan2(velocity[0], velocity[2])) + 180.0;
                 }
+
+                // Find building site
+                for (0..world.town.building_count) |i| {
+                    const building = world.town.buildings[i];
+                    if (!building.is_built) {
+                        ai_state_ptr.* = AI_SEEK_UNBUILT;
+                        self.get_ptr(.target_pos).* = building.position;
+                        self.get_ptr(.target_pos)[1] = @intCast(i);
+                        return;
+                    }
+                }
             }
         },
 
@@ -128,22 +139,162 @@ pub fn update(self: ecs.Entity, dt: f32) void {
         // SEEK UNBUILT (future hook)
         // ------------------------------
         AI_SEEK_UNBUILT => {
-            // TODO: path or steer toward nearest unbuilt target.
-            // If reached -> ai_state_ptr.* = AI_BUILD
+            if (is_sleep_time) return;
+            const target_pos = self.get_ptr(.target_pos);
+            const dx = @as(f32, @floatFromInt(target_pos[0])) - transform.pos[0];
+            const dz = @as(f32, @floatFromInt(target_pos[2])) - transform.pos[2];
+            const dist = std.math.sqrt(dx * dx + dz * dz);
+
+            if (dist < 1.5) {
+                ai_state_ptr.* = AI_BUILD_CLEAR;
+                continue :blk ai_state_ptr.*;
+            } else {
+                // Move towards the tree
+                velocity[0] = dx;
+                velocity[2] = dz;
+            }
+
+            // Normalize to MOVE_SPEED (so large RNG spikes don't change speed)
+            const THRESHOLD: f32 = 0.1;
+            if (velocity[0] * velocity[0] + velocity[2] * velocity[2] > THRESHOLD * THRESHOLD) {
+                const norm = zm.normalize3([_]f32{ velocity[0], 0.0, velocity[2], 0.0 }) *
+                    @as(@Vector(4, f32), @splat(MOVE_SPEED));
+                velocity[0] = norm[0];
+                velocity[2] = norm[2];
+
+                // Face movement direction
+                transform.rot[1] = std.math.radiansToDegrees(std.math.atan2(velocity[0], velocity[2])) + 180.0;
+            }
         },
 
         // ------------------------------
         // BUILD (future hook)
         // ------------------------------
-        AI_BUILD => {
-            // TODO: stand still, build structures.
+        AI_BUILD_CLEAR => {
+            if (is_sleep_time) return;
+            velocity[0] = 0;
+            velocity[2] = 0;
+
+            const building_idx: usize = @intCast(self.get_ptr(.target_pos)[1]);
+            const building = world.town.buildings[building_idx];
+            const size = schematic.schematics[@intFromEnum(building.kind)].size;
+
+            const min: [3]isize = [_]isize{
+                building.position[0] - @divTrunc(size[0], 2) - 1,
+                building.position[1] + 1,
+                building.position[2] - @divTrunc(size[2], 2) - 1,
+            };
+
+            const max: [3]isize = [_]isize{
+                building.position[0] + @divTrunc(size[0], 2) + 1,
+                building.position[1] + size[1] + 1,
+                building.position[2] + @divTrunc(size[2], 2) + 1,
+            };
+            std.debug.print("MIN: {any}\n", .{min});
+            std.debug.print("MAX: {any}\n", .{max});
+
+            var y: isize = min[1];
+            while (y < max[1]) : (y += 1) {
+                var z: isize = min[2];
+                while (z < max[2]) : (z += 1) {
+                    var x: isize = min[0];
+                    while (x < max[0]) : (x += 1) {
+                        if (!world.only_contained_in_block(.Air, [_]isize{ x, y, z })) {
+                            _ = world.place_block(.Air, [_]isize{ x, y, z });
+                            return;
+                        }
+                    }
+                }
+            }
+
+            ai_state_ptr.* = AI_BUILD_PLACE;
+            continue :blk ai_state_ptr.*; // Go to place schematic
+        },
+
+        AI_BUILD_PLACE => {
+            if (is_sleep_time) return;
+            velocity[0] = 0;
+            velocity[2] = 0;
+            if (!updated) return;
+
+            const building_idx: usize = @intCast(self.get_ptr(.target_pos)[1]);
+            const building = world.town.buildings[building_idx];
+            const size = schematic.schematics[@intFromEnum(building.kind)].size;
+
+            const min: [3]isize = [_]isize{
+                building.position[0] - @divTrunc(size[0], 2) - 1,
+                building.position[1],
+                building.position[2] - @divTrunc(size[2], 2) - 1,
+            };
+
+            const max: [3]isize = [_]isize{
+                building.position[0] + @divTrunc(size[0], 2),
+                building.position[1] + size[1],
+                building.position[2] + @divTrunc(size[2], 2),
+            };
+
+            const delta = [_]usize{
+                @intCast(max[0] - min[0]),
+                @intCast(max[1] - min[1]),
+                @intCast(max[2] - min[2]),
+            };
+
+            var curr_progress: usize = 0;
+            for (0..delta[1]) |y| {
+                for (0..delta[2]) |z| {
+                    for (0..delta[0]) |x| {
+                        curr_progress += 1;
+                        if (curr_progress < world.town.buildings[building_idx].progress) continue;
+                        const block_idx = schematic.schematics[@intFromEnum(building.kind)].index([_]usize{ x, y, z });
+                        const block_type = schematic.schematics[@intFromEnum(building.kind)].blocks[block_idx];
+                        if (block_type != 0) {
+                            if (world.town.inventory.get_total_material(block_type) > 512) {
+                                _ = world.town.inventory.remove_count_inventory(.{ .material = block_type, .count = 512 });
+                                world.town.buildings[building_idx].progress += 1;
+                                // Place the block
+                                _ = world.place_block(@enumFromInt(block_type), [_]isize{ min[0] + @as(isize, @intCast(x)), min[1] + @as(isize, @intCast(y)), min[2] + @as(isize, @intCast(z)) });
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // We're done
+            ai_state_ptr.* = AI_RETURN;
+            world.town.buildings[building_idx].is_built = true;
+            continue :blk ai_state_ptr.*; // Go to place schematic
         },
 
         // ------------------------------
         // RETURN HOME (future hook)
         // ------------------------------
         AI_RETURN => {
-            // TODO: move toward town stockpile; drop resources; then AI_IDLE/SEEK_TREE.
+            const home = self.get(.home_pos);
+            const dx = @as(f32, @floatFromInt(home[0])) - transform.pos[0];
+            const dz = @as(f32, @floatFromInt(home[2])) - transform.pos[2];
+            const dist = std.math.sqrt(dx * dx + dz * dz);
+
+            if (dist < 1.5) {
+                ai_state_ptr.* = AI_IDLE;
+                continue :blk ai_state_ptr.*;
+            } else {
+                // Move towards the home position
+                velocity[0] = dx;
+                velocity[2] = dz;
+            }
+
+            // Normalize to MOVE_SPEED (so large RNG spikes don't change speed)
+            const THRESHOLD: f32 = 0.1;
+            if (velocity[0] * velocity[0] + velocity[2] * velocity[2] > THRESHOLD * THRESHOLD) {
+                const norm = zm.normalize3([_]f32{ velocity[0], 0.0, velocity[2], 0.0 }) *
+                    @as(@Vector(4, f32), @splat(MOVE_SPEED));
+                velocity[0] = norm[0];
+                velocity[2] = norm[2];
+
+                // Face movement direction
+                transform.rot[1] = std.math.radiansToDegrees(std.math.atan2(velocity[0], velocity[2])) + 180.0;
+            }
         },
 
         // Basically idle, fallback

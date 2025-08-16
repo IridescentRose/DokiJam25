@@ -40,6 +40,32 @@ pub fn remove_item_hand(self: *Self) bool {
     return true;
 }
 
+pub fn get_total_material(self: *Self, material: u16) usize {
+    var count: usize = 0;
+    for (self.slots) |slot| {
+        if (slot.material == material) {
+            count += slot.count;
+        }
+    }
+    return count;
+}
+
+pub fn remove_count_inventory(self: *Self, to_remove: Slot) bool {
+    var total_removed: usize = 0;
+
+    for (&self.slots) |*slot| {
+        if (slot.material == to_remove.material) {
+            const removed = @min(to_remove.count - total_removed, slot.count);
+            slot.count -= removed;
+            total_removed += removed;
+
+            if (total_removed == to_remove.count) break;
+        }
+    }
+
+    return total_removed == to_remove.count;
+}
+
 // Tries to add an item to the inventory, returns back how many items were added
 pub fn add_item_inventory(self: *Self, to_add: Slot) usize {
     var total_added: usize = 0;

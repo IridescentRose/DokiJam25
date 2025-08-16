@@ -243,6 +243,35 @@ pub fn contained_in_block(key: Chunk.AtomKind, coord: [3]isize) bool {
         return false;
     }
 }
+// Scans all sub blocks for a particular atom
+pub fn only_contained_in_block(key: Chunk.AtomKind, coord: [3]isize) bool {
+    if (coord[1] < 0 or coord[1] >= c.CHUNK_SUB_BLOCKS * c.VERTICAL_CHUNKS) {
+        return false;
+    }
+
+    const chunk_coord = [_]isize{ @divFloor(coord[0], c.CHUNK_BLOCKS), @divFloor(coord[2], c.CHUNK_BLOCKS) };
+    const sub_chunk_coord = [_]usize{ @intCast(@mod(coord[0], c.CHUNK_BLOCKS)), @intCast(@mod(coord[1], c.CHUNK_BLOCKS * c.VERTICAL_CHUNKS)), @intCast(@mod(coord[2], c.CHUNK_BLOCKS)) };
+
+    if (chunkMap.get(chunk_coord)) |chunk| {
+        // Still is being generated, don't give half results.
+        if (!chunk.populated) return false;
+
+        for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
+            for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
+                for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
+                    const idx = Chunk.get_index([_]usize{ x + sub_chunk_coord[0] * c.SUB_BLOCKS_PER_BLOCK, y + sub_chunk_coord[1] * c.SUB_BLOCKS_PER_BLOCK, z + sub_chunk_coord[2] * c.SUB_BLOCKS_PER_BLOCK });
+                    if (blocks[chunk.offset + idx].material != key) {
+                        return false;
+                    }
+                }
+            }
+        } else {
+            return true;
+        }
+    } else {
+        return true;
+    }
+}
 
 // In block coords
 pub fn break_only_in_block(key: Chunk.AtomKind, coord: [3]isize) bool {

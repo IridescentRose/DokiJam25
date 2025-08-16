@@ -2,29 +2,35 @@ const std = @import("std");
 const ecs = @import("../entity/ecs.zig");
 const Building = @import("Building.zig");
 const Inventory = @import("../inventory.zig");
-const Job = @import("Job.zig");
 const Voxel = @import("../voxel.zig");
 const gfx = @import("../../gfx/gfx.zig");
 const world = @import("../world.zig");
 const Builder = @import("../ai/dragoons/builder.zig");
 const Farmer = @import("../ai/dragoons/farmer.zig");
 const Lumber = @import("../ai/dragoons/lumberjack.zig");
+const schematic = @import("schematic.zig");
 
 town_center: [3]f32,
 citizens: [4]ecs.Entity,
-buildings: [4]Building,
+buildings: [256]Building,
 inventory: Inventory,
-job_requests: [4]Job,
 farmer_model: Voxel,
 builder_model: Voxel,
 lumber_model: Voxel,
 sleep_model: Voxel,
 created: bool = false,
 farm_loc: ?[3]f32 = null,
+building_count: u32 = 0,
+request: [5]Inventory.Slot = @splat(.{
+    .material = 0,
+    .count = 0,
+}),
 
 const Self = @This();
 
 pub fn init() !Self {
+    try schematic.init();
+
     const farmer_tex = try gfx.texture.load_image_from_file("dragoon_farmer.png");
     var farmer_model = Voxel.init(farmer_tex);
     try farmer_model.build();
@@ -43,9 +49,13 @@ pub fn init() !Self {
 
     return .{
         .citizens = undefined,
-        .buildings = undefined,
-        .inventory = undefined,
-        .job_requests = undefined,
+        .buildings = @splat(.{
+            .kind = .TownHall,
+            .position = [3]isize{ 0, 0, 0 },
+            .is_built = false,
+            .progress = 0,
+        }),
+        .inventory = Inventory.new(),
         .farmer_model = farmer_model,
         .builder_model = builder_model,
         .lumber_model = lumber_model,
@@ -59,6 +69,7 @@ pub fn deinit(self: *Self) void {
     self.builder_model.deinit();
     self.lumber_model.deinit();
     self.sleep_model.deinit();
+    schematic.deinit();
 }
 
 pub fn create(self: *Self, pos: [3]f32) !void {
@@ -86,5 +97,16 @@ pub fn update(self: *Self) void {
         self.citizens[0].get_ptr(.model).* = self.builder_model;
         self.citizens[1].get_ptr(.model).* = self.lumber_model;
         self.citizens[2].get_ptr(.model).* = self.farmer_model;
+    }
+
+    for (0..self.building_count) |i| {
+        if (self.buildings[i].is_built) continue;
+
+        self.request = @splat(.{
+            .material = 0,
+            .count = 0,
+        });
+
+        schematic.schematics[@intFromEnum(self.buildings[i].kind)].cost(@intFromEnum(self.buildings[i].kind), self.buildings[i].progress, &self.request);
     }
 }

@@ -27,7 +27,7 @@ pub const Schematic = struct {
                     if (curr_progress < progress) continue;
 
                     const block_idx = schematics[kind].index([_]usize{ x, y, z });
-                    const block_type = schematics[kind].blocks[block_idx];
+                    const block_type = if (schematics[kind].blocks[block_idx] == 20) 8 else schematics[kind].blocks[block_idx];
                     if (block_type != 0) {
                         for (0..unique_count) |i| {
                             if (necessary_materials[i].material == block_type) {

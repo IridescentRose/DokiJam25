@@ -235,13 +235,14 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                         if (curr_progress < world.town.buildings[building_idx].progress) continue;
                         const block_idx = schematic.schematics[@intFromEnum(building.kind)].index([_]usize{ x, y, z });
                         const block_type = schematic.schematics[@intFromEnum(building.kind)].blocks[block_idx];
-                        if (block_type != 0) {
-                            // if (world.town.inventory.get_total_material(block_type) > 512) {
-                            // _ = world.town.inventory.remove_count_inventory(.{ .material = block_type, .count = 512 });
-                            world.town.buildings[building_idx].progress += 1;
-                            // Place the block
-                            _ = world.place_block(@enumFromInt(block_type), [_]isize{ min[0] + @as(isize, @intCast(x)), min[1] + @as(isize, @intCast(y)), min[2] + @as(isize, @intCast(z)) });
-                            // }
+                        const r_block_type = if (block_type == 20) 8 else block_type; // Replace air with water
+                        if (r_block_type != 0) {
+                            if (world.town.inventory.get_total_material(r_block_type) > 512) {
+                                _ = world.town.inventory.remove_count_inventory(.{ .material = r_block_type, .count = if (r_block_type == 8) 32 else 512 });
+                                world.town.buildings[building_idx].progress += 1;
+                                // Place the block
+                                _ = world.place_block(@enumFromInt(block_type), [_]isize{ min[0] + @as(isize, @intCast(x)), min[1] + @as(isize, @intCast(y)), min[2] + @as(isize, @intCast(z)) });
+                            }
                             return;
                         }
                     }

@@ -70,7 +70,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
     const time = self.get_ptr(.timer);
     if (std.time.milliTimestamp() >= time.*) {
         // Next decision scheduled in 3 seconds.
-        time.* = @intFromFloat(@as(f64, @floatFromInt(std.time.milliTimestamp() + std.time.ms_per_s)) * 1.5);
+        time.* = std.time.milliTimestamp() + std.time.ms_per_s * 3;
         updated = true;
     }
 

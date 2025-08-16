@@ -3,7 +3,7 @@ const gfx = @import("../gfx/gfx.zig");
 const util = @import("../core/util.zig");
 const c = @import("consts.zig");
 const world = @import("world.zig");
-const Transform = @import("../gfx/transform.zig");
+const Transform = @import("../gfx/transform.zig").Transform;
 const Self = @This();
 const gl = @import("../gfx/gl.zig");
 

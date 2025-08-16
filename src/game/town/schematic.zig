@@ -1,6 +1,6 @@
 const std = @import("std");
 const util = @import("../../core/util.zig");
-const Inventory = @import("../inventory.zig");
+const Inventory = @import("../inventory.zig").Inventory;
 
 pub const Schematic = struct {
     version: u8,

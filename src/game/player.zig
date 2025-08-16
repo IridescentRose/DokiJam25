@@ -1,6 +1,6 @@
 const std = @import("std");
 const Voxel = @import("voxel.zig");
-const Transform = @import("../gfx/transform.zig");
+const Transform = @import("../gfx/transform.zig").Transform;
 const Camera = @import("../gfx/camera.zig");
 const gfx = @import("../gfx/gfx.zig");
 const input = @import("../core/input.zig");
@@ -10,13 +10,14 @@ const window = @import("../gfx/window.zig");
 const world = @import("world.zig");
 const c = @import("consts.zig");
 const Self = @This();
-const AABB = @import("aabb.zig");
+const AABB = @import("aabb.zig").AABB;
 const blocks = @import("blocks.zig");
-const Inventory = @import("inventory.zig");
+const Inventory = @import("inventory.zig").Inventory;
 const app = @import("../core/app.zig");
 const ui = @import("../gfx/ui.zig");
 const ecs = @import("entity/ecs.zig");
 const audio = @import("../audio/audio.zig");
+const mm = @import("model_manager.zig");
 
 // Half
 const player_size = [_]f32{ 0.5, 1.85, 0.5 };
@@ -51,39 +52,50 @@ voxel_guide: Voxel = undefined,
 voxel_guide_transform: Transform = undefined,
 voxel_guide_transform_place: Transform = undefined,
 voxel_tex: gfx.texture.Texture,
-
-// TODO: make a component so that dragoons can have different inventories
-inventory: Inventory,
+request_tex: u32,
 entity: ecs.Entity,
 
 pub fn init() !Self {
     var res: Self = undefined;
 
     res.tex = try gfx.texture.load_image_from_file("doki.png");
-    res.entity = try ecs.create_entity(.player);
+    res.entity = if (ecs.loaded) .{ .id = 0 } else try ecs.create_entity(.player);
 
-    var transform = Transform.new();
-    transform.size = [_]f32{ 20.0, -4.01, 20.0 };
-    transform.scale = @splat(1.0 / 10.0);
+    if (!ecs.loaded) {
+        var transform = Transform.new();
+        transform.size = [_]f32{ 20.0, -4.01, 20.0 };
+        transform.scale = @splat(1.0 / 10.0);
 
-    var voxel = Voxel.init(res.tex);
-    try voxel.build();
-    try res.entity.add_component(.model, voxel);
-    try res.entity.add_component(.transform, transform);
-    try res.entity.add_component(.velocity, @splat(0));
-    try res.entity.add_component(.on_ground, false);
-    try res.entity.add_component(.health, 17);
-    try res.entity.add_component(.aabb, AABB{
-        .aabb_size = player_size,
-        .can_step = true,
-    });
+        try res.entity.add_component(.model, .Player);
+        try res.entity.add_component(.transform, transform);
+        try res.entity.add_component(.velocity, @splat(0));
+        try res.entity.add_component(.on_ground, false);
+        try res.entity.add_component(.health, 17);
+        try res.entity.add_component(.aabb, AABB{
+            .aabb_size = player_size,
+            .can_step = true,
+        });
+        try res.entity.add_component(.inventory, Inventory.new());
+        res.entity.get_ptr(.inventory).slots[0] = .{
+            .material = 257, // Cooked steak,
+            .count = 64,
+        };
+        res.entity.get_ptr(.inventory).slots[1] = .{
+            .material = 258, // Matches,
+            .count = 64,
+        };
+        res.entity.get_ptr(.inventory).slots[2] = .{
+            .material = 14, // Town block
+            .count = 512,
+        };
+    }
 
     res.camera = .{
         .distance = 5.0,
         .fov = 90.0,
         .yaw = -90,
         .pitch = 0,
-        .target = transform.pos,
+        .target = res.entity.get(.transform).pos,
     };
 
     res.heart_tex = try ui.load_ui_texture("heart.png");
@@ -94,22 +106,9 @@ pub fn init() !Self {
     res.button_hover_tex = try ui.load_ui_texture("button_hover.png");
     res.block_item_tex = try ui.load_ui_texture("b_items.png");
     res.item_tex = try ui.load_ui_texture("items.png");
+    res.request_tex = try ui.load_ui_texture("request.png");
     res.last_damage = 0;
     res.moving = @splat(false);
-    // TODO: ECS this
-    res.inventory = Inventory.new();
-    res.inventory.slots[0] = .{
-        .material = 257, // Cooked steak,
-        .count = 64,
-    };
-    res.inventory.slots[1] = .{
-        .material = 258, // Matches,
-        .count = 64,
-    };
-    res.inventory.slots[2] = .{
-        .material = 14, // Town block
-        .count = 512,
-    };
 
     res.voxel_tex = try gfx.texture.load_image_from_file("dot.png");
     res.voxel_guide = Voxel.init(res.voxel_tex);
@@ -179,7 +178,7 @@ fn deposit_blocks(ctx: *anyopaque, down: bool) void {
         };
 
         if (delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2] < 5.0) {
-            const hand = self.inventory.get_hand_slot();
+            const hand = self.entity.get_ptr(.inventory).get_hand_slot();
             if (hand.material != 0) {
                 audio.play_sfx_at_position("deposit.mp3", pos) catch unreachable;
                 _ = world.town.inventory.add_item_inventory(hand.*);
@@ -195,7 +194,7 @@ fn increment_hotbar(ctx: *anyopaque, down: bool) void {
 
     if (down) {
         const self = util.ctx_to_self(Self, ctx);
-        self.inventory.increment_hotbar();
+        self.entity.get_ptr(.inventory).increment_hotbar();
     }
 }
 
@@ -204,7 +203,7 @@ fn decrement_hotbar(ctx: *anyopaque, down: bool) void {
 
     if (down) {
         const self = util.ctx_to_self(Self, ctx);
-        self.inventory.decrement_hotbar();
+        self.entity.get_ptr(.inventory).decrement_hotbar();
     }
 }
 
@@ -237,7 +236,7 @@ fn place_block(self: *Self) void {
 
     const rescaled_subvoxel = [3]isize{ coord[0] * c.SUB_BLOCKS_PER_BLOCK, coord[1] * c.SUB_BLOCKS_PER_BLOCK, coord[2] * c.SUB_BLOCKS_PER_BLOCK };
 
-    const hand = self.inventory.get_hand_slot();
+    const hand = self.entity.get_ptr(.inventory).get_hand_slot();
     if (hand.material == 256 or hand.material == 257) {
         // FOOD EATING
         // TODO: MOVE THIS
@@ -259,15 +258,15 @@ fn place_block(self: *Self) void {
         hand.material = 15;
         hand.count = 128;
 
-        _ = self.inventory.add_item_inventory(.{
+        _ = self.entity.get_ptr(.inventory).add_item_inventory(.{
             .count = 51200,
             .material = 16, // Path Block
         });
-        _ = self.inventory.add_item_inventory(.{
+        _ = self.entity.get_ptr(.inventory).add_item_inventory(.{
             .count = 51200,
             .material = 17, // Fence Block
         });
-        _ = self.inventory.add_item_inventory(.{
+        _ = self.entity.get_ptr(.inventory).add_item_inventory(.{
             .count = 512 * 8,
             .material = 18, // House Block
         });
@@ -381,18 +380,18 @@ fn right_click(ctx: *anyopaque, down: bool) void {
             const slot_idx = slot_y + slot_x * Inventory.HOTBAR_SIZE;
             std.debug.print("Clicked on inventory slot index: {d}\n", .{slot_idx});
 
-            if (self.inventory.slots[slot_idx].material != 0) {
-                if (self.inventory.mouse_slot.material == 0 or
-                    self.inventory.slots[slot_idx].material == self.inventory.mouse_slot.material)
+            if (self.entity.get_ptr(.inventory).slots[slot_idx].material != 0) {
+                if (self.entity.get_ptr(.inventory).mouse_slot.material == 0 or
+                    self.entity.get_ptr(.inventory).slots[slot_idx].material == self.entity.get_ptr(.inventory).mouse_slot.material)
                 {
                     // Move half from slot to mouse
-                    const amount = self.inventory.slots[slot_idx].count / 2;
-                    self.inventory.slots[slot_idx].count -= amount;
-                    if (self.inventory.slots[slot_idx].count == 0) self.inventory.slots[slot_idx].material = 0;
-                    if (self.inventory.mouse_slot.material == 0) {
-                        self.inventory.mouse_slot.material = self.inventory.slots[slot_idx].material;
+                    const amount = self.entity.get_ptr(.inventory).slots[slot_idx].count / 2;
+                    self.entity.get_ptr(.inventory).slots[slot_idx].count -= amount;
+                    if (self.entity.get_ptr(.inventory).slots[slot_idx].count == 0) self.entity.get_ptr(.inventory).slots[slot_idx].material = 0;
+                    if (self.entity.get_ptr(.inventory).mouse_slot.material == 0) {
+                        self.entity.get_ptr(.inventory).mouse_slot.material = self.entity.get_ptr(.inventory).slots[slot_idx].material;
                     }
-                    self.inventory.mouse_slot.count += amount;
+                    self.entity.get_ptr(.inventory).mouse_slot.count += amount;
                 }
             }
         }
@@ -489,7 +488,7 @@ fn break_block(self: *Self) void {
                             mat = .Dirt;
                         }
 
-                        const amt = self.inventory.add_item_inventory(.{ .material = @intFromEnum(mat), .count = 1 });
+                        const amt = self.entity.get_ptr(.inventory).add_item_inventory(.{ .material = @intFromEnum(mat), .count = 1 });
                         if (amt == 0) {
                             std.debug.print("Inventory full, could not add item: {s}\n", .{@tagName(atom_type)});
                             std.debug.print("Tried to add item at coord: {d}, {d}, {d}\n", .{ test_coord[0], test_coord[1], test_coord[2] });
@@ -535,26 +534,26 @@ fn left_click(ctx: *anyopaque, down: bool) void {
 
             const slot_idx = slot_y + slot_x * Inventory.HOTBAR_SIZE;
 
-            if (self.inventory.mouse_slot.material != 0) {
-                if (self.inventory.slots[slot_idx].material == 0) {
+            if (self.entity.get_ptr(.inventory).mouse_slot.material != 0) {
+                if (self.entity.get_ptr(.inventory).slots[slot_idx].material == 0) {
                     // Just place all
-                    self.inventory.slots[slot_idx] = self.inventory.mouse_slot;
-                    self.inventory.mouse_slot = .{ .material = 0, .count = 0 };
-                } else if (self.inventory.slots[slot_idx].material == self.inventory.mouse_slot.material) {
+                    self.entity.get_ptr(.inventory).slots[slot_idx] = self.entity.get_ptr(.inventory).mouse_slot;
+                    self.entity.get_ptr(.inventory).mouse_slot = .{ .material = 0, .count = 0 };
+                } else if (self.entity.get_ptr(.inventory).slots[slot_idx].material == self.entity.get_ptr(.inventory).mouse_slot.material) {
                     // Move as many as possible
-                    const amt = @min(self.inventory.mouse_slot.count, Inventory.MAX_ITEMS_PER_SLOT - self.inventory.slots[slot_idx].count);
-                    self.inventory.mouse_slot.count -= amt;
-                    self.inventory.slots[slot_idx].count += amt;
+                    const amt = @min(self.entity.get_ptr(.inventory).mouse_slot.count, Inventory.MAX_ITEMS_PER_SLOT - self.entity.get_ptr(.inventory).slots[slot_idx].count);
+                    self.entity.get_ptr(.inventory).mouse_slot.count -= amt;
+                    self.entity.get_ptr(.inventory).slots[slot_idx].count += amt;
 
-                    if (self.inventory.mouse_slot.count == 0) {
-                        self.inventory.mouse_slot.material = 0;
+                    if (self.entity.get_ptr(.inventory).mouse_slot.count == 0) {
+                        self.entity.get_ptr(.inventory).mouse_slot.material = 0;
                     }
                 }
             } else {
                 // We're empty, take everything from the clicked slot
-                if (self.inventory.slots[slot_idx].material != 0) {
-                    self.inventory.mouse_slot = self.inventory.slots[slot_idx];
-                    self.inventory.slots[slot_idx] = .{ .material = 0, .count = 0 };
+                if (self.entity.get_ptr(.inventory).slots[slot_idx].material != 0) {
+                    self.entity.get_ptr(.inventory).mouse_slot = self.entity.get_ptr(.inventory).slots[slot_idx];
+                    self.entity.get_ptr(.inventory).slots[slot_idx] = .{ .material = 0, .count = 0 };
                 }
             }
         }
@@ -591,7 +590,7 @@ fn set_hotbar_slot1(ctx: *anyopaque, down: bool) void {
     if (!down) return;
 
     const self = util.ctx_to_self(Self, ctx);
-    self.inventory.hotbarIdx = 0;
+    self.entity.get_ptr(.inventory).hotbarIdx = 0;
 }
 
 fn set_hotbar_slot2(ctx: *anyopaque, down: bool) void {
@@ -600,7 +599,7 @@ fn set_hotbar_slot2(ctx: *anyopaque, down: bool) void {
     if (!down) return;
 
     const self = util.ctx_to_self(Self, ctx);
-    self.inventory.hotbarIdx = 1;
+    self.entity.get_ptr(.inventory).hotbarIdx = 1;
 }
 
 fn set_hotbar_slot3(ctx: *anyopaque, down: bool) void {
@@ -609,7 +608,7 @@ fn set_hotbar_slot3(ctx: *anyopaque, down: bool) void {
     if (!down) return;
 
     const self = util.ctx_to_self(Self, ctx);
-    self.inventory.hotbarIdx = 2;
+    self.entity.get_ptr(.inventory).hotbarIdx = 2;
 }
 
 fn set_hotbar_slot4(ctx: *anyopaque, down: bool) void {
@@ -618,7 +617,7 @@ fn set_hotbar_slot4(ctx: *anyopaque, down: bool) void {
     if (!down) return;
 
     const self = util.ctx_to_self(Self, ctx);
-    self.inventory.hotbarIdx = 3;
+    self.entity.get_ptr(.inventory).hotbarIdx = 3;
 }
 
 fn set_hotbar_slot5(ctx: *anyopaque, down: bool) void {
@@ -627,7 +626,7 @@ fn set_hotbar_slot5(ctx: *anyopaque, down: bool) void {
     if (!down) return;
 
     const self = util.ctx_to_self(Self, ctx);
-    self.inventory.hotbarIdx = 4;
+    self.entity.get_ptr(.inventory).hotbarIdx = 4;
 }
 
 fn set_hotbar_slot6(ctx: *anyopaque, down: bool) void {
@@ -636,7 +635,7 @@ fn set_hotbar_slot6(ctx: *anyopaque, down: bool) void {
     if (!down) return;
 
     const self = util.ctx_to_self(Self, ctx);
-    self.inventory.hotbarIdx = 5;
+    self.entity.get_ptr(.inventory).hotbarIdx = 5;
 }
 
 fn set_hotbar_slot7(ctx: *anyopaque, down: bool) void {
@@ -645,7 +644,7 @@ fn set_hotbar_slot7(ctx: *anyopaque, down: bool) void {
     if (!down) return;
 
     const self = util.ctx_to_self(Self, ctx);
-    self.inventory.hotbarIdx = 6;
+    self.entity.get_ptr(.inventory).hotbarIdx = 6;
 }
 
 fn set_hotbar_slot8(ctx: *anyopaque, down: bool) void {
@@ -654,7 +653,7 @@ fn set_hotbar_slot8(ctx: *anyopaque, down: bool) void {
     if (!down) return;
 
     const self = util.ctx_to_self(Self, ctx);
-    self.inventory.hotbarIdx = 7;
+    self.entity.get_ptr(.inventory).hotbarIdx = 7;
 }
 
 fn toggle_break_mode(ctx: *anyopaque, down: bool) void {
@@ -773,7 +772,6 @@ pub fn register_input(self: *Self) !void {
 
 pub fn deinit(self: *Self) void {
     self.voxel_guide.deinit();
-    self.entity.get_ptr(.model).deinit();
 }
 
 fn signi(x: f32) i32 {
@@ -1008,11 +1006,13 @@ pub fn draw(self: *Self, shadow: bool) void {
         if (shadow) {
             gfx.shader.use_shadow_shader();
             gfx.shader.set_shadow_model(self.entity.get(.transform).get_matrix());
-            self.entity.get_ptr(.model).draw();
+            var model = mm.get_model(self.entity.get(.model));
+            model.draw();
         } else {
             gfx.shader.use_render_shader();
             gfx.shader.set_model(self.entity.get(.transform).get_matrix());
-            self.entity.get_ptr(.model).draw();
+            var model = mm.get_model(self.entity.get(.model));
+            model.draw();
         }
     }
 
@@ -1070,7 +1070,7 @@ pub fn draw(self: *Self, shadow: bool) void {
             .uv_scale = [_]f32{ 1.0, 1.0 },
         }) catch unreachable;
 
-        const item = self.inventory.slots[j];
+        const item = self.entity.get_ptr(.inventory).slots[j];
 
         if (item.count > 0 and item.material != 0) {
             const item_pos = [_]f32{ hotbar_slot_pos[0], hotbar_slot_pos[1], hotbar_slot_pos[2] + 0.01 };
@@ -1105,6 +1105,12 @@ pub fn draw(self: *Self, shadow: bool) void {
         }
     }
 
+    ui.add_sprite(.{
+        .color = [_]u8{ 255, 255, 255, 255 },
+        .offset = [_]f32{ ui.UI_RESOLUTION[0] - 200, 48, 2 },
+        .scale = [_]f32{ 400.0, 96.0 },
+        .tex_id = self.request_tex,
+    }) catch unreachable;
     for (0..5) |j| {
         const item = world.town.request[j];
 
@@ -1149,7 +1155,7 @@ pub fn draw(self: *Self, shadow: bool) void {
                     .uv_scale = [_]f32{ 1.0, 1.0 },
                 }) catch unreachable;
 
-                const item = self.inventory.slots[j + (k + 1) * Inventory.HOTBAR_SIZE];
+                const item = self.entity.get_ptr(.inventory).slots[j + (k + 1) * Inventory.HOTBAR_SIZE];
 
                 if (item.count > 0 and item.material != 0) {
                     const item_pos = [_]f32{ hotbar_slot_pos[0], hotbar_slot_pos[1], hotbar_slot_pos[2] + 0.01 };
@@ -1185,18 +1191,18 @@ pub fn draw(self: *Self, shadow: bool) void {
             }
         }
 
-        if (self.inventory.mouse_slot.material != 0 and self.inventory.mouse_slot.count != 0) {
+        if (self.entity.get_ptr(.inventory).mouse_slot.material != 0 and self.entity.get_ptr(.inventory).mouse_slot.count != 0) {
             const mouse_pos = input.get_mouse_position();
             const item_pos = [_]f32{ mouse_pos[0], mouse_pos[1], 2 + 0.01 };
 
             var tex = self.block_item_tex;
 
             var buf: [8]u8 = @splat(0);
-            var count = if (self.inventory.mouse_slot.count / 512 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{self.inventory.mouse_slot.count / 128}) catch "ERR" else "<1";
-            if (self.inventory.mouse_slot.material > 256) {
+            var count = if (self.entity.get_ptr(.inventory).mouse_slot.count / 512 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{self.entity.get_ptr(.inventory).mouse_slot.count / 128}) catch "ERR" else "<1";
+            if (self.entity.get_ptr(.inventory).mouse_slot.material > 256) {
                 tex = self.item_tex;
                 // If it's an item, the count is going to be the full count, not divided by 128
-                count = std.fmt.bufPrint(buf[0..], "{d}", .{self.inventory.mouse_slot.count}) catch "ERR";
+                count = std.fmt.bufPrint(buf[0..], "{d}", .{self.entity.get_ptr(.inventory).mouse_slot.count}) catch "ERR";
             }
 
             ui.add_sprite(.{
@@ -1204,7 +1210,7 @@ pub fn draw(self: *Self, shadow: bool) void {
                 .offset = item_pos,
                 .scale = [_]f32{ 48.0, 48.0 },
                 .tex_id = tex,
-                .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(self.inventory.mouse_slot.material % 16)), 15.0 / 16.0 - 1.0 / 16.0 * @as(f32, @floatFromInt(@divTrunc(self.inventory.mouse_slot.material, 16))) },
+                .uv_offset = [_]f32{ 1.0 / 16.0 * @as(f32, @floatFromInt(self.entity.get_ptr(.inventory).mouse_slot.material % 16)), 15.0 / 16.0 - 1.0 / 16.0 * @as(f32, @floatFromInt(@divTrunc(self.entity.get_ptr(.inventory).mouse_slot.material, 16))) },
                 .uv_scale = @splat(1.0 / 16.0),
             }) catch unreachable;
 
@@ -1219,7 +1225,7 @@ pub fn draw(self: *Self, shadow: bool) void {
         }
     }
 
-    const hotbar_select_pos = [_]f32{ 38, ui.UI_RESOLUTION[1] - 144 - @as(f32, @floatFromInt(self.inventory.hotbarIdx)) * 60.0, 1.5 };
+    const hotbar_select_pos = [_]f32{ 38, ui.UI_RESOLUTION[1] - 144 - @as(f32, @floatFromInt(self.entity.get_ptr(.inventory).hotbarIdx)) * 60.0, 1.5 };
     ui.add_sprite(.{
         .color = [_]u8{ 255, 255, 255, 255 },
         .offset = hotbar_select_pos,

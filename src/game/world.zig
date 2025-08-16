@@ -22,6 +22,7 @@ const Weather = @import("weather.zig");
 const ambience = @import("ambience.zig");
 const Blocks = @import("blocks.zig");
 const audio = @import("../audio/audio.zig");
+const mm = @import("model_manager.zig");
 
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
@@ -44,8 +45,6 @@ pub var blocks: []Chunk.Atom = undefined;
 var edit_list: std.ArrayList(VoxelEdit) = undefined;
 var chunk_freelist: std.ArrayList(usize) = undefined;
 pub var light_pv_row: zm.Mat = undefined;
-var dragoon_model: Voxel = undefined;
-var tomato_model: Voxel = undefined;
 
 pub var town: Town = undefined;
 pub var weather: Weather = undefined;
@@ -58,8 +57,27 @@ var save_tex: u32 = 0;
 var resume_highlight_tex: u32 = 0;
 var save_highlight_tex: u32 = 0;
 
+pub fn save_world_info() !void {
+    var file = try std.fs.cwd().createFile("world/world.dat", .{ .truncate = true });
+    defer file.close();
+
+    const writer = file.deprecatedWriter();
+    try writer.writeInt(u64, world_seed, .little);
+    try writer.writeInt(u64, tick, .little);
+}
+
+pub fn load_world_info() !void {
+    var file = try std.fs.cwd().openFile("world/world.dat", .{});
+    defer file.close();
+
+    const reader = file.deprecatedReader();
+    world_seed = try reader.readInt(u64, .little);
+    tick = try reader.readInt(u64, .little);
+}
+
 // Time
 // 6am
+pub var world_seed: u64 = 0;
 pub var tick: u64 = 6000;
 const TICK_PER_HOUR = 1000;
 const TICK_PER_MINUTE = TICK_PER_HOUR / 60;
@@ -68,17 +86,21 @@ const TICK_HOURS = 24;
 pub var inflight_chunk_mutex: std.Thread.Mutex = std.Thread.Mutex{};
 pub var inflight_chunk_list: std.ArrayList(ChunkLocation) = undefined;
 pub fn init(seed: u64) !void {
+    world_seed = seed;
     try job_queue.init();
 
     try ecs.init();
 
     town = try Town.init();
     try ambience.init();
+    try mm.init();
 
     std.fs.cwd().makeDir("world") catch |err| switch (err) {
         error.PathAlreadyExists => {},
         else => return err,
     };
+
+    load_world_info() catch |err| std.debug.print("Failed to load world info: {}\n", .{err});
 
     chunk_mesh = try ChunkMesh.new();
     try chunk_mesh.vertices.appendSlice(util.allocator(), &[_]ChunkMesh.Vertex{
@@ -108,26 +130,29 @@ pub fn init(seed: u64) !void {
     save_highlight_tex = try ui.load_ui_texture("save_button_hover.png");
 
     // Find a random spawn point
-    try worldgen.init(seed);
-    weather = Weather.init(seed);
-    var rng = std.Random.DefaultPrng.init(seed);
-    while (true) {
-        const x = @mod(rng.random().int(u32), 4096);
-        const sub_x = x * c.SUB_BLOCKS_PER_BLOCK;
-        const z = @mod(rng.random().int(u32), 4096);
-        const sub_z = x * c.SUB_BLOCKS_PER_BLOCK;
+    try worldgen.init(world_seed);
+    weather = Weather.init(world_seed);
 
-        const h = worldgen.height_at(@as(f64, @floatFromInt(sub_x)), @as(f64, @floatFromInt(sub_z)));
+    if (!ecs.loaded) {
+        var rng = std.Random.DefaultPrng.init(world_seed);
+        while (true) {
+            const x = @mod(rng.random().int(u32), 4096);
+            const sub_x = x * c.SUB_BLOCKS_PER_BLOCK;
+            const z = @mod(rng.random().int(u32), 4096);
+            const sub_z = x * c.SUB_BLOCKS_PER_BLOCK;
 
-        if (h <= 256) continue;
+            const h = worldgen.height_at(@as(f64, @floatFromInt(sub_x)), @as(f64, @floatFromInt(sub_z)));
 
-        player.entity.get_ptr(.transform).pos[0] = @floatFromInt(x);
-        player.entity.get_ptr(.transform).pos[1] = @floatCast((h + 32) / c.SUB_BLOCKS_PER_BLOCK);
-        player.entity.get_ptr(.transform).pos[2] = @floatFromInt(z);
+            if (h <= 256) continue;
 
-        player.spawn_pos = player.entity.get(.transform).pos;
+            player.entity.get_ptr(.transform).pos[0] = @floatFromInt(x);
+            player.entity.get_ptr(.transform).pos[1] = @floatCast((h + 32) / c.SUB_BLOCKS_PER_BLOCK);
+            player.entity.get_ptr(.transform).pos[2] = @floatFromInt(z);
 
-        break;
+            player.spawn_pos = player.entity.get(.transform).pos;
+
+            break;
+        }
     }
 
     active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
@@ -161,6 +186,7 @@ pub fn deinit() void {
     town.deinit();
     chunkMap.deinit();
     player.deinit();
+    mm.deinit();
 
     particles.deinit();
 
@@ -175,6 +201,8 @@ pub fn deinit() void {
     chunk_mesh.deinit();
     chunk_freelist.deinit();
     inflight_chunk_list.deinit();
+
+    save_world_info() catch |err| std.debug.print("Failed to save world info: {}\n", .{err});
 }
 
 pub fn get_voxel(coord: [3]isize) Chunk.AtomKind {

@@ -4,6 +4,9 @@ const util = @import("../../core/util.zig");
 const components = @import("components.zig");
 const gfx = @import("../../gfx/gfx.zig");
 const c = @import("../consts.zig");
+const mm = @import("../model_manager.zig");
+
+pub var loaded = false;
 
 pub const Entity = struct {
     id: u32,
@@ -58,11 +61,13 @@ pub const Entity = struct {
         if (shadow) {
             gfx.shader.use_shadow_shader();
             gfx.shader.set_shadow_model(self.get(.transform).get_matrix());
-            self.get_ptr(.model).draw();
+            var model = mm.get_model(self.get(.model));
+            model.draw();
         } else {
             gfx.shader.use_render_shader();
             gfx.shader.set_model(self.get(.transform).get_matrix());
-            self.get_ptr(.model).draw();
+            var model = mm.get_model(self.get(.model));
+            model.draw();
         }
     }
 
@@ -72,6 +77,7 @@ pub const Entity = struct {
 
     pub fn get_ptr(entity: Entity, comptime comp_type: ComponentType) *ComponentTypes[@intFromEnum(comp_type)] {
         assert(initialized);
+        // std.debug.print("ID: {}\n", .{entity.id});
         assert(entity.id < storage.transform.items.len);
 
         return &@field(storage, @tagName(comp_type)).items[entity.id];
@@ -113,6 +119,7 @@ pub const ComponentType = enum(u8) {
     ai_state = 9,
     home_pos = 10,
     target_pos = 11,
+    inventory = 12,
 };
 
 const ComponentTypes = [_]type{
@@ -128,6 +135,7 @@ const ComponentTypes = [_]type{
     usize,
     [3]isize,
     [3]isize,
+    components.InventoryComponent,
 };
 
 pub const Mask = packed struct(u32) {
@@ -142,7 +150,8 @@ pub const Mask = packed struct(u32) {
     ai_state: bool = false,
     home_pos: bool = false,
     target_pos: bool = false,
-    reserved: u21 = 0,
+    inventory: bool = false,
+    reserved: u20 = 0,
 };
 
 fn ecs_storage() type {
@@ -187,6 +196,150 @@ fn ecs_storage() type {
 
 pub var storage: ecs_storage() = undefined;
 
+pub fn save_entities() !void {
+    assert(initialized);
+
+    // Save the current state of the ECS
+    const file = try std.fs.cwd().createFile("world/entities.dat", .{ .truncate = true });
+    defer file.close();
+
+    const writer = file.deprecatedWriter();
+    try writer.writeInt(u64, storage.active_entities.items.len, .little);
+
+    for (storage.active_entities.items) |e| {
+        try writer.writeInt(u32, e.id, .little);
+    }
+
+    inline for (std.meta.fields(ComponentType)) |c_type| {
+        const array = @field(storage, c_type.name);
+
+        for (array.items) |item| {
+            const type_info = @typeInfo(@TypeOf(item));
+
+            switch (type_info) {
+                .int => {
+                    try writer.writeInt(@TypeOf(item), item, .little);
+                },
+                .bool => {
+                    try writer.writeInt(u8, @intFromBool(item), .little);
+                },
+                .@"struct" => {
+                    try writer.writeStruct(item);
+                },
+                .@"enum" => |e| {
+                    try writer.writeInt(e.tag_type, @intFromEnum(item), .little);
+                },
+                .vector => |v| {
+                    if (v.len == 3) {
+                        try writer.writeInt(u32, @bitCast(item[0]), .little);
+                        try writer.writeInt(u32, @bitCast(item[1]), .little);
+                        try writer.writeInt(u32, @bitCast(item[2]), .little);
+                    } else {
+                        @compileError("Unsupported vector length for saving: " ++ v.len);
+                    }
+                },
+                .array => |a| {
+                    if (a.len == 3) {
+                        if (a.child == f32) {
+                            try writer.writeInt(u32, @bitCast(item[0]), .little);
+                            try writer.writeInt(u32, @bitCast(item[1]), .little);
+                            try writer.writeInt(u32, @bitCast(item[2]), .little);
+                        } else if (a.child == isize) {
+                            try writer.writeInt(u64, @bitCast(item[0]), .little);
+                            try writer.writeInt(u64, @bitCast(item[1]), .little);
+                            try writer.writeInt(u64, @bitCast(item[2]), .little);
+                        } else {
+                            @compileError("Unsupported array type for saving: " ++ @typeName(@TypeOf(item)));
+                        }
+                    } else {
+                        @compileError("Unsupported array length for saving: " ++ a.len);
+                    }
+                },
+                else => @compileError("Unsupported component type for saving: " ++ c_type.name),
+            }
+        }
+    }
+}
+
+pub fn load_entities() !void {
+    assert(initialized);
+
+    const file = try std.fs.cwd().openFile("world/entities.dat", .{});
+    defer file.close();
+
+    const reader = file.deprecatedReader();
+    const entity_count = try reader.readInt(u64, .little);
+
+    try storage.active_entities.ensureTotalCapacity(util.allocator(), entity_count);
+    for (0..entity_count) |_| {
+        const id = try reader.readInt(u32, .little);
+        storage.active_entities.appendAssumeCapacity(Entity{ .id = id });
+        std.debug.print("Loaded entity with ID: {}\n", .{id});
+    }
+
+    inline for (std.meta.fields(ComponentType), 0..) |c_type, i| {
+        var array = &@field(storage, c_type.name);
+        try array.ensureTotalCapacity(util.allocator(), entity_count);
+        for (0..entity_count) |_| {
+            const item = ComponentTypes[i];
+            const type_info = @typeInfo(item);
+
+            switch (type_info) {
+                .int => {
+                    array.appendAssumeCapacity(try reader.readInt(item, .little));
+                },
+                .bool => {
+                    array.appendAssumeCapacity(try reader.readInt(u8, .little) == 1);
+                },
+                .@"struct" => {
+                    array.appendAssumeCapacity(try reader.readStruct(item));
+                },
+
+                .@"enum" => |e| {
+                    array.appendAssumeCapacity(@enumFromInt(try reader.readInt(e.tag_type, .little)));
+                },
+                .vector => |v| {
+                    if (v.len == 3) {
+                        var x: item = undefined;
+                        x[0] = @bitCast(try reader.readInt(u32, .little));
+                        x[1] = @bitCast(try reader.readInt(u32, .little));
+                        x[2] = @bitCast(try reader.readInt(u32, .little));
+
+                        array.appendAssumeCapacity(x);
+                    } else {
+                        @compileError("Unsupported vector length for loading: " ++ v.len);
+                    }
+                },
+                .array => |a| {
+                    if (a.len == 3) {
+                        var x: item = undefined;
+                        if (a.child == f32) {
+                            x[0] = @bitCast(try reader.readInt(u32, .little));
+                            x[1] = @bitCast(try reader.readInt(u32, .little));
+                            x[2] = @bitCast(try reader.readInt(u32, .little));
+
+                            array.appendAssumeCapacity(x);
+                        } else if (a.child == isize) {
+                            x[0] = @bitCast(try reader.readInt(u64, .little));
+                            x[1] = @bitCast(try reader.readInt(u64, .little));
+                            x[2] = @bitCast(try reader.readInt(u64, .little));
+
+                            array.appendAssumeCapacity(x);
+                        } else {
+                            @compileError("Unsupported array type for loading: " ++ @typeName(@TypeOf(item)));
+                        }
+                    } else {
+                        @compileError("Unsupported array length for loading: " ++ a.len);
+                    }
+                },
+                else => @compileLog("Unsupported component type for loading: ", @typeName(@TypeOf(item))),
+            }
+        }
+    }
+
+    loaded = true;
+}
+
 pub fn init() !void {
     assert(!initialized);
 
@@ -196,17 +349,25 @@ pub fn init() !void {
     storage.active_entities = try std.ArrayListUnmanaged(Entity).initCapacity(util.allocator(), 32);
 
     initialized = true;
+
+    load_entities() catch |err| {
+        std.debug.print("Failed to load entities: {}\n", .{err});
+    };
+
     assert(initialized);
 }
 
 pub fn deinit() void {
     assert(initialized);
 
+    save_entities() catch |err| {
+        std.debug.print("Failed to save entities: {}\n", .{err});
+    };
+
     inline for (std.meta.fields(ComponentType)) |c_type| {
         @field(storage, c_type.name).deinit(util.allocator());
     }
     storage.active_entities.deinit(util.allocator());
-
     initialized = false;
     assert(!initialized);
 }

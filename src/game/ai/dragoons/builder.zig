@@ -175,6 +175,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
             if (is_sleep_time) return;
             velocity[0] = 0;
             velocity[2] = 0;
+            if (!updated) return;
 
             const building_idx: usize = @intCast(self.get_ptr(.target_pos)[1]);
             const building = world.town.buildings[building_idx];
@@ -216,7 +217,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
             if (is_sleep_time) return;
             velocity[0] = 0;
             velocity[2] = 0;
-            // if (!updated) return;
+            if (!updated) return;
 
             const building_idx: usize = @intCast(self.get_ptr(.target_pos)[1]);
             const building = world.town.buildings[building_idx];

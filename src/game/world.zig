@@ -704,7 +704,7 @@ pub fn update(dt: f32) !void {
 
     if (std.time.milliTimestamp() > timer) {
         timer = std.time.milliTimestamp() + 50;
-        tick += 30;
+        tick += 1;
     } else {
         return;
     }

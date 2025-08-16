@@ -296,8 +296,21 @@ fn place_block(self: *Self) void {
                 .is_built = false,
             };
             world.town.building_count += 1;
+        } else if (hand.material == 17) {
+            world.town.buildings[world.town.building_count] = .{
+                .position = [_]isize{ @intFromFloat(self.voxel_guide_transform_place.pos[0]), @intFromFloat(self.voxel_guide_transform_place.pos[1]), @intFromFloat(self.voxel_guide_transform_place.pos[2]) },
+                .kind = .Barrier,
+                .is_built = false,
+            };
+            world.town.building_count += 1;
+        } else if (hand.material == 18) {
+            world.town.buildings[world.town.building_count] = .{
+                .position = [_]isize{ @intFromFloat(self.voxel_guide_transform_place.pos[0]), @intFromFloat(self.voxel_guide_transform_place.pos[1]), @intFromFloat(self.voxel_guide_transform_place.pos[2]) },
+                .kind = .House,
+                .is_built = false,
+            };
+            world.town.building_count += 1;
         }
-        // TODO: OTHER BUILDINGS
     }
 
     if (hand.material == 15) {
@@ -1107,7 +1120,7 @@ pub fn draw(self: *Self, shadow: bool) void {
 
     ui.add_sprite(.{
         .color = [_]u8{ 255, 255, 255, 255 },
-        .offset = [_]f32{ ui.UI_RESOLUTION[0] - 200, 48, 2 },
+        .offset = [_]f32{ ui.UI_RESOLUTION[0] - 200 - 6, 48 + 6, 2 },
         .scale = [_]f32{ 400.0, 96.0 },
         .tex_id = self.request_tex,
     }) catch unreachable;

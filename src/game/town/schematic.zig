@@ -1,4 +1,5 @@
 const std = @import("std");
+const assert = std.debug.assert;
 const util = @import("../../core/util.zig");
 const Inventory = @import("../inventory.zig").Inventory;
 
@@ -8,6 +9,9 @@ pub const Schematic = struct {
     blocks: []u8,
 
     pub fn index(self: *const Schematic, position: [3]usize) usize {
+        assert(position[0] < self.size[0]);
+        assert(position[1] < self.size[1]);
+        assert(position[2] < self.size[2]);
         // ((Y * size_Z) + Z) * size_X + X
         return ((position[1] * self.size[2]) + position[2]) * self.size[0] + position[0];
     }
@@ -43,22 +47,28 @@ pub const Schematic = struct {
 };
 
 pub var schematics: [16]Schematic = undefined;
+var arena: std.heap.ArenaAllocator = undefined;
 
 pub fn init() !void {
-    schematics[0] = try load_from_json("path.json");
+    arena = std.heap.ArenaAllocator.init(util.allocator());
+    schematics[0] = try load_from_json("townhall.json");
+    schematics[1] = try load_from_json("path.json");
+    schematics[2] = try load_from_json("barricade.json");
 }
 
-pub fn deinit() void {}
+pub fn deinit() void {
+    arena.deinit();
+}
 
 pub fn load_from_json(path: []const u8) !Schematic {
     const file = try std.fs.cwd().openFile(path, .{});
     defer file.close();
 
-    const data = try file.readToEndAlloc(util.allocator(), 8192);
-    defer util.allocator().free(data);
+    const data = try file.readToEndAlloc(arena.allocator(), 16384);
+    defer arena.allocator().free(data);
 
-    const parsed = try std.json.parseFromSlice(Schematic, util.allocator(), data, .{});
-    defer parsed.deinit();
+    const parsed = try std.json.parseFromSlice(Schematic, arena.allocator(), data, .{});
+    // defer parsed.deinit();
     const schematic = parsed.value;
 
     std.debug.print("SCHEMATIC LOADED: {any}\n", .{schematic});

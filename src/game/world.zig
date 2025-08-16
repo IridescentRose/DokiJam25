@@ -828,7 +828,7 @@ pub fn update(dt: f32) !void {
                 };
 
                 const voxel = get_voxel(check_coord);
-                if (voxel == .Grass or voxel == .Leaf or voxel == .Log or voxel == .Crop) {
+                if (voxel == .Grass or voxel == .Leaf or voxel == .Log or voxel == .Crop or voxel == .Plank) {
                     if (voxel == .Grass) {
                         if (set_voxel(check_coord, .{ .material = .Ash, .color = [_]u8{ 0x0F, 0x0F, 0x0F } })) {
                             try new_active_atoms.append(.{

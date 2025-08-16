@@ -28,6 +28,7 @@ pub fn init(s: u32) Registry {
     generate_leaf(&rng, &reg[@intFromEnum(Chunk.AtomKind.Leaf)]);
     generate_crop(&rng, &reg[@intFromEnum(Chunk.AtomKind.Crop)]);
     generate_log(&rng, &reg[@intFromEnum(Chunk.AtomKind.Log)]);
+    generate_plank(&rng, &reg[@intFromEnum(Chunk.AtomKind.Plank)]);
     generate_bedrock(&rng, &reg[@intFromEnum(Chunk.AtomKind.Bedrock)]);
     generate_town_block(&rng, &reg[@intFromEnum(Chunk.AtomKind.TownBlock)]);
 
@@ -139,6 +140,16 @@ fn generate_crop(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
                 .color = [_]u8{ 0, 0, 0 },
             };
         }
+    }
+}
+
+fn generate_plank(rng: *std.Random.DefaultPrng, stencil: *Stencil) void {
+    for (stencil) |*atom| {
+        const lightness = rng.random().int(u8) % 16;
+        atom.* = .{
+            .material = .Plank,
+            .color = [_]u8{ 0x55 + lightness, 0x33 + lightness, 0x11 },
+        };
     }
 }
 

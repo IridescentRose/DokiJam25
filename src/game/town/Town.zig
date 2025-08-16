@@ -3,10 +3,9 @@ const ecs = @import("../entity/ecs.zig");
 
 const BuildingKind = enum(u8) {
     TownHall = 0,
-    House = 1,
-    Farm = 2,
-    Path = 3,
-    Fence = 4,
+    Path = 1,
+    Barrier = 2,
+    House = 3,
 };
 
 const Building = extern struct {
@@ -27,7 +26,7 @@ const schematic = @import("schematic.zig");
 
 town_center: [3]f32,
 citizens: [4]ecs.Entity,
-buildings: [256]Building,
+buildings: [512]Building,
 inventory: Inventory,
 created: bool = false,
 farm_loc: ?[3]f32 = null,

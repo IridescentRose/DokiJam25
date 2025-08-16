@@ -215,7 +215,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
             if (is_sleep_time) return;
             velocity[0] = 0;
             velocity[2] = 0;
-            if (!updated) return;
+            // if (!updated) return;
 
             const building_idx: usize = @intCast(self.get_ptr(.target_pos)[1]);
             const building = world.town.buildings[building_idx];
@@ -227,33 +227,21 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                 building.position[2] - @divTrunc(size[2], 2) - 1,
             };
 
-            const max: [3]isize = [_]isize{
-                building.position[0] + @divTrunc(size[0], 2),
-                building.position[1] + size[1],
-                building.position[2] + @divTrunc(size[2], 2),
-            };
-
-            const delta = [_]usize{
-                @intCast(max[0] - min[0]),
-                @intCast(max[1] - min[1]),
-                @intCast(max[2] - min[2]),
-            };
-
             var curr_progress: usize = 0;
-            for (0..delta[1]) |y| {
-                for (0..delta[2]) |z| {
-                    for (0..delta[0]) |x| {
+            for (0..size[1]) |y| {
+                for (0..size[2]) |z| {
+                    for (0..size[0]) |x| {
                         curr_progress += 1;
                         if (curr_progress < world.town.buildings[building_idx].progress) continue;
                         const block_idx = schematic.schematics[@intFromEnum(building.kind)].index([_]usize{ x, y, z });
                         const block_type = schematic.schematics[@intFromEnum(building.kind)].blocks[block_idx];
                         if (block_type != 0) {
-                            if (world.town.inventory.get_total_material(block_type) > 512) {
-                                _ = world.town.inventory.remove_count_inventory(.{ .material = block_type, .count = 512 });
-                                world.town.buildings[building_idx].progress += 1;
-                                // Place the block
-                                _ = world.place_block(@enumFromInt(block_type), [_]isize{ min[0] + @as(isize, @intCast(x)), min[1] + @as(isize, @intCast(y)), min[2] + @as(isize, @intCast(z)) });
-                            }
+                            // if (world.town.inventory.get_total_material(block_type) > 512) {
+                            // _ = world.town.inventory.remove_count_inventory(.{ .material = block_type, .count = 512 });
+                            world.town.buildings[building_idx].progress += 1;
+                            // Place the block
+                            _ = world.place_block(@enumFromInt(block_type), [_]isize{ min[0] + @as(isize, @intCast(x)), min[1] + @as(isize, @intCast(y)), min[2] + @as(isize, @intCast(z)) });
+                            // }
                             return;
                         }
                     }

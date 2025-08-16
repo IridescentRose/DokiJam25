@@ -30,6 +30,15 @@ const job_queue = @import("job_queue.zig");
 pub const ChunkLocation = [2]isize;
 pub const ChunkMap = std.AutoArrayHashMap(ChunkLocation, Chunk);
 
+pub const TutorialEvents = extern struct {
+    start: bool = false,
+    fire: bool = false,
+    town: bool = false,
+    town_night: bool = false,
+    town_visitor: bool = false,
+    rain: bool = false,
+};
+
 const VoxelEdit = struct {
     offset: u32,
     atom: Chunk.Atom,
@@ -45,6 +54,7 @@ pub var blocks: []Chunk.Atom = undefined;
 var edit_list: std.ArrayList(VoxelEdit) = undefined;
 var chunk_freelist: std.ArrayList(usize) = undefined;
 pub var light_pv_row: zm.Mat = undefined;
+pub var tutorial = TutorialEvents{};
 
 pub var town: Town = undefined;
 pub var weather: Weather = undefined;
@@ -64,6 +74,7 @@ pub fn save_world_info() !void {
     const writer = file.deprecatedWriter();
     try writer.writeInt(u64, world_seed, .little);
     try writer.writeInt(u64, tick, .little);
+    try writer.writeStruct(tutorial);
 }
 
 pub fn load_world_info() !void {
@@ -73,6 +84,7 @@ pub fn load_world_info() !void {
     const reader = file.deprecatedReader();
     world_seed = try reader.readInt(u64, .little);
     tick = try reader.readInt(u64, .little);
+    tutorial = try reader.readStruct(TutorialEvents);
 }
 
 // Time
@@ -101,6 +113,11 @@ pub fn init(seed: u64) !void {
     };
 
     load_world_info() catch |err| std.debug.print("Failed to load world info: {}\n", .{err});
+
+    if (!tutorial.start) {
+        try audio.play_sfx_no_position("tutorial1.mp3");
+        tutorial.start = true;
+    }
 
     chunk_mesh = try ChunkMesh.new();
     try chunk_mesh.vertices.appendSlice(util.allocator(), &[_]ChunkMesh.Vertex{
@@ -647,6 +664,11 @@ pub fn update(dt: f32) !void {
 
     try particles.update(dt);
     if (weather.is_raining) {
+        if (!tutorial.rain) {
+            try audio.play_sfx_no_position("tutorial6.mp3");
+            tutorial.rain = true;
+        }
+
         for (0..8) |_| {
             const rx = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
             const rz = @as(f32, @floatFromInt(@rem(rand.random().int(i32), 128)));
@@ -712,6 +734,10 @@ pub fn update(dt: f32) !void {
     if (tick % 24000 == 6000) {
         // On new day, summon visitor
         if (town.created and tick / 24000 < 5) {
+            if (!tutorial.town_visitor) {
+                try audio.play_sfx_no_position("tutorial5.mp3");
+                tutorial.town_visitor = true;
+            }
             _ = try Visitor.create([_]f32{ town.town_center[0], town.town_center[1] + 3, town.town_center[2] }, @splat(0), [_]isize{ @intFromFloat(town.town_center[0]), @intFromFloat(town.town_center[1]), @intFromFloat(town.town_center[2]) }, @enumFromInt(@min(8, 4 + tick / 24000)));
         }
 
@@ -730,6 +756,11 @@ pub fn update(dt: f32) !void {
         var i: usize = 0;
         for (ecs.storage.active_entities.items) |*entity| {
             if (entity.get(.kind) == .tomato and i < @min(tick / 12000, 8)) {
+                if (!tutorial.town_night) {
+                    try audio.play_sfx_no_position("tutorial4.mp3");
+                    tutorial.town_night = true;
+                }
+
                 // Tomato random spawn around town center
                 var rng = std.Random.DefaultPrng.init(world_seed + tick);
                 const dx = @rem(rng.random().int(i32), 24);

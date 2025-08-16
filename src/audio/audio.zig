@@ -53,6 +53,12 @@ pub fn play_sfx_at_position(path: [:0]const u8, pos: [3]f32) !void {
     try sfx_clips.append(clip); // Store for later cleanup
 }
 
+pub fn play_sfx_no_position(path: [:0]const u8) !void {
+    var clip = try Clip.load_from_file(path, true, false); // Create new sound instance
+    try clip.start();
+    try sfx_clips.append(clip); // Store for later cleanup
+}
+
 pub fn init() !void {
     assert(!initialized);
 

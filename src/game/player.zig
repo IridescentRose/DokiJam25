@@ -311,6 +311,10 @@ fn place_block(self: *Self) void {
         });
 
         world.town.create(self.voxel_guide_transform_place.pos) catch unreachable;
+        if (!world.tutorial.town) {
+            audio.play_sfx_no_position("tutorial3.mp3") catch unreachable;
+            world.tutorial.town = true;
+        }
 
         world.town.buildings[world.town.building_count] = .{
             .position = [_]isize{ @intFromFloat(self.voxel_guide_transform_place.pos[0]), @intFromFloat(self.voxel_guide_transform_place.pos[1]), @intFromFloat(self.voxel_guide_transform_place.pos[2]) },
@@ -374,6 +378,11 @@ fn place_block(self: *Self) void {
 
                     if (hand.count > 0 and (hand.material < 256 or hand.material == 258)) { // Don't place items that are not blocks (will have exceptions later)
                         if (hand.material == 258) {
+                            if (!world.tutorial.fire) {
+                                audio.play_sfx_no_position("tutorial2.mp3") catch unreachable;
+                                world.tutorial.fire = true;
+                            }
+
                             // Matches light fire.
                             if (world.set_voxel(test_coord, .{
                                 .material = .Fire,

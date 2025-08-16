@@ -668,8 +668,8 @@ pub fn update(dt: f32) !void {
 
     if (tick % 24000 == 0) {
         // On new day, summon visitor
-        if (town.created) {
-            _ = try Visitor.create([_]f32{ town.town_center[0], town.town_center[1] + 3, town.town_center[2] }, @splat(0), @enumFromInt(@min(8, 4 + tick / 24000)));
+        if (town.created and tick / 24000 < 5) {
+            _ = try Visitor.create([_]f32{ town.town_center[0], town.town_center[1] + 3, town.town_center[2] }, @splat(0), [_]isize{ @intFromFloat(town.town_center[0]), @intFromFloat(town.town_center[1]), @intFromFloat(town.town_center[2]) }, @enumFromInt(@min(8, 4 + tick / 24000)));
         }
     }
 

@@ -153,6 +153,9 @@ pub fn init(seed: u64) !void {
 
             break;
         }
+
+        // Spawn tomato on player for now
+        _ = try Tomato.create(player.entity.get_ptr(.transform).pos, @splat(0), .Tomato);
     }
 
     active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
@@ -360,6 +363,42 @@ pub fn place_block(new_blk: Chunk.AtomKind, coord: [3]isize) bool {
     }
 
     return true;
+}
+
+pub fn explode(block_coord: [3]f32, radius: f32) void {
+    const minCoord = [_]isize{
+        @intFromFloat(@floor(block_coord[0] - radius)),
+        @intFromFloat(@floor(block_coord[1] - radius)),
+        @intFromFloat(@floor(block_coord[2] - radius)),
+    };
+    const maxCoord = [_]isize{
+        @intFromFloat(@ceil(block_coord[0] + radius)),
+        @intFromFloat(@ceil(block_coord[1] + radius)),
+        @intFromFloat(@ceil(block_coord[2] + radius)),
+    };
+
+    var y = minCoord[1];
+    while (y <= maxCoord[1]) : (y += 1) {
+        var z = minCoord[2];
+        while (z <= maxCoord[2]) : (z += 1) {
+            var x = minCoord[0];
+            while (x <= maxCoord[0]) : (x += 1) {
+                const dx = block_coord[0] - @as(f32, @floatFromInt(x));
+                const dy = block_coord[1] - @as(f32, @floatFromInt(y));
+                const dz = block_coord[2] - @as(f32, @floatFromInt(z));
+                const distance = dx * dx + dy * dy + dz * dz;
+                if (distance <= radius * radius) {
+                    const coord = [_]isize{ x, y, z };
+                    // What is breaking, if not placing air?
+                    _ = place_block(.Air, coord);
+                }
+            }
+        }
+    }
+
+    audio.play_sfx_at_position("explosion.mp3", block_coord) catch |err| {
+        std.debug.print("Failed to play explosion sound: {}\n", .{err});
+    };
 }
 
 pub fn is_in_world(coord: [3]isize) bool {
@@ -586,7 +625,7 @@ pub fn update(dt: f32) !void {
                 entity.do_physics(dt);
             },
             .tomato => {
-                Tomato.update(entity.*, player.entity.get(.transform).pos, dt);
+                Tomato.update(entity.*, dt);
                 entity.do_physics(dt);
             },
             else => {

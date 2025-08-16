@@ -11,6 +11,7 @@ pub const ModelID = enum(u32) {
     Dooby = 6,
     Nimi = 7,
     Chibi = 8,
+    Tomato = 9,
 };
 
 var player_model: Voxel = undefined;
@@ -23,6 +24,7 @@ var mint_model: Voxel = undefined;
 var dooby_model: Voxel = undefined;
 var nimi_model: Voxel = undefined;
 var chibi_model: Voxel = undefined;
+var tomato_model: Voxel = undefined;
 
 pub fn init() !void {
     const farmer_tex = try gfx.texture.load_image_from_file("dragoon_farmer.png");
@@ -56,6 +58,9 @@ pub fn init() !void {
 
     chibi_model = Voxel.init(try gfx.texture.load_image_from_file("chibi.png"));
     try chibi_model.build();
+
+    tomato_model = Voxel.init(try gfx.texture.load_image_from_file("tomato.png"));
+    try tomato_model.build();
 }
 
 pub fn get_model(id: ModelID) *Voxel {
@@ -69,6 +74,7 @@ pub fn get_model(id: ModelID) *Voxel {
         .Dooby => return &dooby_model,
         .Nimi => return &nimi_model,
         .Chibi => return &chibi_model,
+        .Tomato => return &tomato_model,
     }
 }
 
@@ -82,4 +88,5 @@ pub fn deinit() void {
     dooby_model.deinit();
     nimi_model.deinit();
     chibi_model.deinit();
+    tomato_model.deinit();
 }

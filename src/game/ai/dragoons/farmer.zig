@@ -4,6 +4,7 @@ const components = @import("../../entity/components.zig");
 const zm = @import("zmath");
 const c = @import("../../consts.zig");
 const world = @import("../../world.zig");
+const audio = @import("../../../audio/audio.zig");
 
 const TERMINAL_VELOCITY = -10.0; // Max fall speed cap
 const GRAVITY = -9.8; // Downward accel applied each frame
@@ -69,7 +70,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
     const time = self.get_ptr(.timer);
     if (std.time.milliTimestamp() >= time.*) {
         // Next decision scheduled in 3 seconds.
-        time.* = std.time.milliTimestamp() + std.time.ms_per_s * 3;
+        time.* = @intFromFloat(@as(f64, @floatFromInt(std.time.milliTimestamp() + std.time.ms_per_s)) * 1.5);
         updated = true;
     }
 
@@ -206,6 +207,8 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                 }
             }
 
+            audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(target_pos[0]), @floatFromInt(target_pos[1]), @floatFromInt(target_pos[2]) }) catch unreachable;
+
             if (!mined_something) {
                 // Go to return home
                 ai_state_ptr.* = AI_PLANT;
@@ -242,6 +245,8 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                 if (succeeded) break;
             }
 
+            audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(target_pos[0]), @floatFromInt(target_pos[1]), @floatFromInt(target_pos[2]) }) catch unreachable;
+
             if (!mined_something) {
                 // Go to return home
                 ai_state_ptr.* = AI_HARVEST;
@@ -260,7 +265,6 @@ pub fn update(self: ecs.Entity, dt: f32) void {
             }
 
             if (!has_grown) return;
-            std.debug.print("HARVESTING!\n", .{});
 
             const target_pos = self.get_ptr(.target_pos);
             const minPos = [_]isize{ target_pos[0] - 7, target_pos[1] - 1, target_pos[2] - 7 };
@@ -290,6 +294,8 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                     if (succeeded) break;
                 }
             }
+
+            audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(target_pos[0]), @floatFromInt(target_pos[1]), @floatFromInt(target_pos[2]) }) catch unreachable;
 
             if (!mined_something) {
                 // Go to return home

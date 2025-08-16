@@ -4,6 +4,7 @@ const components = @import("../../entity/components.zig");
 const zm = @import("zmath");
 const c = @import("../../consts.zig");
 const world = @import("../../world.zig");
+const audio = @import("../../../audio/audio.zig");
 
 const TERMINAL_VELOCITY = -10.0; // Max fall speed cap
 const GRAVITY = -9.8; // Downward accel applied each frame
@@ -65,7 +66,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
     var updated = false;
     if (std.time.milliTimestamp() >= time.*) {
         // Next decision scheduled in 3 seconds.
-        time.* = std.time.milliTimestamp() + std.time.ms_per_s * 3;
+        time.* = @intFromFloat(@as(f64, @floatFromInt(std.time.milliTimestamp() + std.time.ms_per_s)) * 1.5);
         updated = true; // We updated the timer, so we can change behavior
     }
 
@@ -210,6 +211,8 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                 mined_something = succeeded or mined_something;
                 if (succeeded) break;
             }
+
+            audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(target_pos[0]), @floatFromInt(target_pos[1]), @floatFromInt(target_pos[2]) }) catch unreachable;
 
             if (!mined_something) {
                 // Go to return home

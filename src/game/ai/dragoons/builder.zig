@@ -5,6 +5,7 @@ const zm = @import("zmath");
 const c = @import("../../consts.zig");
 const world = @import("../../world.zig");
 const schematic = @import("../../town/schematic.zig");
+const audio = @import("../../../audio/audio.zig");
 
 const TERMINAL_VELOCITY = -10.0; // Max fall speed cap
 const GRAVITY = -9.8; // Downward accel applied each frame
@@ -67,7 +68,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
     var updated = false;
     if (std.time.milliTimestamp() >= time.*) {
         // Next decision scheduled in 3 seconds.
-        time.* = std.time.milliTimestamp() + std.time.ms_per_s * 3;
+        time.* = @intFromFloat(@as(f64, @floatFromInt(std.time.milliTimestamp() + std.time.ms_per_s)) * 1.5);
         updated = true;
     }
 
@@ -201,6 +202,8 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                     while (x < max[0]) : (x += 1) {
                         if (!world.only_contained_in_block(.Air, [_]isize{ x, y, z })) {
                             _ = world.place_block(.Air, [_]isize{ x, y, z });
+
+                            audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(x), @floatFromInt(y), @floatFromInt(z) }) catch unreachable;
                             return;
                         }
                     }

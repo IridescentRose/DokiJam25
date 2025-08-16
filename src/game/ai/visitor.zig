@@ -4,18 +4,21 @@ const components = @import("../entity/components.zig");
 const zm = @import("zmath");
 const c = @import("../consts.zig");
 const world = @import("../world.zig");
+const mm = @import("../model_manager.zig");
 
 const TERMINAL_VELOCITY = -10.0; // Dragoon terminal velocity
 const GRAVITY = -9.8; // Dragoon is light!
 const MOVE_SPEED = 1.0;
 
-pub fn create(position: [3]f32, rotation: [3]f32, model: components.ModelComponent) !ecs.Entity {
-    const entity = try ecs.create_entity(.dragoon);
+const player_size = [_]f32{ 0.5, 1.85, 0.5 };
+
+pub fn create(position: [3]f32, rotation: [3]f32, model: mm.ModelID) !ecs.Entity {
+    const entity = try ecs.create_entity(.visitor);
 
     // Initialize components
     try entity.add_component(.transform, components.TransformComponent.new());
     try entity.add_component(.model, model);
-    try entity.add_component(.aabb, .{ .aabb_size = [_]f32{ 0.125, 0.125, 0.125 }, .can_step = true });
+    try entity.add_component(.aabb, .{ .aabb_size = player_size, .can_step = true });
     try entity.add_component(.velocity, @splat(0));
     try entity.add_component(.on_ground, false);
     try entity.add_component(.health, 10);
@@ -25,7 +28,7 @@ pub fn create(position: [3]f32, rotation: [3]f32, model: components.ModelCompone
     const transform = entity.get_ptr(.transform);
     transform.pos = position;
     transform.rot = rotation;
-    transform.scale = @splat(1.0 / 5.0);
+    transform.scale = @splat(1.0 / 10.0);
     transform.size = [_]f32{ 20.0, -4.01, 20.0 }; // Dragoon size
 
     return entity;

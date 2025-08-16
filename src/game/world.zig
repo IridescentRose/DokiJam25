@@ -12,7 +12,7 @@ const input = @import("../core/input.zig");
 const zm = @import("zmath");
 const gfx = @import("../gfx/gfx.zig");
 const Voxel = @import("voxel.zig");
-const Dragoon = @import("ai/dragoon.zig");
+const Visitor = @import("ai/visitor.zig");
 const Tomato = @import("ai/tomato.zig");
 const Town = @import("town/Town.zig");
 const Builder = @import("ai/dragoons//builder.zig");
@@ -569,8 +569,8 @@ pub fn update(dt: f32) !void {
             .player => {
                 entity.do_physics(dt);
             },
-            .dragoon => {
-                Dragoon.update(entity.*, dt);
+            .visitor => {
+                Visitor.update(entity.*, dt);
                 entity.do_physics(dt);
             },
             .dragoon_builder => {
@@ -661,9 +661,16 @@ pub fn update(dt: f32) !void {
 
     if (std.time.milliTimestamp() > timer) {
         timer = std.time.milliTimestamp() + 50;
-        tick += 1;
+        tick += 30;
     } else {
         return;
+    }
+
+    if (tick % 24000 == 0) {
+        // On new day, summon visitor
+        if (town.created) {
+            _ = try Visitor.create(town.town_center, @splat(0), @enumFromInt(@max(8, 5 + tick / 24000)));
+        }
     }
 
     var a_count: usize = 0;

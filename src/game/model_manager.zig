@@ -7,6 +7,10 @@ pub const ModelID = enum(u32) {
     Builder = 2,
     Lumberjack = 3,
     Sleep = 4,
+    Mint = 5,
+    Dooby = 6,
+    Nimi = 7,
+    Chibi = 8,
 };
 
 var player_model: Voxel = undefined;
@@ -14,6 +18,11 @@ var farmer_model: Voxel = undefined;
 var builder_model: Voxel = undefined;
 var lumber_model: Voxel = undefined;
 var sleep_model: Voxel = undefined;
+
+var mint_model: Voxel = undefined;
+var dooby_model: Voxel = undefined;
+var nimi_model: Voxel = undefined;
+var chibi_model: Voxel = undefined;
 
 pub fn init() !void {
     const farmer_tex = try gfx.texture.load_image_from_file("dragoon_farmer.png");
@@ -35,6 +44,18 @@ pub fn init() !void {
     const player_tex = try gfx.texture.load_image_from_file("doki.png");
     player_model = Voxel.init(player_tex);
     try player_model.build();
+
+    mint_model = Voxel.init(try gfx.texture.load_image_from_file("mint.png"));
+    try mint_model.build();
+
+    dooby_model = Voxel.init(try gfx.texture.load_image_from_file("dooby.png"));
+    try dooby_model.build();
+
+    nimi_model = Voxel.init(try gfx.texture.load_image_from_file("nimi.png"));
+    try nimi_model.build();
+
+    chibi_model = Voxel.init(try gfx.texture.load_image_from_file("chibi.png"));
+    try chibi_model.build();
 }
 
 pub fn get_model(id: ModelID) *Voxel {
@@ -44,6 +65,10 @@ pub fn get_model(id: ModelID) *Voxel {
         .Builder => return &builder_model,
         .Lumberjack => return &lumber_model,
         .Sleep => return &sleep_model,
+        .Mint => return &mint_model,
+        .Dooby => return &dooby_model,
+        .Nimi => return &nimi_model,
+        .Chibi => return &chibi_model,
     }
 }
 
@@ -53,4 +78,8 @@ pub fn deinit() void {
     lumber_model.deinit();
     sleep_model.deinit();
     player_model.deinit();
+    mint_model.deinit();
+    dooby_model.deinit();
+    nimi_model.deinit();
+    chibi_model.deinit();
 }

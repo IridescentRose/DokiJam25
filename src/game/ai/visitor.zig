@@ -128,6 +128,15 @@ pub fn update(self: ecs.Entity, dt: f32) void {
 
             if (dist < 1.5) {
                 // TODO: Play sfx, give rewards
+                const model = @intFromEnum(self.get(.model));
+
+                switch (model) {
+                    5 => {},
+                    6 => {},
+                    7 => {},
+                    8 => {},
+                    else => {},
+                }
 
                 ai_state_ptr.* = AI_SEEKING_HOME;
                 continue :blk ai_state_ptr.*;

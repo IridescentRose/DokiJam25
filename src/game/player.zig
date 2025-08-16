@@ -1130,7 +1130,7 @@ pub fn draw(self: *Self, shadow: bool) void {
             var tex = self.block_item_tex;
 
             var buf: [8]u8 = @splat(0);
-            var count = if (item.count / 512 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{item.count / 128}) catch "ERR" else "<1";
+            var count = if (item.count / 512 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{item.count / 512}) catch "ERR" else "<1";
             if (item.material > 256) {
                 tex = self.item_tex;
                 // If it's an item, the count is going to be the full count, not divided by 128
@@ -1250,7 +1250,7 @@ pub fn draw(self: *Self, shadow: bool) void {
             var tex = self.block_item_tex;
 
             var buf: [8]u8 = @splat(0);
-            var count = if (self.entity.get_ptr(.inventory).mouse_slot.count / 512 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{self.entity.get_ptr(.inventory).mouse_slot.count / 128}) catch "ERR" else "<1";
+            var count = if (self.entity.get_ptr(.inventory).mouse_slot.count / 512 != 0) std.fmt.bufPrint(buf[0..], "{d}", .{self.entity.get_ptr(.inventory).mouse_slot.count / 512}) catch "ERR" else "<1";
             if (self.entity.get_ptr(.inventory).mouse_slot.material > 256) {
                 tex = self.item_tex;
                 // If it's an item, the count is going to be the full count, not divided by 128

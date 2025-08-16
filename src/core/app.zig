@@ -82,7 +82,7 @@ pub fn init(state: State) !void {
 
     try sdl3.init(init_flags);
     input.init();
-    try gfx.init(config.width, config.height, "DOKIJAM25!");
+    try gfx.init(config.width, config.height, "Fractal Frontiers");
 
     try audio.init();
 

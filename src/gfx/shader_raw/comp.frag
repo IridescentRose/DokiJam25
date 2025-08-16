@@ -277,7 +277,7 @@ vec3 godRays(vec2 uv, vec2 sunSS, float sunVis, vec3 sunCol) {
 }
 
 
-#define SHADOW_RESOLUTION 512.0
+#define SHADOW_RESOLUTION 1024.0
 // -- shadows --
 vec2 rot2(vec2 p, float a) { float c = cos(a), s = sin(a); return vec2(p.x*c - p.y*s, p.x*s + p.y*c); }
 float shadowPCF(vec3 worldPos, vec3 N, vec3 L)

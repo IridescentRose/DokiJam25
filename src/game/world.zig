@@ -659,7 +659,6 @@ pub fn update(dt: f32) !void {
     defer new_active_atoms.deinit();
 
     town.update();
-    weather.update();
     try ambience.update();
 
     try particles.update(dt);
@@ -680,48 +679,6 @@ pub fn update(dt: f32) !void {
                 .lifetime = 300,
             });
         }
-
-        var rng = std.Random.DefaultPrng.init(@bitCast(std.time.microTimestamp()));
-        if (rng.random().int(u32) % 1000 == 0) {
-            // Spawn a lightning bolt (set a block on fire)
-
-            if (rng.random().int(u32) % 10 == 0) {
-                const dx = @rem(rng.random().int(i32), 24);
-                const dz = @rem(rng.random().int(i32), 24);
-
-                const voxel_pos_player = [_]isize{
-                    @as(isize, @intFromFloat(player.entity.get(.transform).pos[0])) + dx,
-                    64,
-                    @as(isize, @intFromFloat(player.entity.get(.transform).pos[2])) + dz,
-                };
-
-                var y_pos: isize = 62;
-                while (y_pos > 0) : (y_pos -= 1) {
-                    if (!contained_in_block(.Air, [_]isize{ voxel_pos_player[0], y_pos, voxel_pos_player[2] })) {
-                        y_pos += 1;
-                        break;
-                    }
-                }
-
-                for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
-                    for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
-                        for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
-                            _ = set_voxel([_]isize{ voxel_pos_player[0] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(x)), y_pos * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(y)), voxel_pos_player[2] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(z)) }, .{
-                                .material = .Fire,
-                                .color = [_]u8{ 0xFF, 0x81, 0x42 },
-                            });
-
-                            try active_atoms.append(.{
-                                .coord = [_]isize{ voxel_pos_player[0] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(x)), y_pos * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(y)), voxel_pos_player[2] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(z)) },
-                                .moves = 100,
-                            });
-                        }
-                    }
-                }
-            }
-
-            try audio.play_sfx_at_position("thunder.mp3", player.entity.get(.transform).pos);
-        }
     }
 
     if (std.time.milliTimestamp() > timer) {
@@ -729,6 +686,49 @@ pub fn update(dt: f32) !void {
         tick += 1;
     } else {
         return;
+    }
+
+    weather.update();
+    var rng = std.Random.DefaultPrng.init(@bitCast(std.time.microTimestamp()));
+    if (rng.random().int(u32) % 1000 == 0) {
+        // Spawn a lightning bolt (set a block on fire)
+
+        if (rng.random().int(u32) % 10 == 0) {
+            const dx = @rem(rng.random().int(i32), 24);
+            const dz = @rem(rng.random().int(i32), 24);
+
+            const voxel_pos_player = [_]isize{
+                @as(isize, @intFromFloat(player.entity.get(.transform).pos[0])) + dx,
+                64,
+                @as(isize, @intFromFloat(player.entity.get(.transform).pos[2])) + dz,
+            };
+
+            var y_pos: isize = 62;
+            while (y_pos > 0) : (y_pos -= 1) {
+                if (!contained_in_block(.Air, [_]isize{ voxel_pos_player[0], y_pos, voxel_pos_player[2] })) {
+                    y_pos += 1;
+                    break;
+                }
+            }
+
+            for (0..c.SUB_BLOCKS_PER_BLOCK) |y| {
+                for (0..c.SUB_BLOCKS_PER_BLOCK) |z| {
+                    for (0..c.SUB_BLOCKS_PER_BLOCK) |x| {
+                        _ = set_voxel([_]isize{ voxel_pos_player[0] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(x)), y_pos * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(y)), voxel_pos_player[2] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(z)) }, .{
+                            .material = .Fire,
+                            .color = [_]u8{ 0xFF, 0x81, 0x42 },
+                        });
+
+                        try active_atoms.append(.{
+                            .coord = [_]isize{ voxel_pos_player[0] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(x)), y_pos * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(y)), voxel_pos_player[2] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(z)) },
+                            .moves = 100,
+                        });
+                    }
+                }
+            }
+        }
+
+        try audio.play_sfx_at_position("thunder.mp3", player.entity.get(.transform).pos);
     }
 
     if (tick % 24000 == 6000) {

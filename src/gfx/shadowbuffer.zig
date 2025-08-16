@@ -6,7 +6,7 @@ shadow_texture: c_uint,
 
 const Self = @This();
 
-pub const SHADOW_SIZE = 512;
+pub const SHADOW_SIZE = 1024;
 
 pub fn init() !Self {
     var fbo: c_uint = 0;

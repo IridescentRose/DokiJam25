@@ -4,6 +4,7 @@ const components = @import("../entity/components.zig");
 const zm = @import("zmath");
 const c = @import("../consts.zig");
 const world = @import("../world.zig");
+const audio = @import("../../audio/audio.zig");
 
 const TERMINAL_VELOCITY = -10.0; // Max fall speed cap
 const GRAVITY = -9.8; // Downward accel applied each frame
@@ -137,6 +138,8 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                             .material = 260,
                             .count = 16,
                         });
+
+                        audio.play_sfx_at_position("mint.mp3", transform.pos) catch unreachable;
                     },
                     6 => {
                         // Dooby Gives you 2 stack wood, 1 stack stone
@@ -152,6 +155,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                             .material = 2,
                             .count = 64000,
                         });
+                        audio.play_sfx_at_position("dooby.mp3", transform.pos) catch unreachable;
                     },
                     7 => {
                         // Nimi gives you suspicious stew
@@ -159,6 +163,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                             .material = 261,
                             .count = 32,
                         });
+                        audio.play_sfx_at_position("nimi.mp3", transform.pos) catch unreachable;
                     },
                     8 => {
                         // Chibi gives you pipe bomb
@@ -166,6 +171,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                             .material = 262,
                             .count = 64,
                         });
+                        audio.play_sfx_at_position("chibi.mp3", transform.pos) catch unreachable;
                     },
                     else => {},
                 }

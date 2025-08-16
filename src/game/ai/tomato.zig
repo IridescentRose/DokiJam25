@@ -131,21 +131,32 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                 @intFromFloat(world.town.town_center[2]),
             };
 
-            const home = self.get(.home_pos);
-            const dx = @as(f32, @floatFromInt(home[0])) - transform.pos[0];
-            const dz = @as(f32, @floatFromInt(home[2])) - transform.pos[2];
-            const dist = std.math.sqrt(dx * dx + dz * dz);
+            const player = world.player.entity.get(.transform).pos;
+            const pdx = player[0] - transform.pos[0];
+            const pdz = player[2] - transform.pos[2];
+            const pdist = std.math.sqrt(pdx * pdx + pdz * pdz);
 
-            if (dist < 1.5) {
-                audio.play_sfx_at_position("tomato.mp3", transform.pos) catch unreachable;
-                // EXPLODE
-                world.explode(transform.pos, 4);
-                // Teleport out of sim dist
-                transform.pos = [_]f32{ 0, 0, 0 };
+            if (pdist < 10.0) {
+                // Move away from player!
+                velocity[0] = -pdx;
+                velocity[2] = -pdz;
             } else {
-                // Move towards the home position
-                velocity[0] = dx;
-                velocity[2] = dz;
+                const home = self.get(.home_pos);
+                const dx = @as(f32, @floatFromInt(home[0])) - transform.pos[0];
+                const dz = @as(f32, @floatFromInt(home[2])) - transform.pos[2];
+                const dist = std.math.sqrt(dx * dx + dz * dz);
+
+                if (dist < 1.5) {
+                    audio.play_sfx_at_position("tomato.mp3", transform.pos) catch unreachable;
+                    // EXPLODE
+                    world.explode(transform.pos, 4);
+                    // Teleport out of sim dist
+                    transform.pos = [_]f32{ 0, 0, 0 };
+                } else {
+                    // Move towards the home position
+                    velocity[0] = dx;
+                    velocity[2] = dz;
+                }
             }
 
             // Normalize to MOVE_SPEED (so large RNG spikes don't change speed)

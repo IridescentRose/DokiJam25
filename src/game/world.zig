@@ -155,7 +155,9 @@ pub fn init(seed: u64) !void {
         }
 
         // Spawn tomato on player for now
-        _ = try Tomato.create(player.entity.get_ptr(.transform).pos, @splat(0), .Tomato);
+        for (0..8) |_| {
+            _ = try Tomato.create(@splat(0), @splat(0), .Tomato);
+        }
     }
 
     active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
@@ -705,10 +707,38 @@ pub fn update(dt: f32) !void {
         return;
     }
 
-    if (tick % 24000 == 0) {
+    if (tick % 24000 == 6000) {
         // On new day, summon visitor
         if (town.created and tick / 24000 < 5) {
             _ = try Visitor.create([_]f32{ town.town_center[0], town.town_center[1] + 3, town.town_center[2] }, @splat(0), [_]isize{ @intFromFloat(town.town_center[0]), @intFromFloat(town.town_center[1]), @intFromFloat(town.town_center[2]) }, @enumFromInt(@min(8, 4 + tick / 24000)));
+        }
+
+        // *despawn*
+        for (ecs.storage.active_entities.items) |*entity| {
+            if (entity.get(.kind) == .tomato) {
+                entity.get_ptr(.transform).pos[0] = 0;
+                entity.get_ptr(.transform).pos[2] = 0;
+                entity.get_ptr(.transform).pos[1] = 0;
+            }
+        }
+    }
+
+    if (tick % 24000 == 18000) {
+        // On new day, summon visitor
+        var i: usize = 0;
+        for (ecs.storage.active_entities.items) |*entity| {
+            if (entity.get(.kind) == .tomato and i < @min(tick / 12000, 8)) {
+                // Tomato random spawn around town center
+                var rng = std.Random.DefaultPrng.init(world_seed + tick);
+                const dx = @rem(rng.random().int(i32), 24);
+                const dz = @rem(rng.random().int(i32), 24);
+
+                entity.get_ptr(.transform).pos[0] = town.town_center[0] + @as(f32, @floatFromInt(dx));
+                entity.get_ptr(.transform).pos[2] = town.town_center[2] + @as(f32, @floatFromInt(dz));
+                entity.get_ptr(.transform).pos[1] = town.town_center[1] + 10;
+
+                i += 1;
+            }
         }
     }
 

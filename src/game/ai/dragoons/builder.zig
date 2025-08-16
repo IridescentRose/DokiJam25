@@ -191,8 +191,6 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                 building.position[1] + size[1] + 1,
                 building.position[2] + @divTrunc(size[2], 2) + 1,
             };
-            std.debug.print("MIN: {any}\n", .{min});
-            std.debug.print("MAX: {any}\n", .{max});
 
             var y: isize = min[1];
             while (y < max[1]) : (y += 1) {

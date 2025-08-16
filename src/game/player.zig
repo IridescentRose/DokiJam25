@@ -181,6 +181,7 @@ fn deposit_blocks(ctx: *anyopaque, down: bool) void {
         if (delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2] < 5.0) {
             const hand = self.inventory.get_hand_slot();
             if (hand.material != 0) {
+                audio.play_sfx_at_position("deposit.mp3", pos) catch unreachable;
                 _ = world.town.inventory.add_item_inventory(hand.*);
                 hand.material = 0;
                 hand.count = 0;
@@ -342,6 +343,8 @@ fn place_block(self: *Self) void {
                             const stencil = blocks.registry[hand.material];
                             if (world.set_voxel(test_coord, stencil[stidx])) {
                                 hand.count -= 1;
+                                audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(coord[0]), @floatFromInt(coord[1]), @floatFromInt(coord[2]) }) catch unreachable;
+
                                 if (hand.count == 0) hand.material = 0;
                             }
                         }
@@ -494,6 +497,7 @@ fn break_block(self: *Self) void {
                         }
                     }
 
+                    audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(coord[0]), @floatFromInt(coord[1]), @floatFromInt(coord[2]) }) catch unreachable;
                     if (!world.set_voxel(test_coord, .{
                         .material = .Air,
                         .color = [_]u8{ 0, 0, 0 },
@@ -924,7 +928,13 @@ pub fn update(self: *Self, dt: f32) void {
         self.camera.fpv = false;
     }
 
-    audio.set_listener_position(self.entity.get(.transform).pos);
+    const a_pos = self.entity.get(.transform).pos;
+    audio.set_listener_position([_]f32{ a_pos[0], a_pos[1] + player_size[1] * 0.75, a_pos[2] });
+
+    const dir =
+        zm.normalize3(.{ std.math.sin(std.math.degreesToRadians(-self.camera.yaw - 90.0)), 0, std.math.cos(std.math.degreesToRadians(-self.camera.yaw - 90.0)), 0 });
+
+    audio.set_listener_direction([_]f32{ dir[0], dir[1], dir[2] });
 
     // Update camera
     self.camera.target = self.entity.get(.transform).pos;

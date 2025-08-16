@@ -669,7 +669,7 @@ pub fn update(dt: f32) !void {
     if (tick % 24000 == 0) {
         // On new day, summon visitor
         if (town.created) {
-            _ = try Visitor.create(town.town_center, @splat(0), @enumFromInt(@max(8, 5 + tick / 24000)));
+            _ = try Visitor.create(town.town_center, @splat(0), @enumFromInt(@min(8, 5 + tick / 24000)));
         }
     }
 

@@ -701,7 +701,8 @@ pub fn update(dt: f32) !void {
     if (rng.random().int(u32) % 1000 == 0 and weather.is_raining) {
         // Spawn a lightning bolt (set a block on fire)
 
-        if (rng.random().int(u32) % 10 == 0) {
+        // 0.5% chance of fire because it's too OP at 10%
+        if (rng.random().int(u32) % 500 == 0) {
             const dx = @rem(rng.random().int(i32), 24);
             const dz = @rem(rng.random().int(i32), 24);
 

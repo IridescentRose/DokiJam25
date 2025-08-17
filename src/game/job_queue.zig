@@ -56,6 +56,7 @@ fn worker_thread() void {
 
                 chunk.load(gen.pos);
 
+                world.chunkMapWriteLock.lock();
                 world.chunkMap.put(gen.pos, .{
                     .offset = chunk.offset,
                     .size = chunk.size,
@@ -66,6 +67,7 @@ fn worker_thread() void {
                 }) catch |err| {
                     std.debug.print("Error updating chunk map for {any}: {}\n", .{ gen.pos, err });
                 };
+                world.chunkMapWriteLock.unlock();
 
                 world.inflight_chunk_mutex.lock();
                 defer world.inflight_chunk_mutex.unlock();

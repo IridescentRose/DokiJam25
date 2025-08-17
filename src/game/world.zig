@@ -45,6 +45,8 @@ const VoxelEdit = struct {
 };
 
 pub var chunkMap: ChunkMap = undefined;
+pub var chunkMapWriteLock = std.Thread.Mutex{};
+
 var particles: Particle = undefined;
 pub var active_atoms: std.ArrayList(Chunk.AtomData) = undefined;
 var rand = std.Random.DefaultPrng.init(1337);
@@ -511,6 +513,7 @@ fn update_player_surrounding_chunks() !void {
 
                 @memset(blocks[offset .. offset + c.CHUNK_SUBVOXEL_SIZE], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
 
+                chunkMapWriteLock.lock();
                 try chunkMap.putNoClobber(
                     chunk_coord,
                     .{
@@ -518,6 +521,7 @@ fn update_player_surrounding_chunks() !void {
                         .edits = std.AutoArrayHashMap(usize, Chunk.Atom).init(util.allocator()),
                     },
                 );
+                chunkMapWriteLock.unlock();
 
                 try job_queue.job_queue.writeItem(.{
                     .GenerateChunk = .{ .pos = chunk_coord },

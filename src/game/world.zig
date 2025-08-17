@@ -690,7 +690,7 @@ pub fn update(dt: f32) !void {
 
     weather.update();
     var rng = std.Random.DefaultPrng.init(@bitCast(std.time.microTimestamp()));
-    if (rng.random().int(u32) % 1000 == 0) {
+    if (rng.random().int(u32) % 1000 == 0 and weather.is_raining) {
         // Spawn a lightning bolt (set a block on fire)
 
         if (rng.random().int(u32) % 10 == 0) {
@@ -762,7 +762,6 @@ pub fn update(dt: f32) !void {
                 }
 
                 // Tomato random spawn around town center
-                var rng = std.Random.DefaultPrng.init(world_seed + tick);
                 const dx = @rem(rng.random().int(i32), 24);
                 const dz = @rem(rng.random().int(i32), 24);
 

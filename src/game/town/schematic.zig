@@ -43,6 +43,13 @@ pub const Schematic = struct {
                 }
             }
         }
+
+        for (0..5) |i| {
+            if (necessary_materials[i].material == 8) {
+                necessary_materials[i].count = necessary_materials[i].count / 16;
+                break;
+            }
+        }
     }
 };
 

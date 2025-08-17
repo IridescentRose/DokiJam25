@@ -158,13 +158,11 @@ pub fn init(seed: u64) !void {
             const x = @mod(rng.random().int(u32), 4096);
             const sub_x = x * c.SUB_BLOCKS_PER_BLOCK;
             const z = @mod(rng.random().int(u32), 4096);
-            const sub_z = x * c.SUB_BLOCKS_PER_BLOCK;
+            const sub_z = z * c.SUB_BLOCKS_PER_BLOCK;
 
             const h = worldgen.height_at(@as(f64, @floatFromInt(sub_x)), @as(f64, @floatFromInt(sub_z)));
 
             if (h <= 256) continue;
-            std.debug.print("Spawn point found at: ({}, {}, {})\n", .{ x, h, z });
-
             player.entity.get_ptr(.transform).pos[0] = @floatFromInt(x);
             player.entity.get_ptr(.transform).pos[1] = @floatCast((h + 8) / c.SUB_BLOCKS_PER_BLOCK);
             player.entity.get_ptr(.transform).pos[2] = @floatFromInt(z);

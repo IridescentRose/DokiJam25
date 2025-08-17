@@ -48,7 +48,7 @@ pub fn build(b: *std.Build) void {
             },
         }),
     });
-    exe.subsystem = .Windows;
+    // exe.subsystem = .Windows;
     exe.root_module.addCSourceFile(.{
         .file = b.path("src/stbi/stbi.c"),
         .flags = &[_][]const u8{"-g"},

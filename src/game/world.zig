@@ -116,11 +116,6 @@ pub fn init(seed: u64) !void {
 
     load_world_info() catch |err| std.debug.print("Failed to load world info: {}\n", .{err});
 
-    if (!tutorial.start) {
-        try audio.play_sfx_no_position("tutorial1.mp3");
-        tutorial.start = true;
-    }
-
     chunk_mesh = try ChunkMesh.new();
     try chunk_mesh.vertices.appendSlice(util.allocator(), &[_]ChunkMesh.Vertex{
         ChunkMesh.Vertex{
@@ -627,6 +622,11 @@ pub fn update(dt: f32) !void {
     }
 
     if (paused) return;
+
+    if (!tutorial.start) {
+        try audio.play_sfx_no_position("tutorial1.mp3");
+        tutorial.start = true;
+    }
 
     for (ecs.storage.active_entities.items) |*entity| {
         const kind = entity.get(.kind);

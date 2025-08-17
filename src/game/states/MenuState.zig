@@ -5,6 +5,7 @@ const input = @import("../../core/input.zig");
 const sm = @import("../../core/statemachine.zig");
 const GameState = @import("GameState.zig");
 const IntroState = @import("IntroState.zig");
+const app = @import("../../core/app.zig");
 
 const State = @import("../../core/State.zig");
 const Self = @This();
@@ -35,7 +36,7 @@ fn click(ctx: *anyopaque, down: bool) void {
             mouse_position[1] > (height / 2 - button_height / 2 - 100) and
             mouse_position[1] < (height / 2 + button_height / 2 - 100))
         {
-            if (has_save) {
+            if (has_save or !app.doIntro) {
                 // Continue game
                 sm.transition(game_state.state()) catch unreachable;
             } else {

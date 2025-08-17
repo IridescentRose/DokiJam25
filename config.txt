@@ -2,3 +2,4 @@ width=1920
 height=1080
 vsync=0
 fps=144
+intro=0

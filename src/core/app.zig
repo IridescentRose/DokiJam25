@@ -28,6 +28,8 @@ var config = Config{
     .fps = 60,
 };
 
+pub var doIntro = false;
+
 fn parse_config() !void {
     var file = try std.fs.cwd().openFile("config.txt", .{});
     defer file.close();
@@ -51,6 +53,8 @@ fn parse_config() !void {
                 config.width = intval;
             } else if (std.mem.eql(u8, key, "height")) {
                 config.height = intval;
+            } else if (std.mem.eql(u8, key, "intro")) {
+                doIntro = intval != 0;
             }
         }
 

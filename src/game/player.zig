@@ -26,7 +26,7 @@ const GRAVITY = -32;
 const TERMINAL_VELOCITY = -50.0;
 const BLOCK_SCALE = 1.0 / @as(f32, c.SUB_BLOCKS_PER_BLOCK);
 const EPSILON = 1e-3;
-const JUMP_VELOCITY = 16.0;
+const JUMP_VELOCITY = 12.0;
 const MOVE_SPEED = 8.6; // 5 units/sec move speed
 const KNOCKBACK_STRENGTH = 24.0;
 
@@ -73,7 +73,7 @@ pub fn init() !Self {
         try res.entity.add_component(.health, 17);
         try res.entity.add_component(.aabb, AABB{
             .aabb_size = player_size,
-            .can_step = false,
+            .can_step = true,
         });
         try res.entity.add_component(.inventory, Inventory.new());
         res.entity.get_ptr(.inventory).slots[0] = .{

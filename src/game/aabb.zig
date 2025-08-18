@@ -4,7 +4,6 @@ const world = @import("world.zig");
 pub const AABB = extern struct {
     const STEP_INCREMENT: f32 = 0.125;
     const MAX_STEP_HEIGHT: f32 = 1.0;
-    const SKIN: f32 = 0.001;
 
     aabb_size: [3]f32,
     can_step: bool,
@@ -92,11 +91,11 @@ pub const AABB = extern struct {
                         if (!can_walk_through(coord)) {
                             if (vel[1] > 0) {
                                 // Ceiling
-                                new_pos[1] = (@as(f32, @floatFromInt(coord[1])) / c.SUB_BLOCKS_PER_BLOCK) - SKIN - self.aabb_size[1] * 2;
+                                new_pos[1] = (@as(f32, @floatFromInt(coord[1])) / c.SUB_BLOCKS_PER_BLOCK) - self.aabb_size[1] * 2 - 0.001;
                                 vel[1] = 0;
                             } else {
                                 // Ground
-                                new_pos[1] = (@as(f32, @floatFromInt(coord[1] + 1)) / c.SUB_BLOCKS_PER_BLOCK) + SKIN;
+                                new_pos[1] = (@as(f32, @floatFromInt(coord[1] + 1)) / c.SUB_BLOCKS_PER_BLOCK);
                                 vel[1] = 0;
                                 // don't set on_ground here; we'll probe after all axes
                             }
@@ -154,10 +153,10 @@ pub const AABB = extern struct {
 
                             // Clamp to the face and zero X velocity (only if step failed)
                             if (vel[0] > 0 and !has_stepped) {
-                                new_pos[0] = (@as(f32, @floatFromInt(coord[0])) / c.SUB_BLOCKS_PER_BLOCK) - self.aabb_size[0] - SKIN;
+                                new_pos[0] = (@as(f32, @floatFromInt(coord[0])) / c.SUB_BLOCKS_PER_BLOCK) - self.aabb_size[0];
                                 vel[0] = 0;
                             } else if (vel[0] < 0 and !has_stepped) {
-                                new_pos[0] = (@as(f32, @floatFromInt(coord[0] + 1)) / c.SUB_BLOCKS_PER_BLOCK) + self.aabb_size[0] + SKIN;
+                                new_pos[0] = (@as(f32, @floatFromInt(coord[0] + 1)) / c.SUB_BLOCKS_PER_BLOCK) + self.aabb_size[0];
                                 vel[0] = 0;
                             }
 
@@ -214,10 +213,10 @@ pub const AABB = extern struct {
 
                             // Clamp to the face and zero Z velocity (only if step failed)
                             if (vel[2] > 0 and !has_stepped) {
-                                new_pos[2] = (@as(f32, @floatFromInt(coord[2])) / c.SUB_BLOCKS_PER_BLOCK) - self.aabb_size[2] - SKIN;
+                                new_pos[2] = (@as(f32, @floatFromInt(coord[2])) / c.SUB_BLOCKS_PER_BLOCK) - self.aabb_size[2];
                                 vel[2] = 0;
                             } else if (vel[2] < 0 and !has_stepped) {
-                                new_pos[2] = (@as(f32, @floatFromInt(coord[2] + 1)) / c.SUB_BLOCKS_PER_BLOCK) + self.aabb_size[2] + SKIN;
+                                new_pos[2] = (@as(f32, @floatFromInt(coord[2] + 1)) / c.SUB_BLOCKS_PER_BLOCK) + self.aabb_size[2];
                                 vel[2] = 0;
                             }
 
@@ -230,7 +229,7 @@ pub const AABB = extern struct {
         }
 
         {
-            const probe_pos = [_]f32{ new_pos[0], new_pos[1] - SKIN * 2.0, new_pos[2] };
+            const probe_pos = [_]f32{ new_pos[0], new_pos[1] - 0.001, new_pos[2] };
             on_ground.* = !aabb_clear_at(self, probe_pos);
         }
     }

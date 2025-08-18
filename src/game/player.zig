@@ -73,7 +73,7 @@ pub fn init() !Self {
         try res.entity.add_component(.health, 17);
         try res.entity.add_component(.aabb, AABB{
             .aabb_size = player_size,
-            .can_step = true,
+            .can_step = false,
         });
         try res.entity.add_component(.inventory, Inventory.new());
         res.entity.get_ptr(.inventory).slots[0] = .{
@@ -232,6 +232,38 @@ fn place_block(self: *Self) void {
         @intFromFloat(self.voxel_guide_transform_place.pos[1]),
         @intFromFloat(self.voxel_guide_transform_place.pos[2]),
     };
+
+    // Check if block placement intersects with player AABB
+    const block_pos = self.voxel_guide_transform_place.pos;
+    const player_pos = self.entity.get(.transform).pos;
+    const player_center = [_]f32{
+        player_pos[0],
+        player_pos[1] + player_size[1] / 2.0, // Center at half height
+        player_pos[2],
+    };
+    const block_min = block_pos;
+    const block_max = [_]f32{
+        block_pos[0] + 1.0,
+        block_pos[1] + 1.0,
+        block_pos[2] + 1.0,
+    };
+    const player_min = [_]f32{
+        player_center[0] - player_size[0] / 2.0,
+        player_center[1] - player_size[1] / 2.0,
+        player_center[2] - player_size[2] / 2.0,
+    };
+    const player_max = [_]f32{
+        player_center[0] + player_size[0] / 2.0,
+        player_center[1] + player_size[1] / 2.0,
+        player_center[2] + player_size[2] / 2.0,
+    };
+    if (!(block_max[0] < player_min[0] or block_min[0] > player_max[0] or
+        block_max[1] < player_min[1] or block_min[1] > player_max[1] or
+        block_max[2] < player_min[2] or block_min[2] > player_max[2]))
+    {
+        return; // Don't place block if it intersects with player
+    }
+
     std.debug.print("Coords to break: {d}, {d}, {d}\n", .{ coord[0], coord[1], coord[2] });
 
     const rescaled_subvoxel = [3]isize{ coord[0] * c.SUB_BLOCKS_PER_BLOCK, coord[1] * c.SUB_BLOCKS_PER_BLOCK, coord[2] * c.SUB_BLOCKS_PER_BLOCK };

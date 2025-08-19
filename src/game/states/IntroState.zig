@@ -21,7 +21,7 @@ fn on_quit() void {
 
 fn init(ctx: *anyopaque) anyerror!void {
     _ = ctx;
-    try audio.play_sfx_at_position("intro1.mp3", [_]f32{ 0, 0, 0 });
+    try audio.play_sfx_at_position("assets/intro/intro1.mp3", [_]f32{ 0, 0, 0 });
     app.set_quit(false);
     app.quit_cb = on_quit;
     wait_until = std.time.milliTimestamp() + 30000; // Wait for 30 seconds
@@ -38,7 +38,7 @@ fn update(ctx: *anyopaque) anyerror!void {
 
     if (clicked_continue and !continued_audio and std.time.milliTimestamp() > wait_until) {
         continued_audio = true;
-        try audio.play_sfx_at_position("intro2.mp3", [_]f32{ 0, 0, 0 });
+        try audio.play_sfx_at_position("assets/intro/intro2.mp3", [_]f32{ 0, 0, 0 });
         wait_until = std.time.milliTimestamp() + 25000; // Wait for another 25 seconds
     }
 

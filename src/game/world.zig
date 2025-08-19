@@ -137,11 +137,11 @@ pub fn init(seed: u64) !void {
     player = try Player.init();
     try player.register_input();
 
-    overlay_tex = try ui.load_ui_texture("overlay.png");
-    resume_tex = try ui.load_ui_texture("resume_button.png");
-    save_tex = try ui.load_ui_texture("save_button.png");
-    resume_highlight_tex = try ui.load_ui_texture("resume_button_hover.png");
-    save_highlight_tex = try ui.load_ui_texture("save_button_hover.png");
+    overlay_tex = try ui.load_ui_texture("assets/ui/overlay.png");
+    resume_tex = try ui.load_ui_texture("assets/ui/resume_button.png");
+    save_tex = try ui.load_ui_texture("assets/ui/save_button.png");
+    resume_highlight_tex = try ui.load_ui_texture("assets/ui/resume_button_hover.png");
+    save_highlight_tex = try ui.load_ui_texture("assets/ui/save_button_hover.png");
 
     // Find a random spawn point
     try worldgen.init(world_seed);
@@ -163,11 +163,6 @@ pub fn init(seed: u64) !void {
             player.entity.get_ptr(.transform).pos[0] = @floatFromInt(x);
             player.entity.get_ptr(.transform).pos[1] = @floatCast((h + 8) / c.SUB_BLOCKS_PER_BLOCK);
             player.entity.get_ptr(.transform).pos[2] = @floatFromInt(z);
-            std.debug.print("Player at: ({}, {}, {})\n", .{
-                player.entity.get(.transform).pos[0],
-                player.entity.get(.transform).pos[1],
-                player.entity.get(.transform).pos[2],
-            });
 
             player.spawn_pos = player.entity.get(.transform).pos;
 
@@ -418,7 +413,7 @@ pub fn explode(block_coord: [3]f32, radius: f32) void {
         }
     }
 
-    audio.play_sfx_at_position("explosion.mp3", block_coord) catch |err| {
+    audio.play_sfx_at_position("assets/sfx/explosion.mp3", block_coord) catch |err| {
         std.debug.print("Failed to play explosion sound: {}\n", .{err});
     };
 }
@@ -624,7 +619,7 @@ pub fn update(dt: f32) !void {
     if (paused) return;
 
     if (!tutorial.start) {
-        try audio.play_sfx_no_position("tutorial1.mp3");
+        try audio.play_sfx_no_position("assets/tutorial/tutorial1.mp3");
         tutorial.start = true;
     }
 
@@ -672,7 +667,7 @@ pub fn update(dt: f32) !void {
     try particles.update(dt);
     if (weather.is_raining) {
         if (!tutorial.rain) {
-            try audio.play_sfx_no_position("tutorial6.mp3");
+            try audio.play_sfx_no_position("assets/tutorial/tutorial6.mp3");
             tutorial.rain = true;
         }
 
@@ -737,14 +732,14 @@ pub fn update(dt: f32) !void {
             }
         }
 
-        try audio.play_sfx_at_position("thunder.mp3", player.entity.get(.transform).pos);
+        try audio.play_sfx_at_position("assets/sfx/thunder.mp3", player.entity.get(.transform).pos);
     }
 
     if (tick % 24000 == 6000) {
         // On new day, summon visitor
         if (town.created and tick / 24000 < 5) {
             if (!tutorial.town_visitor) {
-                try audio.play_sfx_no_position("tutorial5.mp3");
+                try audio.play_sfx_no_position("assets/tutorial/tutorial5.mp3");
                 tutorial.town_visitor = true;
             }
             _ = try Visitor.create([_]f32{ town.town_center[0], town.town_center[1] + 3, town.town_center[2] }, @splat(0), [_]isize{ @intFromFloat(town.town_center[0]), @intFromFloat(town.town_center[1]), @intFromFloat(town.town_center[2]) }, @enumFromInt(@min(8, 4 + tick / 24000)));
@@ -766,7 +761,7 @@ pub fn update(dt: f32) !void {
         for (ecs.storage.active_entities.items) |*entity| {
             if (entity.get(.kind) == .tomato and i < @min(tick / 12000, 8)) {
                 if (!tutorial.town_night) {
-                    try audio.play_sfx_no_position("tutorial4.mp3");
+                    try audio.play_sfx_no_position("assets/tutorial/tutorial4.mp3");
                     tutorial.town_night = true;
                 }
 

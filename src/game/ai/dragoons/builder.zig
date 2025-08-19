@@ -202,7 +202,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                         if (!world.only_contained_in_block(.Air, [_]isize{ x, y, z })) {
                             _ = world.place_block(.Air, [_]isize{ x, y, z });
 
-                            audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(x), @floatFromInt(y), @floatFromInt(z) }) catch unreachable;
+                            audio.play_sfx_at_position("assets/sfx/plop.mp3", [_]f32{ @floatFromInt(x), @floatFromInt(y), @floatFromInt(z) }) catch unreachable;
                             return;
                         }
                     }

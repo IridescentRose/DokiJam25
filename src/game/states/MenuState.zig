@@ -49,10 +49,10 @@ fn click(ctx: *anyopaque, down: bool) void {
 
 fn init(ctx: *anyopaque) anyerror!void {
     _ = ctx;
-    bg_texture = try ui.load_ui_texture("menu_bg.png");
-    logo_texture = try ui.load_ui_texture("main_logo.png");
-    button_texture = try ui.load_ui_texture("button.png");
-    button_hover_texture = try ui.load_ui_texture("button_hover.png");
+    bg_texture = try ui.load_ui_texture("assets/ui/menu_bg.png");
+    logo_texture = try ui.load_ui_texture("assets/ui/main_logo.png");
+    button_texture = try ui.load_ui_texture("assets/ui/button.png");
+    button_hover_texture = try ui.load_ui_texture("assets/ui/button_hover.png");
 
     try input.register_mouse_callback(.left, .{
         .cb = click,

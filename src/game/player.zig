@@ -30,7 +30,6 @@ const JUMP_VELOCITY = 12.0;
 const MOVE_SPEED = 8.6; // 5 units/sec move speed
 const KNOCKBACK_STRENGTH = 24.0;
 
-tex: gfx.texture.Texture,
 camera: Camera,
 moving: [4]bool,
 heart_tex: u32,
@@ -58,7 +57,6 @@ entity: ecs.Entity,
 pub fn init() !Self {
     var res: Self = undefined;
 
-    res.tex = try gfx.texture.load_image_from_file("doki.png");
     res.entity = if (ecs.loaded) .{ .id = 0 } else try ecs.create_entity(.player);
 
     if (!ecs.loaded) {
@@ -98,19 +96,19 @@ pub fn init() !Self {
         .target = res.entity.get(.transform).pos,
     };
 
-    res.heart_tex = try ui.load_ui_texture("heart.png");
-    res.dmg_tex = try ui.load_ui_texture("dmg.png");
-    res.hotbar_slot_tex = try ui.load_ui_texture("slot.png");
-    res.hotbar_select_tex = try ui.load_ui_texture("selector.png");
-    res.button_tex = try ui.load_ui_texture("button.png");
-    res.button_hover_tex = try ui.load_ui_texture("button_hover.png");
-    res.block_item_tex = try ui.load_ui_texture("b_items.png");
-    res.item_tex = try ui.load_ui_texture("items.png");
-    res.request_tex = try ui.load_ui_texture("request.png");
+    res.heart_tex = try ui.load_ui_texture("assets/ui/heart.png");
+    res.dmg_tex = try ui.load_ui_texture("assets/ui/dmg.png");
+    res.hotbar_slot_tex = try ui.load_ui_texture("assets/ui/slot.png");
+    res.hotbar_select_tex = try ui.load_ui_texture("assets/ui/selector.png");
+    res.button_tex = try ui.load_ui_texture("assets/ui/button.png");
+    res.button_hover_tex = try ui.load_ui_texture("assets/ui/button_hover.png");
+    res.block_item_tex = try ui.load_ui_texture("assets/items/b_items.png");
+    res.item_tex = try ui.load_ui_texture("assets/items/items.png");
+    res.request_tex = try ui.load_ui_texture("assets/ui/request.png");
     res.last_damage = 0;
     res.moving = @splat(false);
 
-    res.voxel_tex = try gfx.texture.load_image_from_file("dot.png");
+    res.voxel_tex = try gfx.texture.load_image_from_file("assets/model/dot.png");
     res.voxel_guide = Voxel.init(res.voxel_tex);
     res.voxel_guide_transform = Transform.new();
     res.voxel_guide_transform.size = @splat(-1.0);
@@ -180,7 +178,7 @@ fn deposit_blocks(ctx: *anyopaque, down: bool) void {
         if (delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2] < 5.0) {
             const hand = self.entity.get_ptr(.inventory).get_hand_slot();
             if (hand.material != 0) {
-                audio.play_sfx_at_position("deposit.mp3", pos) catch unreachable;
+                audio.play_sfx_at_position("assets/sfx/deposit.mp3", pos) catch unreachable;
                 _ = world.town.inventory.add_item_inventory(hand.*);
                 hand.material = 0;
                 hand.count = 0;
@@ -344,7 +342,7 @@ fn place_block(self: *Self) void {
 
         world.town.create(self.voxel_guide_transform_place.pos) catch unreachable;
         if (!world.tutorial.town) {
-            audio.play_sfx_no_position("tutorial3.mp3") catch unreachable;
+            audio.play_sfx_no_position("assets/tutorial/tutorial3.mp3") catch unreachable;
             world.tutorial.town = true;
         }
 
@@ -411,7 +409,7 @@ fn place_block(self: *Self) void {
                     if (hand.count > 0 and (hand.material < 256 or hand.material == 258)) { // Don't place items that are not blocks (will have exceptions later)
                         if (hand.material == 258) {
                             if (!world.tutorial.fire) {
-                                audio.play_sfx_no_position("tutorial2.mp3") catch unreachable;
+                                audio.play_sfx_no_position("assets/tutorial/tutorial2.mp3") catch unreachable;
                                 world.tutorial.fire = true;
                             }
 
@@ -435,7 +433,7 @@ fn place_block(self: *Self) void {
                             const stencil = blocks.registry[hand.material];
                             if (world.set_voxel(test_coord, stencil[stidx])) {
                                 hand.count -= 1;
-                                audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(coord[0]), @floatFromInt(coord[1]), @floatFromInt(coord[2]) }) catch unreachable;
+                                audio.play_sfx_at_position("assets/sfx/plop.mp3", [_]f32{ @floatFromInt(coord[0]), @floatFromInt(coord[1]), @floatFromInt(coord[2]) }) catch unreachable;
 
                                 if (hand.count == 0) hand.material = 0;
                             }
@@ -589,7 +587,7 @@ fn break_block(self: *Self) void {
                         }
                     }
 
-                    audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(coord[0]), @floatFromInt(coord[1]), @floatFromInt(coord[2]) }) catch unreachable;
+                    audio.play_sfx_at_position("assets/sfx/plop.mp3", [_]f32{ @floatFromInt(coord[0]), @floatFromInt(coord[1]), @floatFromInt(coord[2]) }) catch unreachable;
                     if (!world.set_voxel(test_coord, .{
                         .material = .Air,
                         .color = [_]u8{ 0, 0, 0 },

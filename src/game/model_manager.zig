@@ -27,39 +27,39 @@ var chibi_model: Voxel = undefined;
 var tomato_model: Voxel = undefined;
 
 pub fn init() !void {
-    const farmer_tex = try gfx.texture.load_image_from_file("dragoon_farmer.png");
+    const farmer_tex = try gfx.texture.load_image_from_file("assets/model/dragoon_farmer.png");
     farmer_model = Voxel.init(farmer_tex);
     try farmer_model.build();
 
-    const builder_tex = try gfx.texture.load_image_from_file("dragoon_builder.png");
+    const builder_tex = try gfx.texture.load_image_from_file("assets/model/dragoon_builder.png");
     builder_model = Voxel.init(builder_tex);
     try builder_model.build();
 
-    const lumber_tex = try gfx.texture.load_image_from_file("dragoon_lumber.png");
+    const lumber_tex = try gfx.texture.load_image_from_file("assets/model/dragoon_lumber.png");
     lumber_model = Voxel.init(lumber_tex);
     try lumber_model.build();
 
-    const sleep_tex = try gfx.texture.load_image_from_file("dragoon_sleep.png");
+    const sleep_tex = try gfx.texture.load_image_from_file("assets/model/dragoon_sleep.png");
     sleep_model = Voxel.init(sleep_tex);
     try sleep_model.build();
 
-    const player_tex = try gfx.texture.load_image_from_file("doki.png");
+    const player_tex = try gfx.texture.load_image_from_file("assets/model/doki.png");
     player_model = Voxel.init(player_tex);
     try player_model.build();
 
-    mint_model = Voxel.init(try gfx.texture.load_image_from_file("mint.png"));
+    mint_model = Voxel.init(try gfx.texture.load_image_from_file("assets/model/mint.png"));
     try mint_model.build();
 
-    dooby_model = Voxel.init(try gfx.texture.load_image_from_file("dooby.png"));
+    dooby_model = Voxel.init(try gfx.texture.load_image_from_file("assets/model/dooby.png"));
     try dooby_model.build();
 
-    nimi_model = Voxel.init(try gfx.texture.load_image_from_file("nimi.png"));
+    nimi_model = Voxel.init(try gfx.texture.load_image_from_file("assets/model/nimi.png"));
     try nimi_model.build();
 
-    chibi_model = Voxel.init(try gfx.texture.load_image_from_file("chibi.png"));
+    chibi_model = Voxel.init(try gfx.texture.load_image_from_file("assets/model/chibi.png"));
     try chibi_model.build();
 
-    tomato_model = Voxel.init(try gfx.texture.load_image_from_file("tomato.png"));
+    tomato_model = Voxel.init(try gfx.texture.load_image_from_file("assets/model/tomato.png"));
     try tomato_model.build();
 }
 

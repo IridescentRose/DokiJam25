@@ -207,7 +207,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                 }
             }
 
-            audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(target_pos[0]), @floatFromInt(target_pos[1]), @floatFromInt(target_pos[2]) }) catch unreachable;
+            audio.play_sfx_at_position("assets/sfx/plop.mp3", [_]f32{ @floatFromInt(target_pos[0]), @floatFromInt(target_pos[1]), @floatFromInt(target_pos[2]) }) catch unreachable;
 
             if (!mined_something) {
                 // Go to return home
@@ -245,7 +245,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                 if (succeeded) break;
             }
 
-            audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(target_pos[0]), @floatFromInt(target_pos[1]), @floatFromInt(target_pos[2]) }) catch unreachable;
+            audio.play_sfx_at_position("assets/sfx/plop.mp3", [_]f32{ @floatFromInt(target_pos[0]), @floatFromInt(target_pos[1]), @floatFromInt(target_pos[2]) }) catch unreachable;
 
             if (!mined_something) {
                 // Go to return home
@@ -295,7 +295,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                 }
             }
 
-            audio.play_sfx_at_position("plop.mp3", [_]f32{ @floatFromInt(target_pos[0]), @floatFromInt(target_pos[1]), @floatFromInt(target_pos[2]) }) catch unreachable;
+            audio.play_sfx_at_position("assets/sfx/plop.mp3", [_]f32{ @floatFromInt(target_pos[0]), @floatFromInt(target_pos[1]), @floatFromInt(target_pos[2]) }) catch unreachable;
 
             if (!mined_something) {
                 // Go to return home

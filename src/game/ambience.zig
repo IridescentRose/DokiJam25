@@ -6,9 +6,9 @@ var day_ambient: audio.Clip = undefined;
 var night_ambient: audio.Clip = undefined;
 
 pub fn init() !void {
-    rain_ambient = try audio.Clip.load_from_file("rain.mp3", true, false);
-    day_ambient = try audio.Clip.load_from_file("day.mp3", true, false);
-    night_ambient = try audio.Clip.load_from_file("night.mp3", true, false);
+    rain_ambient = try audio.Clip.load_from_file("assets/ambient/rain.mp3", true, false);
+    day_ambient = try audio.Clip.load_from_file("assets/ambient/day.mp3", true, false);
+    night_ambient = try audio.Clip.load_from_file("assets/ambient/night.mp3", true, false);
 }
 
 pub fn deinit() void {

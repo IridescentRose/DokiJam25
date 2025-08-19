@@ -58,10 +58,10 @@ var arena: std.heap.ArenaAllocator = undefined;
 
 pub fn init() !void {
     arena = std.heap.ArenaAllocator.init(util.allocator());
-    schematics[0] = try load_from_json("townhall.json");
-    schematics[1] = try load_from_json("path.json");
-    schematics[2] = try load_from_json("barricade.json");
-    schematics[3] = try load_from_json("house.json");
+    schematics[0] = try load_from_json("assets/schema/townhall.json");
+    schematics[1] = try load_from_json("assets/schema/path.json");
+    schematics[2] = try load_from_json("assets/schema/barricade.json");
+    schematics[3] = try load_from_json("assets/schema/house.json");
 }
 
 pub fn deinit() void {
@@ -78,8 +78,6 @@ pub fn load_from_json(path: []const u8) !Schematic {
     const parsed = try std.json.parseFromSlice(Schematic, arena.allocator(), data, .{});
     // defer parsed.deinit();
     const schematic = parsed.value;
-
-    std.debug.print("SCHEMATIC LOADED: {any}\n", .{schematic});
 
     return schematic;
 }

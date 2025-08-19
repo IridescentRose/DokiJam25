@@ -147,7 +147,7 @@ pub fn update(self: ecs.Entity, dt: f32) void {
                 const dist = std.math.sqrt(dx * dx + dz * dz);
 
                 if (dist < 1.5) {
-                    audio.play_sfx_at_position("tomato.mp3", transform.pos) catch unreachable;
+                    audio.play_sfx_at_position("assets/mob/tomato.mp3", transform.pos) catch unreachable;
                     // EXPLODE
                     world.explode(transform.pos, 4);
                     world.player.entity.get_ptr(.health).* -|= 4;

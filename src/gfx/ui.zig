@@ -62,7 +62,7 @@ pub fn init() !void {
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, 0);
     gl.bindBufferBase(gl.SHADER_STORAGE_BUFFER, 3, ui_handles_ssbo);
 
-    font_texture = try load_ui_texture("font.png");
+    font_texture = try load_ui_texture("assets/ui/font.png");
 
     assert(initialized);
 }

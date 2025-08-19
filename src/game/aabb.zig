@@ -136,7 +136,7 @@ pub const AABB = extern struct {
                         if (!can_walk_through(coord)) {
                             // Try stepping if allowed and not already stepped this frame
                             if (!has_stepped and self.can_step) {
-                                var s: f32 = STEP_INCREMENT;
+                                var s: f32 = STEP_INCREMENT + 0.001;
                                 var stepped: bool = false;
                                 while (s <= MAX_STEP_HEIGHT) : (s += STEP_INCREMENT) {
                                     const raised_pos = [_]f32{ new_pos[0], new_pos[1] + s, new_pos[2] };
@@ -196,7 +196,7 @@ pub const AABB = extern struct {
                         if (!can_walk_through(coord)) {
                             // Try stepping if allowed and not already stepped this frame
                             if (!has_stepped and self.can_step) {
-                                var s: f32 = STEP_INCREMENT;
+                                var s: f32 = STEP_INCREMENT + 0.001;
                                 var stepped: bool = false;
                                 while (s <= MAX_STEP_HEIGHT) : (s += STEP_INCREMENT) {
                                     const raised_pos = [_]f32{ new_pos[0], new_pos[1] + s, new_pos[2] };

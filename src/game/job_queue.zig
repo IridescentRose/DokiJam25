@@ -9,9 +9,13 @@ const GenJob = struct {
     pos: [2]isize, // Chunk Position
 };
 
+const UpdateJob = struct {
+    pos: [2]isize, // Chunk Position
+};
+
 const Job = union(enum) {
     GenerateChunk: GenJob,
-    // SpreadFire, SaveChunk, etc.
+    UpdateChunk: UpdateJob,
 };
 
 var initialized: bool = false;
@@ -40,13 +44,15 @@ pub fn init() !void {
 fn worker_thread() void {
     while (running) {
         job_mutex.lock();
-        defer job_mutex.unlock();
-        const job = job_queue.readItem() orelse {
+        const job = job_queue.readItem();
+        job_mutex.unlock();
+
+        if (job == null) {
             std.Thread.sleep(std.time.ns_per_ms); // 1 ms
             continue;
-        };
+        }
 
-        switch (job) {
+        switch (job.?) {
             .GenerateChunk => |gen| {
                 var chunk = world.chunkMap.get(gen.pos) orelse continue;
                 const locs = worldgen.fill(chunk, gen.pos) catch |err| {
@@ -79,6 +85,20 @@ fn worker_thread() void {
                         break;
                     }
                 }
+            },
+
+            .UpdateChunk => |upd| {
+                var chunk = world.chunkMap.get(upd.pos) orelse continue;
+
+                chunk.update() catch |err| {
+                    std.debug.print("Error updating chunk at {any}: {}\n", .{ upd.pos, err });
+                };
+
+                world.chunkMapWriteLock.lock();
+                world.chunkMap.put(upd.pos, chunk) catch |err| {
+                    std.debug.print("Error updating chunk map for {any}: {}\n", .{ upd.pos, err });
+                };
+                world.chunkMapWriteLock.unlock();
             },
         }
     }

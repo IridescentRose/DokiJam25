@@ -1,6 +1,7 @@
 const std = @import("std");
 const c = @import("consts.zig");
 const world = @import("world.zig");
+const util = @import("../core/util.zig");
 
 pub const AtomKind = enum(u8) {
     Air = 0,
@@ -53,6 +54,28 @@ populated: bool = false,
 uploaded: bool = false,
 edits: std.AutoArrayHashMap(usize, Atom),
 tree_locs: [256][2]usize = @splat(@as([2]usize, @splat(0))),
+
+incoming_queue: std.ArrayListUnmanaged(AtomData) = std.ArrayListUnmanaged(AtomData){},
+incoming_queue_write_lock: std.Thread.Mutex = std.Thread.Mutex{},
+
+outgoing_queue: std.ArrayListUnmanaged(AtomData) = std.ArrayListUnmanaged(AtomData){},
+outgoing_queue_write_lock: std.Thread.Mutex = std.Thread.Mutex{},
+
+edits_queue: std.ArrayListUnmanaged(world.VoxelEdit) = std.ArrayListUnmanaged(world.VoxelEdit){},
+edits_queue_write_lock: std.Thread.Mutex = std.Thread.Mutex{},
+
+// NOBODY besides the worker touches this!
+active_atoms: std.ArrayListUnmanaged(AtomData) = std.ArrayListUnmanaged(AtomData){},
+
+pub fn update(self: *@This()) !void {
+    self.incoming_queue_write_lock.lock();
+    for (self.incoming_queue.items) |i| {
+        try self.active_atoms.append(util.allocator(), i);
+    }
+
+    self.incoming_queue.clearAndFree(util.allocator());
+    self.incoming_queue_write_lock.unlock();
+}
 
 pub fn get_index(coord: [3]usize) usize {
     return (coord[1] * c.CHUNK_SUB_BLOCKS + coord[2]) * c.CHUNK_SUB_BLOCKS + coord[0];

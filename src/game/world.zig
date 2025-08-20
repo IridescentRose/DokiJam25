@@ -799,26 +799,18 @@ pub fn update(dt: f32) !void {
     }
 
     var first = chunkMap.iterator();
+    chunkMapWriteLock.lock();
     while (first.next()) |it| {
-        job_queue.job_mutex.lock();
-        defer job_queue.job_mutex.unlock();
+        if (it.value_ptr.atom_updated) {
+            // TODO: Display results
+        }
 
+        it.value_ptr.atom_updated = false;
         try job_queue.job_queue.writeItem(.{
             .UpdateChunk = .{ .pos = it.key_ptr.* },
         });
     }
-
-    // var a_count: usize = 0;
-    // for (active_atoms.items) |*atom| {
-    //     a_count += atom.moves;
-
-    //     if (atom.moves == 0) continue;
-
-    //     if (!is_in_world(atom.coord)) {
-    //         atom.moves = 0;
-    //         continue;
-    //         // Will be removed in the next update
-    //     }
+    chunkMapWriteLock.unlock();
 
     //     const kind = get_voxel(atom.coord);
     //     if (kind == .Water) {
@@ -999,38 +991,7 @@ pub fn update(dt: f32) !void {
     //                 }
     //             }
     //         }
-    //     } else {
-    //         // Unknown, stop movement
-    //         atom.moves = 0;
-    //         continue;
-    //     }
 
-    //     try active_atoms.resize(active_atoms.items.len);
-    // }
-
-    // if (active_atoms.items.len != 0) {
-    //     var i: usize = active_atoms.items.len - 1;
-    //     while (i > 0) : (i -= 1) {
-    //         if (active_atoms.items[i].moves == 0) {
-    //             const coord = active_atoms.items[i].coord;
-    //             if (get_voxel(coord) == .Water or get_voxel(coord) == .Fire) {
-    //                 if (set_voxel(coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
-    //                     _ = active_atoms.swapRemove(i);
-    //                 }
-    //             } else if (get_voxel(coord) == .Ember) {
-    //                 if (set_voxel(coord, .{ .material = .Charcoal, .color = [_]u8{ 0x1F, 0x1F, 0x1F } })) {
-    //                     _ = active_atoms.swapRemove(i);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
-    // if (active_atoms.items.len != 0 and active_atoms.items[0].moves == 0) {
-    //     _ = active_atoms.orderedRemove(0);
-    // }
-
-    // try active_atoms.appendSlice(new_active_atoms.items);
 }
 
 pub fn draw(shadow: bool) void {

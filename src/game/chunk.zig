@@ -52,6 +52,7 @@ offset: u32,
 size: u32 = c.CHUNK_SUBVOXEL_SIZE,
 populated: bool = false,
 uploaded: bool = false,
+atom_updated: bool = false,
 edits: std.AutoArrayHashMap(usize, Atom),
 tree_locs: [256][2]usize = @splat(@as([2]usize, @splat(0))),
 
@@ -75,6 +76,56 @@ pub fn update(self: *@This()) !void {
 
     self.incoming_queue.clearAndFree(util.allocator());
     self.incoming_queue_write_lock.unlock();
+
+    var new_active_atoms = try std.ArrayListUnmanaged(AtomData).initCapacity(util.allocator(), 32);
+    defer new_active_atoms.deinit(util.allocator());
+
+    var a_count: usize = 0;
+    for (self.active_atoms.items) |*atom| {
+        a_count += atom.moves;
+
+        if (atom.moves == 0) continue;
+
+        const kind = world.get_voxel(atom.coord);
+        switch (kind) {
+            .Water => {},
+            .Fire, .Ember => {},
+            else => {
+                atom.moves = 0;
+            },
+        }
+    }
+
+    // Remove dead atoms
+    if (self.active_atoms.items.len != 0) {
+        var i: usize = self.active_atoms.items.len - 1;
+        while (i > 0) : (i -= 1) {
+            if (self.active_atoms.items[i].moves == 0) {
+                const coord = self.active_atoms.items[i].coord;
+                if (world.get_voxel(coord) == .Ember) {
+                    // TODO
+                    // if (world.set_voxel(coord, .{ .material = .Charcoal, .color = [_]u8{ 0x1F, 0x1F, 0x1F } })) {
+                    //     _ = self.active_atoms.swapRemove(i);
+                    // }
+                } else {
+                    // if (world.set_voxel(coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
+                    //     _ = self.active_atoms.swapRemove(i);
+                    // }
+                }
+            }
+        }
+
+        if (self.active_atoms.items[0].moves == 0) {
+            _ = self.active_atoms.orderedRemove(0);
+        }
+    }
+
+    // Add new atoms for next tick generated in this tick
+    try self.active_atoms.appendSlice(util.allocator(), new_active_atoms.items);
+
+    // Shrink to our active atom count
+    try self.active_atoms.resize(util.allocator(), self.active_atoms.items.len);
+    self.atom_updated = true;
 }
 
 pub fn get_index(coord: [3]usize) usize {

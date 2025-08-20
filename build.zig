@@ -21,6 +21,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const tracy = b.dependency("tracy", .{
+        .target = target,
+        .optimize = optimize,
+    });
 
     const exe = b.addExecutable(.{
         .name = "DokiJam25",
@@ -28,26 +32,40 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
-            .imports = &.{
-                .{
-                    .name = "sdl3",
-                    .module = sdl3dep.module("sdl3"),
-                },
-                .{
-                    .name = "zmath",
-                    .module = zmath.module("root"),
-                },
-                .{
-                    .name = "znoise",
-                    .module = znoise.module("root"),
-                },
-                .{
-                    .name = "zaudio",
-                    .module = zaudio.module("root"),
-                },
-            },
+            .imports = &.{ .{
+                .name = "sdl3",
+                .module = sdl3dep.module("sdl3"),
+            }, .{
+                .name = "zmath",
+                .module = zmath.module("root"),
+            }, .{
+                .name = "znoise",
+                .module = znoise.module("root"),
+            }, .{
+                .name = "zaudio",
+                .module = zaudio.module("root"),
+            }, .{
+                .name = "tracy",
+                .module = tracy.module("tracy"),
+            } },
         }),
     });
+
+    // Allow the user to enable or disable Tracy support with a build flag
+    const tracy_enabled = b.option(
+        bool,
+        "tracy",
+        "Build with Tracy support.",
+    ) orelse false;
+
+    if (tracy_enabled) {
+        // The user asked to enable Tracy, use the real implementation
+        exe.root_module.addImport("tracy_impl", tracy.module("tracy_impl_enabled"));
+    } else {
+        // The user asked to disable Tracy, use the dummy implementation
+        exe.root_module.addImport("tracy_impl", tracy.module("tracy_impl_disabled"));
+    }
+
     // exe.subsystem = .Windows;
     exe.root_module.addCSourceFile(.{
         .file = b.path("src/stbi/stbi.c"),

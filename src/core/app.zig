@@ -6,6 +6,7 @@ const input = @import("input.zig");
 const util = @import("util.zig");
 const gfx = @import("../gfx/gfx.zig");
 const audio = @import("../audio/audio.zig");
+pub const tracy = @import("tracy");
 
 pub var running = true;
 
@@ -107,6 +108,13 @@ pub fn deinit() void {
 }
 
 fn handle_updates() void {
+    const zone = tracy.Zone.begin(.{
+        .name = "Event Polling",
+        .src = @src(),
+        .color = .green,
+    });
+    defer zone.end();
+
     while (sdl3.events.poll()) |event| {
         switch (event) {
             .quit, .terminating => if (can_quit) {
@@ -155,6 +163,9 @@ pub fn event_loop() !void {
     var second_timer = std.time.nanoTimestamp() + std.time.ns_per_s;
 
     while (running) {
+        tracy.frameMarkStart("event_loop");
+        defer tracy.frameMarkEnd("event_loop");
+
         const now = std.time.nanoTimestamp();
 
         audio.update();

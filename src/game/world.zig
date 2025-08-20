@@ -23,6 +23,7 @@ const ambience = @import("ambience.zig");
 const Blocks = @import("blocks.zig");
 const audio = @import("../audio/audio.zig");
 const mm = @import("model_manager.zig");
+const tracy = @import("tracy");
 
 const ChunkMesh = @import("chunkmesh.zig");
 const job_queue = @import("job_queue.zig");
@@ -477,6 +478,11 @@ fn update_player_surrounding_chunks() !void {
     var target_chunks = std.ArrayList(ChunkLocation).init(util.allocator());
     defer target_chunks.deinit();
 
+    inflight_chunk_mutex.lock();
+    var inflight_chunk_list_clone = try inflight_chunk_list.clone();
+    defer inflight_chunk_list_clone.deinit();
+    inflight_chunk_mutex.unlock();
+
     var z_curr = curr_player_chunk[2] - CHUNK_RADIUS;
     while (z_curr <= curr_player_chunk[2] + CHUNK_RADIUS) : (z_curr += 1) {
         var x_curr = curr_player_chunk[0] - CHUNK_RADIUS;
@@ -487,11 +493,8 @@ fn update_player_surrounding_chunks() !void {
             if (!chunkMap.contains(chunk_coord)) {
                 const offset = chunk_freelist.pop() orelse continue;
 
-                inflight_chunk_mutex.lock();
-                defer inflight_chunk_mutex.unlock();
-
                 var found = false;
-                for (inflight_chunk_list.items) |i| {
+                for (inflight_chunk_list_clone.items) |i| {
                     if (i[0] == chunk_coord[0] and i[1] == chunk_coord[1]) {
                         // Already inflight
                         found = true;
@@ -499,12 +502,10 @@ fn update_player_surrounding_chunks() !void {
                     }
                 } else {
                     // Not inflight, add to list
-                    try inflight_chunk_list.append(chunk_coord);
+                    try inflight_chunk_list_clone.append(chunk_coord);
                 }
 
                 if (found) continue;
-
-                @memset(blocks[offset .. offset + c.CHUNK_SUBVOXEL_SIZE], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
 
                 chunkMapWriteLock.lock();
                 try chunkMap.putNoClobber(
@@ -538,11 +539,8 @@ fn update_player_surrounding_chunks() !void {
     for (extra_chunks.items) |i| {
         var chunk = chunkMap.getPtr(i) orelse continue; // TODO: WHY CAN THIS HAPPEN? WTF
 
-        inflight_chunk_mutex.lock();
-        defer inflight_chunk_mutex.unlock();
-
         var found = false;
-        for (inflight_chunk_list.items) |ic| {
+        for (inflight_chunk_list_clone.items) |ic| {
             if (ic[0] == i[0] and ic[1] == i[1]) {
                 // Already inflight
                 found = true;
@@ -587,6 +585,11 @@ pub fn add_active_atom(atom: Chunk.AtomData) !void {
 
 var timer: i64 = 0;
 pub fn update(dt: f32) !void {
+    const z1 = tracy.Zone.begin(.{
+        .name = "Update Player Surrounding Chunks",
+        .src = @src(),
+        .color = .cyan,
+    });
     try update_player_surrounding_chunks();
 
     @memset(
@@ -620,14 +623,26 @@ pub fn update(dt: f32) !void {
     }
 
     std.sort.pdq(ChunkMesh.IndirectionEntry, &chunk_mesh.chunks, @as(usize, @intCast(0)), lessThan);
+    z1.end();
 
+    const z2 = tracy.Zone.begin(.{
+        .name = "Update Chunk Metadata",
+        .src = @src(),
+        .color = .cyan,
+    });
     chunk_mesh.update_indirect_data();
 
     chunk_mesh.update_edits(@ptrCast(@alignCast(edit_list.items)));
     edit_list.clearAndFree();
+    z2.end();
 
     player.update(dt);
 
+    const z3 = tracy.Zone.begin(.{
+        .name = "Upload Chunk Data",
+        .src = @src(),
+        .color = .cyan,
+    });
     for (chunkMap.values()) |*chk| {
         if (chk.populated and !chk.uploaded) {
             // Upload the chunk data to the GPU
@@ -635,6 +650,7 @@ pub fn update(dt: f32) !void {
             chk.uploaded = true;
         }
     }
+    z3.end();
 
     if (paused) return;
 
@@ -643,6 +659,11 @@ pub fn update(dt: f32) !void {
         tutorial.start = true;
     }
 
+    const z4 = tracy.Zone.begin(.{
+        .name = "Update Entities",
+        .src = @src(),
+        .color = .cyan,
+    });
     for (ecs.storage.active_entities.items) |*entity| {
         const kind = entity.get(.kind);
 
@@ -677,13 +698,32 @@ pub fn update(dt: f32) !void {
             },
         }
     }
+    z4.end();
 
     // var new_active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
     // defer new_active_atoms.deinit();
 
+    const z5 = tracy.Zone.begin(.{
+        .name = "Update Town",
+        .src = @src(),
+        .color = .cyan,
+    });
     town.update();
-    try ambience.update();
+    z5.end();
 
+    const z6 = tracy.Zone.begin(.{
+        .name = "Update Ambience",
+        .src = @src(),
+        .color = .cyan,
+    });
+    try ambience.update();
+    z6.end();
+
+    const z7 = tracy.Zone.begin(.{
+        .name = "Update Weather",
+        .src = @src(),
+        .color = .cyan,
+    });
     try particles.update(dt);
     if (weather.is_raining) {
         if (!tutorial.rain) {
@@ -703,6 +743,7 @@ pub fn update(dt: f32) !void {
             });
         }
     }
+    z7.end();
 
     if (std.time.milliTimestamp() > timer) {
         timer = std.time.milliTimestamp() + 50;
@@ -710,6 +751,12 @@ pub fn update(dt: f32) !void {
     } else {
         return;
     }
+
+    const z8 = tracy.Zone.begin(.{
+        .name = "Update Tick",
+        .src = @src(),
+        .color = .cyan,
+    });
 
     weather.update();
     var rng = std.Random.DefaultPrng.init(@bitCast(std.time.microTimestamp()));
@@ -797,7 +844,13 @@ pub fn update(dt: f32) !void {
             }
         }
     }
+    z8.end();
 
+    const z9 = tracy.Zone.begin(.{
+        .name = "Update Atoms",
+        .src = @src(),
+        .color = .cyan,
+    });
     var first = chunkMap.iterator();
     chunkMapWriteLock.lock();
     while (first.next()) |it| {
@@ -811,6 +864,7 @@ pub fn update(dt: f32) !void {
         });
     }
     chunkMapWriteLock.unlock();
+    z9.end();
 
     //     const kind = get_voxel(atom.coord);
     //     if (kind == .Water) {

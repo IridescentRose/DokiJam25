@@ -11,6 +11,7 @@ pub const window = @import("window.zig");
 pub const shader = @import("shaders.zig");
 pub const FBO = @import("framebuffer.zig");
 pub const ShadowBuffer = @import("shadowbuffer.zig");
+const tracy = @import("tracy");
 
 var context: sdl3.c.SDL_GLContext = undefined;
 var fbo: FBO = undefined;
@@ -110,6 +111,13 @@ pub fn set_deferred(enable: bool) void {
 }
 
 pub fn finalize(shadow: bool) !void {
+    const zone = tracy.Zone.begin(.{
+        .name = "Finalize",
+        .src = @src(),
+        .color = .cyan,
+    });
+    defer zone.end();
+
     if (shadow) {} else {
         intermediateFBO.bind();
         gl.viewport(0, 0, @intCast(window.get_width() catch 0), @intCast(window.get_height() catch 0));

@@ -1,5 +1,6 @@
 const std = @import("std");
 const assert = std.debug.assert;
+const tracy = @import("tracy");
 
 const State = @import("State.zig");
 
@@ -34,9 +35,23 @@ pub fn transition(state: State) anyerror!void {
 }
 
 pub fn update() anyerror!void {
+    const zone = tracy.Zone.begin(.{
+        .name = "State Update",
+        .src = @src(),
+        .color = .yellow,
+    });
+    defer zone.end();
+
     try curr_state.update();
 }
 
 pub fn draw(shadow: bool) anyerror!void {
+    const zone = tracy.Zone.begin(.{
+        .name = "State Draw",
+        .src = @src(),
+        .color = .purple,
+    });
+    defer zone.end();
+
     try curr_state.draw(shadow);
 }

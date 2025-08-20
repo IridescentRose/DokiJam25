@@ -2,6 +2,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const zaudio = @import("zaudio");
 const util = @import("../core/util.zig");
+const tracy = @import("tracy");
 
 var initialized: bool = false;
 
@@ -91,6 +92,13 @@ pub fn deinit() void {
 }
 
 pub fn update() void {
+    const zone = tracy.Zone.begin(.{
+        .name = "Audio Update",
+        .src = @src(),
+        .color = .blue,
+    });
+    defer zone.end();
+
     var i: usize = 0;
     while (i < sfx_clips.items.len) {
         if (!sfx_clips.items[i].sound.isPlaying()) {

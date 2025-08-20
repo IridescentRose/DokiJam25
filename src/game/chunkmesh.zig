@@ -111,10 +111,28 @@ pub fn update_indirect_data(self: *Self) void {
     gl.bufferSubData(gl.SHADER_STORAGE_BUFFER, 0, @intCast(self.chunks.len * @sizeOf(IndirectionEntry)), &self.chunks);
 }
 
-pub fn update_chunk_sub_data(self: *Self, data: []u32, offset: usize, size: usize) void {
-    gl.bindVertexArray(self.vao);
+pub fn update_chunk_sub_data(self: *Self, data: []const u32, offset: usize, size: usize) void {
+    // SSBO must be bound to the target we map
     gl.bindBuffer(gl.SHADER_STORAGE_BUFFER, self.ssbo);
-    gl.bufferSubData(gl.SHADER_STORAGE_BUFFER, @intCast(offset * @sizeOf(u32)), @intCast(size * @sizeOf(u32)), data.ptr + offset);
+
+    const off_bytes: isize = @intCast(offset * @sizeOf(u32)); // GLintptr
+    const len_bytes_usize: usize = size * @sizeOf(u32); // for memcpy
+    const len_bytes: isize = @intCast(len_bytes_usize); // GLsizeiptr
+
+    const access = gl.MAP_WRITE_BIT | gl.MAP_INVALIDATE_RANGE_BIT | gl.MAP_UNSYNCHRONIZED_BIT;
+
+    const mapped_opt = gl.mapBufferRange(gl.SHADER_STORAGE_BUFFER, @intCast(off_bytes), len_bytes, access);
+    if (mapped_opt == null) {
+        return;
+    }
+
+    // Copy into the mapped subrange
+    const dst: [*]u8 = @ptrCast(mapped_opt.?);
+    const src = std.mem.sliceAsBytes(data[offset .. offset + size]);
+    @memcpy(dst, src);
+
+    // Done with the range; unmap to let the driver submit it
+    _ = gl.unmapBuffer(gl.SHADER_STORAGE_BUFFER);
 }
 
 pub fn update_edits(self: *Self, edits: []u64) void {

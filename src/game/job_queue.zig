@@ -4,6 +4,7 @@ const assert = std.debug.assert;
 const Chunk = @import("chunk.zig");
 const worldgen = @import("worldgen.zig");
 const world = @import("world.zig");
+const c = @import("consts.zig");
 
 const GenJob = struct {
     pos: [2]isize, // Chunk Position
@@ -43,6 +44,11 @@ pub fn init() !void {
 
 fn worker_thread() void {
     while (running) {
+        if (job_queue.count == 0) {
+            std.Thread.sleep(std.time.ns_per_ms); // 1 ms
+            continue;
+        }
+
         job_mutex.lock();
         const job = job_queue.readItem();
         job_mutex.unlock();
@@ -55,6 +61,7 @@ fn worker_thread() void {
         switch (job.?) {
             .GenerateChunk => |gen| {
                 var chunk = world.chunkMap.get(gen.pos) orelse continue;
+                @memset(world.blocks[chunk.offset .. chunk.offset + c.CHUNK_SUBVOXEL_SIZE], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
                 const locs = worldgen.fill(chunk, gen.pos) catch |err| {
                     std.debug.print("Error generating chunk at {any}: {}\n", .{ gen.pos, err });
                     continue;
@@ -78,10 +85,10 @@ fn worker_thread() void {
                 world.inflight_chunk_mutex.lock();
                 defer world.inflight_chunk_mutex.unlock();
 
-                for (world.inflight_chunk_list.items, 0..) |i, c| {
+                for (world.inflight_chunk_list.items, 0..) |i, chk| {
                     if (i[0] == gen.pos[0] and i[1] == gen.pos[1]) {
                         // Remove from inflight list
-                        _ = world.inflight_chunk_list.swapRemove(c);
+                        _ = world.inflight_chunk_list.swapRemove(chk);
                         break;
                     }
                 }

@@ -96,7 +96,7 @@ pub fn update(self: *Self, dt: f32) !void {
 
                         const adjusted_subvoxel_coord = [_]isize{
                             subvoxel_coord[0],
-                            subvoxel_coord[1] + 6, // Rain falls from above
+                            subvoxel_coord[1] + 5, // Rain falls from above
                             subvoxel_coord[2],
                         };
 
@@ -105,7 +105,7 @@ pub fn update(self: *Self, dt: f32) !void {
                                 .coord = adjusted_subvoxel_coord,
                                 .moves = 255, // Water particles can move around a bit
                             });
-                        }
+                        } else @panic("Failed to set voxel");
                     }
 
                     break;

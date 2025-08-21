@@ -147,6 +147,7 @@ pub fn init(seed: u64) !void {
     // Find a random spawn point
     try worldgen.init(world_seed);
     weather = Weather.init(world_seed);
+    weather.time_til_next_rain = 5;
 
     if (!ecs.loaded) {
         // First day, rain likely
@@ -841,43 +842,34 @@ pub fn update(dt: f32) !void {
         const kind = get_voxel(atom.coord);
         if (kind == .Water) {
             // Water accumulation
-            const below_coord = [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] };
+            atom.moves -|= 10;
 
+            const below_coord = [_]isize{ atom.coord[0], atom.coord[1] - 1, atom.coord[2] };
             const prev_voxel = get_full_voxel(below_coord);
             if (prev_voxel.material == .Air) {
-                if (set_voxel(below_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } })) {
-                    if (!set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
-                        // Failed, so undo the first set
-                        _ = set_voxel(below_coord, prev_voxel);
-                    } else {
-                        atom.coord = below_coord;
-                    }
-                }
+                _ = set_voxel(below_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
+                _ = set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                atom.coord = below_coord;
                 continue;
             }
 
             if (prev_voxel.material == .Grass or prev_voxel.material == .Dirt or prev_voxel.material == .Sand) {
                 if (a_count % 100 == 0) {
-                    // TODO: Update saturation
-                    if (set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
-                        atom.coord = below_coord;
-                        atom.moves = 0; // We have "saturated" the ground
-                        continue;
-                    }
-                }
-            }
-
-            if (prev_voxel.material == .StillWater) {
-                if (set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
-                    atom.coord = below_coord;
-                    atom.moves = 0; // We have "combined" with the still water
+                    _ = set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                    atom.moves = 0; // We have "saturated" the ground
                     continue;
                 }
             }
 
+            if (prev_voxel.material == .StillWater) {
+                _ = set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                atom.moves = 0; // We have "combined" with the water
+                continue;
+            }
+
             if (prev_voxel.material == .Fire) {
                 if (set_voxel(below_coord, .{ .material = .Leaf, .color = [_]u8{ 0x35, 0x79, 0x20 } })) {
-                    atom.moves -|= 10; // We have "combined" with the still water
+                    atom.moves -|= 10; // We have "combined" with the fire
                     continue;
                 }
             }
@@ -900,23 +892,17 @@ pub fn update(dt: f32) !void {
             var found = false;
             for (check_fars) |far_coord| {
                 const far_voxel = get_full_voxel(far_coord);
-                if (far_voxel.material == .Air or far_voxel.material == .StillWater) {
-                    if (set_voxel(far_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } })) {
-                        if (set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
-                            atom.coord = far_coord;
-                            atom.moves -|= 1;
-                            found = true;
-                        } else {
-                            // Failed, so undo the first set
-                            _ = set_voxel(far_coord, far_voxel);
-                        }
-                    }
+                if (far_voxel.material == .Air) {
+                    _ = set_voxel(far_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
+                    _ = set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+                    atom.coord = far_coord;
+                    found = true;
+
                     break;
                 } else if (far_voxel.material == .Fire) {
-                    if (set_voxel(below_coord, .{ .material = .Leaf, .color = [_]u8{ 0x35, 0x79, 0x20 } })) {
-                        atom.moves -|= 10; // We have "combined" with the still water
-                        continue;
-                    }
+                    _ = set_voxel(far_coord, .{ .material = .Leaf, .color = [_]u8{ 0x35, 0x79, 0x20 } });
+                    atom.moves -|= 10; // We have "combined" with the fire
+                    break;
                 }
             }
 
@@ -944,7 +930,6 @@ pub fn update(dt: f32) !void {
             if (valid_dirs_len == 0) {
                 // We don't go to zero because it's possible that another atom will move away
                 // and we can still spread out
-                atom.moves -|= 1;
                 continue;
             }
 
@@ -952,15 +937,9 @@ pub fn update(dt: f32) !void {
             const next_coord_idx = valid_dirs[spread_dir];
             const next_coord = next_coords[next_coord_idx];
 
-            if (set_voxel(next_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } })) {
-                if (set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
-                    atom.coord = next_coord;
-                    atom.moves -|= 1;
-                } else {
-                    // Failed, so undo the first set
-                    _ = set_voxel(next_coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
-                }
-            }
+            _ = set_voxel(next_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } });
+            _ = set_voxel(atom.coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
+            atom.coord = next_coord;
         } else if (kind == .Fire or kind == .Ember) {
             // // Chance to not spread
             if (a_count % 7 != 0) {
@@ -1022,8 +1001,6 @@ pub fn update(dt: f32) !void {
             atom.moves = 0;
             continue;
         }
-
-        try active_atoms.resize(active_atoms.items.len);
     }
 
     if (active_atoms.items.len != 0) {
@@ -1044,6 +1021,7 @@ pub fn update(dt: f32) !void {
     }
 
     try active_atoms.appendSlice(new_active_atoms.items);
+    active_atoms.shrinkAndFree(active_atoms.items.len);
 }
 
 pub fn draw(shadow: bool) void {

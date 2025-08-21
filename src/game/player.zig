@@ -424,10 +424,10 @@ fn place_block(self: *Self) void {
                                     if (hand.count == 0) hand.material = 0;
                                 }
 
-                                world.add_active_atom(.{
-                                    .coord = test_coord,
-                                    .moves = 255,
-                                }) catch unreachable;
+                                // world.active_atoms.append(.{
+                                //     .coord = test_coord,
+                                //     .moves = 255,
+                                // }) catch break;
                             }
                         } else {
                             const stencil = blocks.registry[hand.material];

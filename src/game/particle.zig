@@ -101,10 +101,10 @@ pub fn update(self: *Self, dt: f32) !void {
                         };
 
                         if (world.set_voxel(adjusted_subvoxel_coord, .{ .material = .Water, .color = [_]u8{ 0x46, 0x67, 0xC3 } })) {
-                            try world.add_active_atom(.{
-                                .coord = adjusted_subvoxel_coord,
-                                .moves = 255, // Water particles can move around a bit
-                            });
+                            // try world.active_atoms.append(.{
+                            //     .coord = adjusted_subvoxel_coord,
+                            //     .moves = 255, // Water particles can move around a bit
+                            // });
                         }
                     }
 

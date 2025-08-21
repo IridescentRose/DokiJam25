@@ -40,7 +40,7 @@ pub const TutorialEvents = extern struct {
     rain: bool = false,
 };
 
-pub const VoxelEdit = struct {
+const VoxelEdit = struct {
     offset: u32,
     atom: Chunk.Atom,
 };
@@ -202,9 +202,6 @@ pub fn deinit() void {
     while (first.next()) |it| {
         it.value_ptr.save(it.key_ptr.*);
         it.value_ptr.edits.deinit();
-        it.value_ptr.incoming_queue.deinit(util.allocator());
-        it.value_ptr.outgoing_queue.deinit(util.allocator());
-        it.value_ptr.active_atoms.deinit(util.allocator());
     }
 
     town.deinit();
@@ -550,9 +547,6 @@ fn update_player_surrounding_chunks() !void {
             // Not inflight, safe to free
             chunk.save(i);
             chunk.edits.deinit();
-            chunk.incoming_queue.deinit(util.allocator());
-            chunk.outgoing_queue.deinit(util.allocator());
-            chunk.active_atoms.deinit(util.allocator());
             const offset = chunk.offset;
             _ = chunkMap.swapRemove(i);
             try chunk_freelist.append(offset);
@@ -567,20 +561,6 @@ fn lessThan(_: usize, a: ChunkMesh.IndirectionEntry, b: ChunkMesh.IndirectionEnt
     if (a.y != b.y) return a.y < b.y;
     if (a.z != b.z) return a.z < b.z;
     return a.x < b.x;
-}
-
-pub fn add_active_atom(atom: Chunk.AtomData) !void {
-    // Get chunk coord from atom coord
-    const chunk_coord = [_]isize{ @divTrunc(atom.coord[0], c.CHUNK_SUB_BLOCKS), @divTrunc(atom.coord[2], c.CHUNK_SUB_BLOCKS) };
-
-    chunkMapWriteLock.lock();
-    defer chunkMapWriteLock.unlock();
-    var chk = chunkMap.getPtr(chunk_coord) orelse return;
-
-    chk.incoming_queue_write_lock.lock();
-    defer chk.incoming_queue_write_lock.unlock();
-    try chk.incoming_queue.append(util.allocator(), atom);
-    std.debug.print("CHUNK {any} has {} active atoms pending\n", .{ chunk_coord, chk.incoming_queue.items.len });
 }
 
 var timer: i64 = 0;
@@ -700,8 +680,8 @@ pub fn update(dt: f32) !void {
     }
     z4.end();
 
-    // var new_active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
-    // defer new_active_atoms.deinit();
+    var new_active_atoms = std.ArrayList(Chunk.AtomData).init(util.allocator());
+    defer new_active_atoms.deinit();
 
     const z5 = tracy.Zone.begin(.{
         .name = "Update Town",
@@ -790,10 +770,10 @@ pub fn update(dt: f32) !void {
                             .color = [_]u8{ 0xFF, 0x81, 0x42 },
                         });
 
-                        try add_active_atom(.{
-                            .coord = [_]isize{ voxel_pos_player[0] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(x)), y_pos * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(y)), voxel_pos_player[2] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(z)) },
-                            .moves = 100,
-                        });
+                        // try active_atoms.append(.{
+                        //     .coord = [_]isize{ voxel_pos_player[0] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(x)), y_pos * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(y)), voxel_pos_player[2] * c.SUB_BLOCKS_PER_BLOCK + @as(isize, @intCast(z)) },
+                        //     .moves = 100,
+                        // });
                     }
                 }
             }
@@ -845,23 +825,6 @@ pub fn update(dt: f32) !void {
         }
     }
     z8.end();
-
-    const z9 = tracy.Zone.begin(.{
-        .name = "Update Atoms",
-        .src = @src(),
-        .color = .cyan,
-    });
-    var first = chunkMap.iterator();
-    while (first.next()) |it| {
-        job_queue.job_mutex.lock();
-        defer job_queue.job_mutex.unlock();
-
-        try job_queue.job_queue.writeItem(.{
-            .UpdateChunk = .{ .pos = it.key_ptr.* },
-        });
-    }
-    chunkMapWriteLock.unlock();
-    z9.end();
 
     // var a_count: usize = 0;
     // for (active_atoms.items) |*atom| {

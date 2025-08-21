@@ -60,7 +60,13 @@ fn worker_thread() void {
 
         switch (job.?) {
             .GenerateChunk => |gen| {
-                var chunk = world.chunkMap.get(gen.pos) orelse continue;
+                world.chunkMapWriteLock.lock();
+                var chunk = world.chunkMap.get(gen.pos) orelse {
+                    world.chunkMapWriteLock.unlock();
+                    continue;
+                };
+                world.chunkMapWriteLock.unlock();
+
                 @memset(world.blocks[chunk.offset .. chunk.offset + c.CHUNK_SUBVOXEL_SIZE], .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
                 const locs = worldgen.fill(chunk, gen.pos) catch |err| {
                     std.debug.print("Error generating chunk at {any}: {}\n", .{ gen.pos, err });
@@ -79,6 +85,7 @@ fn worker_thread() void {
                     .edits = chunk.edits,
                 }) catch |err| {
                     std.debug.print("Error updating chunk map for {any}: {}\n", .{ gen.pos, err });
+                    world.chunkMapWriteLock.unlock();
                 };
                 world.chunkMapWriteLock.unlock();
 
@@ -95,7 +102,12 @@ fn worker_thread() void {
             },
 
             .UpdateChunk => |upd| {
-                var chunk = world.chunkMap.get(upd.pos) orelse continue;
+                world.chunkMapWriteLock.lock();
+                var chunk = world.chunkMap.get(upd.pos) orelse {
+                    world.chunkMapWriteLock.unlock();
+                    continue;
+                };
+                world.chunkMapWriteLock.unlock();
 
                 chunk.update() catch |err| {
                     std.debug.print("Error updating chunk at {any}: {}\n", .{ upd.pos, err });

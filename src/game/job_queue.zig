@@ -46,11 +46,12 @@ fn worker_thread() void {
         }
 
         job_mutex.lock();
-        defer job_mutex.unlock();
         const job = job_queue.readItem() orelse {
+            job_mutex.unlock();
             std.Thread.sleep(std.time.ns_per_ms); // 1 ms
             continue;
         };
+        job_mutex.unlock();
 
         switch (job) {
             .GenerateChunk => |gen| {

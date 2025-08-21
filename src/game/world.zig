@@ -1028,24 +1028,19 @@ pub fn update(dt: f32) !void {
 
     if (active_atoms.items.len != 0) {
         var i: usize = active_atoms.items.len - 1;
-        while (i > 0) : (i -= 1) {
+        while (i >= 0) : (i -= 1) {
             if (active_atoms.items[i].moves == 0) {
                 const coord = active_atoms.items[i].coord;
-                if (get_voxel(coord) == .Water or get_voxel(coord) == .Fire) {
-                    if (set_voxel(coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } })) {
-                        _ = active_atoms.swapRemove(i);
-                    }
-                } else if (get_voxel(coord) == .Ember) {
-                    if (set_voxel(coord, .{ .material = .Charcoal, .color = [_]u8{ 0x1F, 0x1F, 0x1F } })) {
-                        _ = active_atoms.swapRemove(i);
-                    }
+                if (get_voxel(coord) == .Ember) {
+                    _ = set_voxel(coord, .{ .material = .Charcoal, .color = [_]u8{ 0x1F, 0x1F, 0x1F } });
+                } else if (get_voxel(coord) != .Ash) {
+                    _ = set_voxel(coord, .{ .material = .Air, .color = [_]u8{ 0, 0, 0 } });
                 }
+                _ = active_atoms.swapRemove(i);
             }
-        }
-    }
 
-    if (active_atoms.items.len != 0 and active_atoms.items[0].moves == 0) {
-        _ = active_atoms.orderedRemove(0);
+            if (i == 0) break;
+        }
     }
 
     try active_atoms.appendSlice(new_active_atoms.items);

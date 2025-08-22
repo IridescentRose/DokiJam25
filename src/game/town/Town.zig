@@ -177,5 +177,6 @@ pub fn update(self: *Self) void {
         });
 
         schematic.schematics[@intFromEnum(self.buildings[i].kind)].cost(@intFromEnum(self.buildings[i].kind), self.buildings[i].progress, &self.request);
+        break;
     }
 }

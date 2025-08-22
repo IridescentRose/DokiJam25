@@ -69,8 +69,13 @@ pub fn update(self: ecs.Entity, dt: f32) void {
     var updated = false;
     const time = self.get_ptr(.timer);
     if (std.time.milliTimestamp() >= time.*) {
-        // Next decision scheduled in 3 seconds.
-        time.* = std.time.milliTimestamp() + std.time.ms_per_s * 3;
+        if (self.get(.ai_state) == AI_IDLE) {
+            // Next decision scheduled in 3 seconds.
+            time.* = std.time.milliTimestamp() + std.time.ms_per_s * 3;
+        } else {
+            // Next decision scheduled in 0.5 seconds.
+            time.* = std.time.milliTimestamp() + (std.time.ms_per_s / 2);
+        }
         updated = true;
     }
 

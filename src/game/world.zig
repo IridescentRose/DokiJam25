@@ -147,7 +147,6 @@ pub fn init(seed: u64) !void {
     // Find a random spawn point
     try worldgen.init(world_seed);
     weather = Weather.init(world_seed);
-    weather.time_til_next_rain = 5;
 
     if (!ecs.loaded) {
         // First day, rain likely
